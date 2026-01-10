@@ -29,7 +29,7 @@ export default function WaiversPage() {
   useEffect(() => {
     async function fetchWaivers() {
       try {
-        const res = await fetch('/api/waivers?limit=20');
+        const res = await fetch('/api/waivers?limit=10');
         const json: WaiversResponse = await res.json();
 
         if (json.success) {
@@ -84,7 +84,7 @@ export default function WaiversPage() {
       <div className="card">
         <div className="card-header">
           <h2 className="card-title">Top Waiver Adds</h2>
-          <span className="card-subtitle">{data.recommendations?.length || 0} players</span>
+          <span className="card-subtitle">Top 10</span>
         </div>
 
         {data.recommendations?.map((rec) => (
