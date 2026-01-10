@@ -1,0 +1,187 @@
+{
+  "id": 12345678,
+  "seasonId": 2026,
+  "scoringPeriodId": 50,
+  "status": {
+    "currentMatchupPeriod": 10,
+    "isActive": true,
+    "latestScoringPeriod": 50,
+    "previousSeasons": [2025, 2024, 2023]
+  },
+  "settings": {
+    "acquisitionSettings": {
+      "acquisitionLimit": -1,
+      "acquisitionType": "WAIVERS_TRADITIONAL",
+      "matchupAcquisitionLimit": 4
+    },
+    "rosterSettings": {
+      "lineupSlotCounts": {
+        "0": 1,
+        "1": 1,
+        "2": 1,
+        "3": 1,
+        "4": 1,
+        "5": 1,
+        "6": 1,
+        "11": 3,
+        "12": 3,
+        "13": 1
+      },
+      "positionLimits": {}
+    },
+    "scheduleSettings": {
+      "matchupPeriodCount": 18,
+      "matchupPeriodLength": 7,
+      "matchupPeriods": {},
+      "playoffMatchupPeriodLength": 7,
+      "playoffSeedingRule": "TOTAL_POINTS_SCORED",
+      "playoffSeedingRuleBy": 0,
+      "playoffTeamCount": 4
+    },
+    "scoringSettings": {
+      "scoringType": "H2H_POINTS",
+      "playerRankType": "TOTAL",
+      "matchupTieRule": "HOME_TEAM_WINS",
+      "matchupTieRuleBy": 0,
+      "scoringItems": [
+        { "statId": 0, "points": 1, "isReverseItem": false },
+        { "statId": 1, "points": 1, "isReverseItem": false },
+        { "statId": 2, "points": 1, "isReverseItem": false },
+        { "statId": 3, "points": 1, "isReverseItem": false },
+        { "statId": 6, "points": 2, "isReverseItem": false },
+        { "statId": 11, "points": -1, "isReverseItem": true }
+      ]
+    }
+  },
+  "teams": [
+    {
+      "id": 1,
+      "abbrev": "TEAM1",
+      "name": "My Team",
+      "nickname": "Champions",
+      "owners": ["owner1"],
+      "record": {
+        "overall": {
+          "wins": 7,
+          "losses": 2,
+          "ties": 0,
+          "pointsFor": 4500.5,
+          "pointsAgainst": 4200.3
+        }
+      },
+      "roster": {
+        "entries": [
+          {
+            "playerId": 3975,
+            "lineupSlotId": 0,
+            "acquisitionDate": 1699920000000,
+            "acquisitionType": "DRAFT",
+            "playerPoolEntry": {
+              "id": 3975,
+              "player": {
+                "id": 3975,
+                "fullName": "Luka Doncic",
+                "firstName": "Luka",
+                "lastName": "Doncic",
+                "proTeamId": 6,
+                "defaultPositionId": 1,
+                "eligibleSlots": [0, 1, 5, 11, 12],
+                "injured": false,
+                "ownership": {
+                  "percentOwned": 100,
+                  "percentChange": 0,
+                  "percentStarted": 99.8
+                },
+                "stats": [
+                  {
+                    "id": "002026",
+                    "appliedTotal": 2500.5,
+                    "appliedAverage": 55.5,
+                    "statSourceId": 0,
+                    "statSplitTypeId": 0
+                  },
+                  {
+                    "id": "102026",
+                    "appliedTotal": 2800.0,
+                    "appliedAverage": 56.0,
+                    "statSourceId": 1,
+                    "statSplitTypeId": 0
+                  }
+                ]
+              },
+              "appliedStatTotal": 55.5
+            }
+          },
+          {
+            "playerId": 6583,
+            "lineupSlotId": 1,
+            "acquisitionDate": 1699920000000,
+            "acquisitionType": "DRAFT",
+            "playerPoolEntry": {
+              "id": 6583,
+              "player": {
+                "id": 6583,
+                "fullName": "Jayson Tatum",
+                "firstName": "Jayson",
+                "lastName": "Tatum",
+                "proTeamId": 2,
+                "defaultPositionId": 2,
+                "eligibleSlots": [1, 2, 6, 7, 11, 12],
+                "injured": true,
+                "injuryStatus": "DAY_TO_DAY",
+                "ownership": {
+                  "percentOwned": 100,
+                  "percentChange": 0,
+                  "percentStarted": 98.5
+                },
+                "stats": [
+                  {
+                    "id": "002026",
+                    "appliedTotal": 2100.0,
+                    "appliedAverage": 50.0,
+                    "statSourceId": 0,
+                    "statSplitTypeId": 0
+                  }
+                ]
+              },
+              "appliedStatTotal": 50.0
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": 2,
+      "abbrev": "TEAM2",
+      "name": "Opponent",
+      "nickname": "Ballers",
+      "owners": ["owner2"],
+      "record": {
+        "overall": {
+          "wins": 5,
+          "losses": 4,
+          "ties": 0,
+          "pointsFor": 4100.0,
+          "pointsAgainst": 4150.0
+        }
+      }
+    }
+  ],
+  "schedule": [
+    {
+      "id": 1,
+      "matchupPeriodId": 10,
+      "home": {
+        "teamId": 1,
+        "totalPoints": 450.5,
+        "totalPointsLive": 450.5
+      },
+      "away": {
+        "teamId": 2,
+        "totalPoints": 420.0,
+        "totalPointsLive": 420.0
+      },
+      "winner": "UNDECIDED"
+    }
+  ]
+}

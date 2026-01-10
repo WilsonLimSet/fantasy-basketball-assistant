@@ -1,0 +1,109 @@
+{
+  "players": [
+    {
+      "id": 4066328,
+      "status": "FREEAGENT",
+      "player": {
+        "id": 4066328,
+        "fullName": "Immanuel Quickley",
+        "firstName": "Immanuel",
+        "lastName": "Quickley",
+        "proTeamId": 28,
+        "defaultPositionId": 1,
+        "eligibleSlots": [0, 1, 5, 11, 12],
+        "injured": false,
+        "ownership": {
+          "percentOwned": 65.5,
+          "percentChange": 8.2,
+          "percentStarted": 45.0
+        },
+        "stats": [
+          {
+            "id": "002026",
+            "appliedTotal": 800.0,
+            "appliedAverage": 28.5,
+            "statSourceId": 0,
+            "statSplitTypeId": 0
+          },
+          {
+            "id": "102026",
+            "appliedTotal": 850.0,
+            "appliedAverage": 30.0,
+            "statSourceId": 1,
+            "statSplitTypeId": 0
+          }
+        ]
+      }
+    },
+    {
+      "id": 4433134,
+      "status": "FREEAGENT",
+      "player": {
+        "id": 4433134,
+        "fullName": "Jalen Williams",
+        "firstName": "Jalen",
+        "lastName": "Williams",
+        "proTeamId": 25,
+        "defaultPositionId": 2,
+        "eligibleSlots": [1, 2, 5, 6, 7, 11, 12],
+        "injured": false,
+        "ownership": {
+          "percentOwned": 72.3,
+          "percentChange": 12.5,
+          "percentStarted": 55.0
+        },
+        "stats": [
+          {
+            "id": "002026",
+            "appliedTotal": 900.0,
+            "appliedAverage": 32.0,
+            "statSourceId": 0,
+            "statSplitTypeId": 0
+          },
+          {
+            "id": "102026",
+            "appliedTotal": 980.0,
+            "appliedAverage": 35.0,
+            "statSourceId": 1,
+            "statSplitTypeId": 0
+          }
+        ]
+      }
+    },
+    {
+      "id": 3155942,
+      "status": "WAIVERS",
+      "player": {
+        "id": 3155942,
+        "fullName": "Kyle Kuzma",
+        "firstName": "Kyle",
+        "lastName": "Kuzma",
+        "proTeamId": 27,
+        "defaultPositionId": 3,
+        "eligibleSlots": [2, 3, 6, 8, 10, 11, 12],
+        "injured": false,
+        "ownership": {
+          "percentOwned": 58.0,
+          "percentChange": -3.2,
+          "percentStarted": 38.0
+        },
+        "stats": [
+          {
+            "id": "002026",
+            "appliedTotal": 750.0,
+            "appliedAverage": 26.0,
+            "statSourceId": 0,
+            "statSplitTypeId": 0
+          },
+          {
+            "id": "102026",
+            "appliedTotal": 720.0,
+            "appliedAverage": 25.0,
+            "statSourceId": 1,
+            "statSplitTypeId": 0
+          }
+        ]
+      }
+    }
+  ]
+}
