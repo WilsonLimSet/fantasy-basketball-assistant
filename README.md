@@ -57,15 +57,15 @@ cp .env.example .env.local
 Edit `.env.local`:
 ```env
 # ESPN (Required)
-ESPN_S2=AEAiDHiq...your_long_cookie_here
-ESPN_SWID={501F4AF8-23C0-493E-B70B-21B2E6ACCD83}
-ESPN_LEAGUE_ID=586991437
+ESPN_S2=your_espn_s2_cookie_here
+ESPN_SWID={YOUR-SWID-HERE}
+ESPN_LEAGUE_ID=12345678
 ESPN_SEASON=2026
-ESPN_MY_TEAM_ID=6
+ESPN_MY_TEAM_ID=1
 
 # Telegram (Required for alerts)
-TELEGRAM_BOT_TOKEN=8516083754:AAH53NnKdDrTUDaunhPJfzikwS_ep4vU-Wo
-TELEGRAM_CHAT_ID=499294431
+TELEGRAM_BOT_TOKEN=your_bot_token_here
+TELEGRAM_CHAT_ID=your_chat_id_here
 ```
 
 ### 5. Test Locally
