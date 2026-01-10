@@ -232,7 +232,7 @@ export async function testTelegramConnection(): Promise<{ success: boolean; erro
 }
 
 /**
- * Format a smart alert for Telegram
+ * Format a smart alert for Telegram - compact, no fluff
  */
 function formatSmartAlert(alert: SmartAlert): string {
   const priorityEmoji = {
@@ -241,63 +241,40 @@ function formatSmartAlert(alert: SmartAlert): string {
     LOW: '🟢',
   };
 
-  let message = `${priorityEmoji[alert.priority]} <b>${alert.title}</b>\n`;
-
-  if (alert.teamAbbrev) {
-    message += `Team: ${alert.teamAbbrev}\n`;
+  if (alert.details) {
+    return `${priorityEmoji[alert.priority]} <b>${alert.title}</b>\n${alert.details}`;
   }
-
-  message += `\n${alert.details}\n`;
-
-  if (alert.action) {
-    message += `\n<b>➡️ Action:</b> ${alert.action}\n`;
-  }
-
-  if (alert.relatedPlayers && alert.relatedPlayers.length > 0) {
-    message += `\n<i>Related: ${alert.relatedPlayers.join(', ')}</i>\n`;
-  }
-
-  return message;
+  return `${priorityEmoji[alert.priority]} <b>${alert.title}</b>`;
 }
 
 /**
- * Send smart alerts via Telegram
+ * Send smart alerts via Telegram - compact format
  */
 export async function sendSmartAlerts(
   alerts: SmartAlert[],
-  week: number
+  _week: number
 ): Promise<boolean> {
   if (alerts.length === 0) {
     return true; // Nothing to send
   }
 
-  const config = getConfig();
+  let message = '';
 
-  let message = '<b>🏀 Adam Fantasy Alert</b>\n';
-  message += `<i>Week ${week} • ${new Date().toLocaleString()}</i>\n`;
-  message += '━━━━━━━━━━━━━━━━━━━━━━\n';
+  // Separate schedule alerts from other alerts
+  const scheduleAlerts = alerts.filter(a => a.type === 'WEEKLY_SUMMARY');
+  const otherAlerts = alerts.filter(a => a.type !== 'WEEKLY_SUMMARY');
 
-  // Group by priority
-  const highPriority = alerts.filter(a => a.priority === 'HIGH');
-  const mediumPriority = alerts.filter(a => a.priority === 'MEDIUM');
-
-  // Add high priority alerts first
-  for (const alert of highPriority) {
-    message += '\n' + formatSmartAlert(alert);
+  // Add non-schedule alerts first (injuries, drops, etc)
+  for (let i = 0; i < otherAlerts.length; i++) {
+    if (i > 0) message += '\n';
+    message += formatSmartAlert(otherAlerts[i]);
   }
 
-  // Add medium priority alerts
-  for (const alert of mediumPriority) {
-    message += '\n' + formatSmartAlert(alert);
-  }
-
-  // Add dashboard link
-  if (config.appBaseUrl) {
-    const baseUrl = config.appBaseUrl.startsWith('http')
-      ? config.appBaseUrl
-      : `https://${config.appBaseUrl}`;
-    message += `\n━━━━━━━━━━━━━━━━━━━━━━\n`;
-    message += `<a href="${baseUrl}">Open Dashboard →</a>`;
+  // Add schedule section
+  if (scheduleAlerts.length > 0) {
+    const scheduleAlert = scheduleAlerts[0];
+    if (message.length > 0) message += '\n\n';
+    message += scheduleAlert.details;
   }
 
   return sendTelegramMessage(message);

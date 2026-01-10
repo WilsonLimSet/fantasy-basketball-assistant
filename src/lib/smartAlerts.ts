@@ -22,6 +22,7 @@ import type {
   Watchlist,
   PlayerStatus,
   LeagueTransaction,
+  NBATeamSchedule,
 } from '@/types';
 
 // Injury statuses that indicate player is OUT
@@ -29,11 +30,13 @@ const OUT_STATUSES: PlayerStatus[] = ['OUT', 'INJURY_RESERVE', 'SUSPENSION'];
 
 // High-usage stars threshold - these are true usage monsters
 // When they're out, the whole team's usage shifts (not just their position)
-const STAR_THRESHOLD = 38; // ~Top 30 players in fantasy
+const STAR_THRESHOLD = 25; // Starter-level players whose absence redistributes usage
 
-// Threshold for alerting on dropped players - only care about star-level drops
-// If someone drops a star, that's a huge opportunity you need to know about
-const DROPPED_PLAYER_THRESHOLD = STAR_THRESHOLD; // Only alert on star-level drops
+// Threshold for alerting on dropped players - only elite players
+const DROPPED_PLAYER_THRESHOLD = 35; // Only alert on 35+ pts drops
+
+// Streamer threshold - players below this are "streamers" worth schedule alerts
+const STREAMER_THRESHOLD = 30; // Players under 30 pts are streaming candidates
 
 /**
  * Check if a player is a HIGH-USAGE STAR whose absence redistributes touches
@@ -127,6 +130,126 @@ function isOnMyRoster(playerId: number, snapshot: LeagueSnapshot): boolean {
  */
 function isOnWatchlist(playerId: number, watchlist: Watchlist | null): boolean {
   return watchlist?.playerIds.includes(playerId) || false;
+}
+
+/**
+ * Check if a player is a streamer (below star threshold, worth schedule optimization)
+ */
+function isStreamer(player: Player): boolean {
+  const projectedAvg = player.stats?.projectedAvg || 0;
+  return projectedAvg < STREAMER_THRESHOLD && projectedAvg > 0;
+}
+
+/**
+ * Get next N days as date strings (YYYY-MM-DD format)
+ */
+function getNextNDays(n: number): string[] {
+  const days: string[] = [];
+  const today = new Date();
+  for (let i = 0; i < n; i++) {
+    const date = new Date(today);
+    date.setDate(today.getDate() + i);
+    days.push(date.toISOString().split('T')[0]);
+  }
+  return days;
+}
+
+/**
+ * Detect back-to-back games in schedule
+ */
+function hasBackToBack(schedule: NBATeamSchedule, nextDays: string[]): { has: boolean; days: string[] } {
+  for (let i = 0; i < nextDays.length - 1; i++) {
+    const day1 = nextDays[i];
+    const day2 = nextDays[i + 1];
+    if (schedule.gamesByDay[day1] && schedule.gamesByDay[day2]) {
+      return { has: true, days: [day1, day2] };
+    }
+  }
+  return { has: false, days: [] };
+}
+
+/**
+ * Detect dead zone (3+ days without a game)
+ */
+function hasDeadZone(schedule: NBATeamSchedule, nextDays: string[]): { has: boolean; daysWithoutGame: number } {
+  let consecutiveOff = 0;
+  let maxOff = 0;
+
+  for (const day of nextDays) {
+    if (!schedule.gamesByDay[day]) {
+      consecutiveOff++;
+      maxOff = Math.max(maxOff, consecutiveOff);
+    } else {
+      consecutiveOff = 0;
+    }
+  }
+
+  return { has: maxOff >= 3, daysWithoutGame: maxOff };
+}
+
+/**
+ * Generate schedule-based alerts for streamers
+ * Only alerts on EXCEPTIONS: dead zones (3+ days off) or light weeks
+ */
+function generateScheduleAlerts(
+  snapshot: LeagueSnapshot,
+  myRoster: Player[]
+): SmartAlert[] {
+  const alerts: SmartAlert[] = [];
+  const now = Date.now();
+  const next3Days = getNextNDays(3);
+  const next7Days = getNextNDays(7);
+
+  // Only check streamers (< 30 pts avg)
+  const streamers = myRoster.filter(p => isStreamer(p));
+  if (streamers.length === 0) return alerts;
+
+  // Calculate games this week for each streamer
+  const streamerGames: { player: Player; games: number }[] = [];
+
+  for (const player of streamers) {
+    const schedule = snapshot.scheduleIndex[player.nbaTeamId];
+    if (!schedule) continue;
+
+    const gamesThisWeek = next7Days.filter(day => schedule.gamesByDay[day]).length;
+    streamerGames.push({ player, games: gamesThisWeek });
+  }
+
+  // Find average games
+  const avgGames = streamerGames.reduce((sum, s) => sum + s.games, 0) / streamerGames.length;
+
+  const warnings: string[] = [];
+
+  for (const { player, games } of streamerGames) {
+    const schedule = snapshot.scheduleIndex[player.nbaTeamId];
+    if (!schedule) continue;
+
+    // Dead zone: no games in next 3 days
+    const hasGameNext3 = next3Days.some(day => schedule.gamesByDay[day]);
+    if (!hasGameNext3) {
+      warnings.push(`⏸️ ${player.name} - no games next 3 days`);
+      continue;
+    }
+
+    // Light week: 2+ fewer games than average
+    if (games <= avgGames - 2 && games <= 2) {
+      warnings.push(`📉 ${player.name} - only ${games} games this week`);
+    }
+  }
+
+  if (warnings.length > 0) {
+    alerts.push({
+      type: 'WEEKLY_SUMMARY',
+      priority: 'MEDIUM',
+      title: '',
+      playerName: '',
+      teamAbbrev: '',
+      details: warnings.join('\n'),
+      timestamp: now,
+    });
+  }
+
+  return alerts;
 }
 
 /**
@@ -298,6 +421,12 @@ export function generateSmartAlerts(
     }
   }
 
+  // ============ SCHEDULE-BASED ALERTS ============
+  // Alert on B2B games, heavy weeks, dead zones for streamers
+  const myRosterPlayers = myTeam?.roster?.map(r => r.player) || [];
+  const scheduleAlerts = generateScheduleAlerts(snapshot, myRosterPlayers);
+  alerts.push(...scheduleAlerts);
+
   // ============ LEAGUE ACTIVITY ALERTS ============
   // Track adds/drops by other teams
   if (recentTransactions && recentTransactions.length > 0) {
@@ -314,16 +443,21 @@ export function generateSmartAlerts(
       const projectedAvg = player?.stats?.projectedAvg || 0;
 
       if (tx.type === 'DROP') {
-        // Only alert if a STAR-LEVEL player was dropped - these are rare and worth knowing
-        if (projectedAvg >= DROPPED_PLAYER_THRESHOLD) {
+        const isWatchlistDrop = watchlistPlayerIds.has(tx.playerId);
+        // Use seasonAvg (actual) instead of projectedAvg for accuracy
+        const seasonAvg = player?.stats?.seasonAvg || 0;
+        const isEliteDrop = seasonAvg >= DROPPED_PLAYER_THRESHOLD;
+
+        // Only alert if on watchlist OR above 35 pts
+        if (isWatchlistDrop || isEliteDrop) {
+          const avgStr = seasonAvg > 0 ? ` (${seasonAvg.toFixed(1)})` : '';
           alerts.push({
             type: 'HOT_WAIVER_ADD',
             priority: 'HIGH',
-            title: `🎯 ${playerName} was DROPPED`,
+            title: `🎯 ${playerName}${avgStr} dropped by ${teamName}`,
             playerName: playerName,
             teamAbbrev: player?.nbaTeamAbbrev,
-            details: `${teamName} dropped ${playerName} (${projectedAvg.toFixed(1)} avg)`,
-            action: 'GRAB HIM NOW - star-level player available!',
+            details: '',
             timestamp: now,
           });
         }
