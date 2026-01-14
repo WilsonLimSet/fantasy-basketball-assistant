@@ -429,7 +429,7 @@ export function generateSmartAlerts(
           ? 'usage redistribution'
           : 'same position - fewer minutes';
         alerts.push({
-          type: 'TEAMMATE_INJURY', // reusing type
+          type: 'TEAMMATE_RETURN',
           priority: 'MEDIUM',
           title: `📉 ${changedPlayer.name} is BACK`,
           playerName: changedPlayer.name,
