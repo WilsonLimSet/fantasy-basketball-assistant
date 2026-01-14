@@ -2,17 +2,18 @@
 
 ## Current Position
 - **Milestone:** 1 - Smart Alerts & Cleanup
-- **Phase:** 1 of 4 (Remove Gemini Voice)
+- **Phase:** 2 of 4 (Smarter Injury Alerts) - COMPLETE
 - **Plan:** 1 of 1 in current phase - COMPLETE
 - **Status:** Phase complete
-- **Last activity:** 2026-01-14 - Completed 01-01-PLAN.md
+- **Last activity:** 2026-01-15 - Completed 02-01-PLAN.md
 
-Progress: [==========----------] 25% (1/4 phases)
+Progress: [====================----------] 50% (2/4 phases)
 
 ## Key Decisions
 | Decision | Rationale | Date |
 |----------|-----------|------|
 | Position-based + star-based alerts | User wants both: shares minutes/role AND high-usage stars | 2026-01-14 |
+| Alert details include reason | Explain WHY alert triggered (usage redistribution vs same position) | 2026-01-15 |
 | Remove Gemini voice | User explicitly doesn't want, reduces complexity | 2026-01-14 |
 | Keep 12hr refresh | Sufficient frequency, avoids rate limits | 2026-01-14 |
 | Keep waiver recommendations | User finds value in top adds and streaming | 2026-01-14 |
@@ -26,4 +27,4 @@ Progress: [==========----------] 25% (1/4 phases)
 *None*
 
 ---
-*Last updated: 2026-01-14*
+*Last updated: 2026-01-15*

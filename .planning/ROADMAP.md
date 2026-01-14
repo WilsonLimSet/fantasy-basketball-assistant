@@ -10,15 +10,15 @@
 - [x] Clean up any voice references in other files
 - [x] Remove unused dependencies
 
-### Phase 2: Smarter Injury Alerts
+### Phase 2: Smarter Injury Alerts - COMPLETE (2026-01-15)
 **Goal:** Implement position-based and star-based alert logic for injuries
 **Scope:**
-- Refactor `src/lib/smartAlerts.ts` alert generation
-- Add position-based logic: teammates who share minutes/role
-- Add star-based logic: high-usage players (threshold TBD from code analysis)
-- Alert when roster players get injured
-- Alert when teammates of roster players get injured (usage boost opportunity)
-- Alert when teammates of watchlist players get injured
+- [x] Refactor `src/lib/smartAlerts.ts` alert generation
+- [x] Add position-based logic: teammates who share minutes/role
+- [x] Add star-based logic: high-usage players (threshold: 25 projected avg)
+- [x] Alert when roster players get injured
+- [x] Alert when teammates of roster players get injured (usage boost opportunity)
+- [x] Alert when teammates of watchlist players get injured
 
 ### Phase 3: Return-From-Injury Alerts
 **Goal:** Alert on player returns affecting your roster
