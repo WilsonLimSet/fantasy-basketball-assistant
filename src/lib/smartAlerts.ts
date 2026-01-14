@@ -54,6 +54,15 @@ function isHighUsageStar(player: Player): boolean {
 }
 
 /**
+ * Check if two players share a position (same minutes pool)
+ * Examples: Both are C, both are PG, one is SG/SF and other is SF
+ */
+function sharesPosition(player1: Player, player2: Player): boolean {
+  // Check if any position overlaps
+  return player1.positions.some(pos => player2.positions.includes(pos));
+}
+
+/**
  * Check if player just went OUT (was active/DTD before, now OUT)
  */
 function justWentOut(change: StatusChange): boolean {
@@ -421,9 +430,37 @@ export function generateSmartAlerts(
     }
   }
 
+  // ============ CURRENT ROSTER INJURY ALERTS ============
+  // Alert on players currently OUT or DAY_TO_DAY on your roster
+  // This is independent of status changes - shows current state
+  const myRosterPlayers = myTeam?.roster?.map(r => r.player) || [];
+
+  for (const player of myRosterPlayers) {
+    if (OUT_STATUSES.includes(player.status)) {
+      alerts.push({
+        type: 'ROSTER_INJURY',
+        priority: 'HIGH',
+        title: `🚨 ${player.name} is ${player.status}`,
+        playerName: player.name,
+        teamAbbrev: player.nbaTeamAbbrev,
+        details: player.injuryNote || `Status: ${player.status}`,
+        timestamp: now,
+      });
+    } else if (player.status === 'DAY_TO_DAY' || player.status === 'QUESTIONABLE' || player.status === 'DOUBTFUL') {
+      alerts.push({
+        type: 'ROSTER_INJURY',
+        priority: 'MEDIUM',
+        title: `⚠️ ${player.name} is ${player.status}`,
+        playerName: player.name,
+        teamAbbrev: player.nbaTeamAbbrev,
+        details: player.injuryNote || `Status: ${player.status}`,
+        timestamp: now,
+      });
+    }
+  }
+
   // ============ SCHEDULE-BASED ALERTS ============
   // Alert on B2B games, heavy weeks, dead zones for streamers
-  const myRosterPlayers = myTeam?.roster?.map(r => r.player) || [];
   const scheduleAlerts = generateScheduleAlerts(snapshot, myRosterPlayers);
   alerts.push(...scheduleAlerts);
 
@@ -437,15 +474,16 @@ export function generateSmartAlerts(
       // Skip our own transactions
       if (tx.teamId === snapshot.myTeamId) continue;
 
+      // Use enriched transaction data first, fallback to snapshot lookup
       const player = findPlayerById(tx.playerId, snapshot);
       const playerName = tx.playerName || player?.name || `Player #${tx.playerId}`;
       const teamName = teamNameById.get(tx.teamId) || `Team #${tx.teamId}`;
-      const projectedAvg = player?.stats?.projectedAvg || 0;
+      // Use enriched seasonAvg from transaction, fallback to player lookup
+      const seasonAvg = tx.playerSeasonAvg ?? player?.stats?.seasonAvg ?? 0;
+      const teamAbbrev = tx.playerTeamAbbrev || player?.nbaTeamAbbrev;
 
       if (tx.type === 'DROP') {
         const isWatchlistDrop = watchlistPlayerIds.has(tx.playerId);
-        // Use seasonAvg (actual) instead of projectedAvg for accuracy
-        const seasonAvg = player?.stats?.seasonAvg || 0;
         const isEliteDrop = seasonAvg >= DROPPED_PLAYER_THRESHOLD;
 
         // Only alert if on watchlist OR above 35 pts
@@ -456,7 +494,7 @@ export function generateSmartAlerts(
             priority: 'HIGH',
             title: `🎯 ${playerName}${avgStr} dropped by ${teamName}`,
             playerName: playerName,
-            teamAbbrev: player?.nbaTeamAbbrev,
+            teamAbbrev: teamAbbrev,
             details: '',
             timestamp: now,
           });
@@ -466,14 +504,15 @@ export function generateSmartAlerts(
       if (tx.type === 'ADD') {
         // Alert if a league mate added someone on our watchlist
         if (watchlistPlayerIds.has(tx.playerId)) {
+          const avgStr = seasonAvg > 0 ? ` (${seasonAvg.toFixed(1)})` : '';
           alerts.push({
             type: 'WATCHLIST_OPPORTUNITY',
-            priority: 'MEDIUM',
-            title: `❌ ${playerName} was SNIPED`,
+            priority: 'HIGH',  // Upgrade to HIGH - watchlist snipe is important
+            title: `❌ ${playerName}${avgStr} SNIPED by ${teamName}`,
             playerName: playerName,
-            teamAbbrev: player?.nbaTeamAbbrev,
-            details: `${teamName} added ${playerName} from your watchlist`,
-            action: 'Remove from watchlist - no longer available',
+            teamAbbrev: teamAbbrev,
+            details: `Was on your watchlist - no longer available`,
+            action: 'Remove from watchlist',
             timestamp: now,
           });
         }
