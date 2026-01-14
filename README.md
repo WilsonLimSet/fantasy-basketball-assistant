@@ -89,7 +89,7 @@ The cron job runs every 12 hours automatically (`vercel.json` is already configu
 
 ## How Smart Alerts Work
 
-We only alert on **high-usage stars** (38+ projected fantasy points). Role players getting injured doesn't matter for usage redistribution.
+We only alert on **high-usage stars** (25+ projected fantasy points). Role players getting injured doesn't matter for usage redistribution.
 
 | Scenario | Alert? | Why |
 |----------|--------|-----|
