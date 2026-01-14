@@ -30,18 +30,14 @@ export async function GET(request: Request) {
   const startTime = Date.now();
 
   try {
-    // Check for authorization (for cron jobs, Vercel sends a special header)
+    // Simple auth: allow manual refresh, cron with secret, or no secret configured
     const authHeader = request.headers.get('authorization');
     const cronSecret = process.env.CRON_SECRET;
     const isManualRefresh = request.headers.get('x-manual-refresh') === 'true';
 
-    // In production, verify cron secret for automated calls
+    // Only enforce auth if CRON_SECRET is set and this isn't a manual refresh
     if (cronSecret && !isManualRefresh && authHeader !== `Bearer ${cronSecret}`) {
-      // Allow if no auth header and it's likely a browser request
-      const userAgent = request.headers.get('user-agent') || '';
-      if (!userAgent.includes('Mozilla') && !userAgent.includes('Chrome')) {
-        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-      }
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     // Get league configuration
