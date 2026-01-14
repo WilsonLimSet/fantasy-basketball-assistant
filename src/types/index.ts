@@ -252,6 +252,7 @@ export type SmartAlertType =
   | 'ROSTER_INJURY'           // Your player got injured
   | 'ROSTER_RETURN'           // Your player returned from injury
   | 'TEAMMATE_INJURY'         // Key teammate of your player is out (usage boost)
+  | 'TEAMMATE_RETURN'         // Key teammate of your player is back (usage threat)
   | 'WATCHLIST_OPPORTUNITY'   // Key teammate of watchlist player is out
   | 'HOT_WAIVER_ADD'          // High-value waiver add available
   | 'WEEKLY_SUMMARY';         // Periodic summary
@@ -287,5 +288,7 @@ export interface LeagueTransaction {
   type: 'ADD' | 'DROP' | 'TRADE';
   playerId: number;
   playerName?: string;
+  playerSeasonAvg?: number;
+  playerTeamAbbrev?: string;
   timestamp: number;
 }
