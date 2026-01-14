@@ -107,11 +107,14 @@ export async function GET(request: Request) {
 
     console.log(`[Refresh] ESPN Watchlist: ${espnWatchlistIds.length} players`);
 
-    // Convert recent transactions to the expected format
+    // Convert recent transactions to the expected format (now enriched with player info)
     const leagueTransactions: LeagueTransaction[] = (espnData.recentTransactions || []).map(tx => ({
       teamId: tx.teamId,
       type: tx.type,
       playerId: tx.playerId,
+      playerName: tx.playerName,
+      playerSeasonAvg: tx.playerSeasonAvg,
+      playerTeamAbbrev: tx.playerTeamAbbrev,
       timestamp: tx.timestamp,
     }));
 
@@ -133,7 +136,6 @@ export async function GET(request: Request) {
         alertSent = await sendSmartAlerts(smartAlerts, snapshot.week);
         console.log(`[Refresh] Smart alerts sent: ${alertSent}`);
       }
-      // No more "quiet summary" - only alert when something matters
     } catch (alertError) {
       console.error('[Refresh] Failed to send alert:', alertError);
     }
