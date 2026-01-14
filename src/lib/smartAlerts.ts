@@ -63,6 +63,22 @@ function sharesPosition(player1: Player, player2: Player): boolean {
 }
 
 /**
+ * Check if changedPlayer's injury impacts beneficiary
+ * Returns true if:
+ * - changedPlayer is a high-usage star (affects whole team), OR
+ * - changedPlayer shares position with beneficiary (competes for minutes)
+ */
+function isImpactfulForPlayer(changedPlayer: Player, beneficiary: Player): boolean {
+  // Star-based: high-usage players affect everyone on the team
+  if (isHighUsageStar(changedPlayer)) return true;
+
+  // Position-based: same-position players compete for minutes
+  if (sharesPosition(changedPlayer, beneficiary)) return true;
+
+  return false;
+}
+
+/**
  * Check if player just went OUT (was active/DTD before, now OUT)
  */
 function justWentOut(change: StatusChange): boolean {
