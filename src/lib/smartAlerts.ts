@@ -366,14 +366,17 @@ export function generateSmartAlerts(
     }
 
     // 3. TEAMMATE OF MY ROSTER/WATCHLIST PLAYER CHANGED STATUS
-    // Only care about impactful players (starters)
-    if (!isHighUsageStar(changedPlayer)) continue;
-
+    // Alert when: star injured (affects whole team) OR same-position player injured (more minutes)
     const affectedPlayers = playersWeCareAbout.get(changedPlayer.nbaTeamId) || [];
-    // Filter out the changed player themselves
-    const beneficiaries = affectedPlayers.filter(p => p.id !== changedPlayer.id);
+    // Filter to players who are impacted by this change (star OR position)
+    const beneficiaries = affectedPlayers.filter(p =>
+      p.id !== changedPlayer.id && isImpactfulForPlayer(changedPlayer, p)
+    );
 
     if (beneficiaries.length === 0) continue;
+
+    // Determine why this alert triggered (for user clarity)
+    const isStar = isHighUsageStar(changedPlayer);
 
     // Separate roster vs watchlist beneficiaries
     const rosterBeneficiaries = beneficiaries.filter(p => myRosterPlayerIds.has(p.id));
@@ -383,13 +386,16 @@ export function generateSmartAlerts(
       // Teammate injured = USAGE BOOST for our players
       if (rosterBeneficiaries.length > 0) {
         const names = rosterBeneficiaries.map(p => p.name).join(', ');
+        const reason = isStar
+          ? 'usage redistribution'
+          : 'same position - more minutes';
         alerts.push({
           type: 'TEAMMATE_INJURY',
           priority: 'HIGH',
           title: `📈 ${changedPlayer.name} is OUT`,
           playerName: changedPlayer.name,
           teamAbbrev: changedPlayer.nbaTeamAbbrev,
-          details: `Your ${names} should see MORE usage/shots`,
+          details: `Your ${names} should see MORE usage (${reason})`,
           action: 'Start them if on bench',
           relatedPlayers: rosterBeneficiaries.map(p => p.name),
           timestamp: now,
@@ -398,13 +404,16 @@ export function generateSmartAlerts(
 
       if (watchlistBeneficiaries.length > 0) {
         const names = watchlistBeneficiaries.map(p => p.name).join(', ');
+        const reason = isStar
+          ? 'usage redistribution'
+          : 'same position - more minutes';
         alerts.push({
           type: 'WATCHLIST_OPPORTUNITY',
           priority: 'HIGH',
           title: `🔥 Add ${names} - ${changedPlayer.name} is OUT`,
           playerName: changedPlayer.name,
           teamAbbrev: changedPlayer.nbaTeamAbbrev,
-          details: `${changedPlayer.name} injury = more usage for ${names}`,
+          details: `${changedPlayer.name} out = ${reason} for ${names}`,
           action: `Pick up ${watchlistBeneficiaries[0].name} now`,
           relatedPlayers: watchlistBeneficiaries.map(p => p.name),
           timestamp: now,
@@ -416,13 +425,16 @@ export function generateSmartAlerts(
       // Teammate returned = USAGE DROP for our players
       if (rosterBeneficiaries.length > 0) {
         const names = rosterBeneficiaries.map(p => p.name).join(', ');
+        const reason = isStar
+          ? 'usage redistribution'
+          : 'same position - fewer minutes';
         alerts.push({
           type: 'TEAMMATE_INJURY', // reusing type
           priority: 'MEDIUM',
           title: `📉 ${changedPlayer.name} is BACK`,
           playerName: changedPlayer.name,
           teamAbbrev: changedPlayer.nbaTeamAbbrev,
-          details: `Your ${names} may see LESS usage now`,
+          details: `Your ${names} may see LESS usage now (${reason})`,
           action: 'Monitor their production',
           relatedPlayers: rosterBeneficiaries.map(p => p.name),
           timestamp: now,
@@ -431,13 +443,16 @@ export function generateSmartAlerts(
 
       if (watchlistBeneficiaries.length > 0) {
         const names = watchlistBeneficiaries.map(p => p.name).join(', ');
+        const reason = isStar
+          ? 'usage redistribution'
+          : 'same position - fewer minutes';
         alerts.push({
           type: 'WATCHLIST_OPPORTUNITY',
           priority: 'LOW',
           title: `⚠️ ${changedPlayer.name} is BACK`,
           playerName: changedPlayer.name,
           teamAbbrev: changedPlayer.nbaTeamAbbrev,
-          details: `${names} value decreased - ${changedPlayer.name} returns`,
+          details: `${names} value decreased - ${changedPlayer.name} back (${reason})`,
           action: 'Maybe remove from watchlist',
           relatedPlayers: watchlistBeneficiaries.map(p => p.name),
           timestamp: now,
