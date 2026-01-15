@@ -461,36 +461,10 @@ export function generateSmartAlerts(
     }
   }
 
-  // ============ CURRENT ROSTER INJURY ALERTS ============
-  // Alert on players currently OUT or DAY_TO_DAY on your roster
-  // This is independent of status changes - shows current state
-  const myRosterPlayers = myTeam?.roster?.map(r => r.player) || [];
-
-  for (const player of myRosterPlayers) {
-    if (OUT_STATUSES.includes(player.status)) {
-      alerts.push({
-        type: 'ROSTER_INJURY',
-        priority: 'HIGH',
-        title: `🚨 ${player.name} is ${player.status}`,
-        playerName: player.name,
-        teamAbbrev: player.nbaTeamAbbrev,
-        details: player.injuryNote || `Status: ${player.status}`,
-        timestamp: now,
-      });
-    } else if (player.status === 'DAY_TO_DAY' || player.status === 'QUESTIONABLE' || player.status === 'DOUBTFUL') {
-      alerts.push({
-        type: 'ROSTER_INJURY',
-        priority: 'MEDIUM',
-        title: `⚠️ ${player.name} is ${player.status}`,
-        playerName: player.name,
-        teamAbbrev: player.nbaTeamAbbrev,
-        details: player.injuryNote || `Status: ${player.status}`,
-        timestamp: now,
-      });
-    }
-  }
-
   // ============ SCHEDULE-BASED ALERTS ============
+  // Note: Injury alerts are now ONLY generated from status changes (diff)
+  // to avoid re-alerting on existing injuries every run
+  const myRosterPlayers = myTeam?.roster?.map(r => r.player) || [];
   // Alert on B2B games, heavy weeks, dead zones for streamers
   const scheduleAlerts = generateScheduleAlerts(snapshot, myRosterPlayers);
   alerts.push(...scheduleAlerts);
@@ -510,7 +484,8 @@ export function generateSmartAlerts(
       const playerName = tx.playerName || player?.name || `Player #${tx.playerId}`;
       const teamName = teamNameById.get(tx.teamId) || `Team #${tx.teamId}`;
       // Use enriched seasonAvg from transaction, fallback to player lookup
-      const seasonAvg = tx.playerSeasonAvg ?? player?.stats?.seasonAvg ?? 0;
+      // Note: Use || not ?? since enrichment may return 0 when stats unavailable
+      const seasonAvg = tx.playerSeasonAvg || player?.stats?.seasonAvg || 0;
       const teamAbbrev = tx.playerTeamAbbrev || player?.nbaTeamAbbrev;
 
       if (tx.type === 'DROP') {

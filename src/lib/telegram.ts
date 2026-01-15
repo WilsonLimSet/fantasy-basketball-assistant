@@ -284,14 +284,13 @@ export async function sendSmartAlerts(
  * Send a quiet summary (no urgent alerts)
  */
 export async function sendQuietSummary(
-  week: number,
+  _week: number,
   topWaiverName: string,
   topWaiverGames: number
 ): Promise<boolean> {
   const config = getConfig();
 
-  let message = '<b>🏀 Adam - All Clear</b>\n';
-  message += `<i>Week ${week} • ${new Date().toLocaleString()}</i>\n\n`;
+  let message = '<b>🏀 Adam - All Clear</b>\n\n';
   message += '✅ No urgent roster changes needed\n\n';
   message += `<b>Top streaming option:</b>\n`;
   message += `${topWaiverName} (${topWaiverGames} games this week)\n`;

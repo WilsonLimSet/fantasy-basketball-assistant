@@ -204,6 +204,70 @@ async function espnFetchFreeAgents(options: {
   return response.json() as Promise<ESPNFreeAgentResponse>;
 }
 
+/**
+ * Fetch players by specific IDs (for transaction player lookup)
+ */
+async function fetchPlayersByIds(playerIds: number[], _scoringPeriodId?: number): Promise<Map<number, {
+  name: string;
+  seasonAvg: number;
+  teamAbbrev: string;
+}>> {
+  if (playerIds.length === 0) return new Map();
+
+  const result = new Map<number, { name: string; seasonAvg: number; teamAbbrev: string }>();
+
+  // Use ESPN's public athlete API (no auth needed, more reliable)
+  const ESPN_ATHLETE_API = 'https://sports.core.api.espn.com/v2/sports/basketball/leagues/nba/athletes';
+
+  // Fetch players in parallel (limit concurrency to avoid rate limits)
+  const fetchPromises = playerIds.map(async (playerId) => {
+    try {
+      const response = await fetch(`${ESPN_ATHLETE_API}/${playerId}`, {
+        cache: 'no-store',
+      });
+
+      if (!response.ok) return null;
+
+      const data = await response.json() as {
+        id: string;
+        fullName: string;
+        team?: { $ref: string };
+      };
+
+      // Extract team ID from $ref URL (e.g., ".../teams/5" -> 5)
+      let teamId = 0;
+      if (data.team?.$ref) {
+        const teamMatch = data.team.$ref.match(/teams\/(\d+)/);
+        if (teamMatch) teamId = parseInt(teamMatch[1], 10);
+      }
+
+      return {
+        id: playerId,
+        name: data.fullName,
+        teamAbbrev: teamId ? (NBA_TEAMS[teamId]?.abbrev || '') : '',
+      };
+    } catch {
+      return null;
+    }
+  });
+
+  const results = await Promise.all(fetchPromises);
+
+  for (const r of results) {
+    if (r) {
+      result.set(r.id, {
+        name: r.name,
+        seasonAvg: 0, // Public API doesn't have fantasy stats - fallback will fill this
+        teamAbbrev: r.teamAbbrev,
+      });
+    }
+  }
+
+  console.log(`[fetchPlayersByIds] Fetched ${result.size}/${playerIds.length} players from ESPN public API`);
+
+  return result;
+}
+
 // ============ Public API Functions ============
 
 /**
@@ -309,6 +373,7 @@ export async function getNBAProTeamSchedule(): Promise<Array<{
 
 /**
  * Get recent league transactions (adds/drops by other teams)
+ * Uses kona_league_communication view which contains ACTIVITY_TRANSACTIONS topics
  */
 export async function getRecentTransactions(): Promise<Array<{
   teamId: number;
@@ -317,17 +382,22 @@ export async function getRecentTransactions(): Promise<Array<{
   timestamp: number;
 }>> {
   try {
-    const response = await espnFetch<{ transactions?: Array<{
-      teamId: number;
-      type: string;
-      status: string;
-      proposedDate: number;
-      items?: Array<{
-        playerId: number;
-        type: string;
-      }>;
-    }> }>('', {
-      views: ['mTransactions2'],
+    const response = await espnFetch<{
+      communication?: {
+        topics?: Array<{
+          type: string;
+          date: number;
+          messages?: Array<{
+            targetId: number; // player ID
+            to: number; // 11 = free agent, 12 = roster
+            from: number; // 11 = free agent, 12 = roster
+            for: number; // team ID that made the move
+            date: number;
+          }>;
+        }>;
+      };
+    }>('', {
+      views: ['kona_league_communication'],
     });
 
     const transactions: Array<{
@@ -337,21 +407,31 @@ export async function getRecentTransactions(): Promise<Array<{
       timestamp: number;
     }> = [];
 
-    // Only look at recent transactions (last 24 hours)
-    const oneDayAgo = Date.now() - 24 * 60 * 60 * 1000;
+    // Look at recent transactions (last 12 hours to match cron interval)
+    const twelveHoursAgo = Date.now() - 12 * 60 * 60 * 1000;
 
-    for (const tx of response.transactions || []) {
-      if (tx.status !== 'EXECUTED') continue;
-      if (tx.proposedDate < oneDayAgo) continue;
-      if (tx.type !== 'FREEAGENT' && tx.type !== 'WAIVER') continue;
+    for (const topic of response.communication?.topics || []) {
+      if (topic.type !== 'ACTIVITY_TRANSACTIONS') continue;
+      if (topic.date < twelveHoursAgo) continue;
 
-      for (const item of tx.items || []) {
-        if (item.type === 'ADD' || item.type === 'DROP') {
+      for (const msg of topic.messages || []) {
+        // from: 11 = free agent pool, 12 = roster
+        // to: 11 = free agent pool, 12 = roster
+        if (msg.from === 12 && msg.to === 11) {
+          // DROP: player moved from roster (12) to free agent (11)
           transactions.push({
-            teamId: tx.teamId,
-            type: item.type as 'ADD' | 'DROP',
-            playerId: item.playerId,
-            timestamp: tx.proposedDate,
+            teamId: msg.for,
+            type: 'DROP',
+            playerId: msg.targetId,
+            timestamp: msg.date,
+          });
+        } else if (msg.from === 11 && msg.to === 12) {
+          // ADD: player moved from free agent (11) to roster (12)
+          transactions.push({
+            teamId: msg.for,
+            type: 'ADD',
+            playerId: msg.targetId,
+            timestamp: msg.date,
           });
         }
       }
@@ -381,6 +461,9 @@ export async function getLeagueSnapshot(): Promise<{
     teamId: number;
     type: 'ADD' | 'DROP';
     playerId: number;
+    playerName?: string;
+    playerSeasonAvg?: number;
+    playerTeamAbbrev?: string;
     timestamp: number;
   }>;
 }> {
@@ -389,13 +472,27 @@ export async function getLeagueSnapshot(): Promise<{
   const scoringPeriodId = settings.scoringPeriodId;
 
   // Fetch remaining data in parallel
-  const [teams, matchups, freeAgents, nbaSchedule, recentTransactions] = await Promise.all([
+  const [teams, matchups, freeAgents, nbaSchedule, rawTransactions] = await Promise.all([
     getLeagueRosters(scoringPeriodId),
     getMatchups(settings.currentMatchupPeriod),
     getFreeAgents({ limit: 50, scoringPeriodId }),
     getNBAProTeamSchedule(),
     getRecentTransactions(),
   ]);
+
+  // Enrich transactions with player info
+  const transactionPlayerIds = rawTransactions.map(tx => tx.playerId);
+  const playerInfoMap = await fetchPlayersByIds(transactionPlayerIds, scoringPeriodId);
+
+  const recentTransactions = rawTransactions.map(tx => {
+    const playerInfo = playerInfoMap.get(tx.playerId);
+    return {
+      ...tx,
+      playerName: playerInfo?.name,
+      playerSeasonAvg: playerInfo?.seasonAvg,
+      playerTeamAbbrev: playerInfo?.teamAbbrev,
+    };
+  });
 
   return {
     settings,
