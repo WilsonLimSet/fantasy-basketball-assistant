@@ -365,7 +365,41 @@ export function generateSmartAlerts(
       continue;
     }
 
-    // 3. TEAMMATE OF MY ROSTER/WATCHLIST PLAYER CHANGED STATUS
+    // 3. WATCHLIST PLAYER GOT INJURED
+    // Alert user NOT to add them right now
+    if (isWatchlistPlayer && wentOut) {
+      alerts.push({
+        type: 'WATCHLIST_OPPORTUNITY',
+        priority: 'MEDIUM',
+        title: `⚠️ ${change.playerName} is OUT`,
+        playerName: change.playerName,
+        teamAbbrev: changedPlayer.nbaTeamAbbrev,
+        details: change.injuryNote || `Status: ${change.currentStatus}`,
+        action: 'Hold off on adding - wait for return',
+        timestamp: now,
+      });
+      continue;
+    }
+
+    // 4. WATCHLIST PLAYER RETURNED
+    // Alert user NOW is a good time to add them
+    if (isWatchlistPlayer && returned) {
+      const projectedAvg = changedPlayer.stats?.projectedAvg || 0;
+      const avgStr = projectedAvg > 0 ? ` (${projectedAvg.toFixed(1)})` : '';
+      alerts.push({
+        type: 'WATCHLIST_OPPORTUNITY',
+        priority: 'HIGH',
+        title: `🔥 ${change.playerName}${avgStr} is BACK`,
+        playerName: change.playerName,
+        teamAbbrev: changedPlayer.nbaTeamAbbrev,
+        details: 'Returned from injury - good time to add!',
+        action: `Pick up ${change.playerName} now`,
+        timestamp: now,
+      });
+      continue;
+    }
+
+    // 5. TEAMMATE OF MY ROSTER/WATCHLIST PLAYER CHANGED STATUS
     // Alert when: star injured (affects whole team) OR same-position player injured (more minutes)
     const affectedPlayers = playersWeCareAbout.get(changedPlayer.nbaTeamId) || [];
     // Filter to players who are impacted by this change (star OR position)

@@ -415,18 +415,33 @@ export async function getRecentTransactions(): Promise<Array<{
       if (topic.date < twelveHoursAgo) continue;
 
       for (const msg of topic.messages || []) {
-        // from: 11 = free agent pool, 12 = roster
-        // to: 11 = free agent pool, 12 = roster
-        if (msg.from === 12 && msg.to === 11) {
-          // DROP: player moved from roster (12) to free agent (11)
+        // ESPN roster slot codes:
+        // 0-10: Active roster slots (PG=0, SG=1, SF=2, PF=3, C=4, G=5, F=6, SG/SF=7, G/F=8, PF/C=9, UTIL=10)
+        // 11: Free agent pool (FA/waivers)
+        // 12: Bench slot
+        // 13: IR slot
+        //
+        // A true DROP is: player moved TO free agent pool (to=11)
+        // A true ADD is: player moved FROM free agent pool (from=11) to ANY roster slot
+        const FREE_AGENT_SLOT = 11;
+
+        // Skip messages without from/to (some ESPN messages don't have these)
+        if (msg.from === undefined || msg.to === undefined) continue;
+
+        // Skip internal roster moves (like slot 5 → slot 12, or IR → bench)
+        // Only care about moves to/from free agent pool
+        if (msg.from !== FREE_AGENT_SLOT && msg.to !== FREE_AGENT_SLOT) continue;
+
+        if (msg.to === FREE_AGENT_SLOT && msg.from !== FREE_AGENT_SLOT) {
+          // DROP: player moved from any roster slot to free agent pool
           transactions.push({
             teamId: msg.for,
             type: 'DROP',
             playerId: msg.targetId,
             timestamp: msg.date,
           });
-        } else if (msg.from === 11 && msg.to === 12) {
-          // ADD: player moved from free agent (11) to roster (12)
+        } else if (msg.from === FREE_AGENT_SLOT && msg.to !== FREE_AGENT_SLOT) {
+          // ADD: player moved from free agent pool to any roster slot
           transactions.push({
             teamId: msg.for,
             type: 'ADD',
@@ -437,10 +452,126 @@ export async function getRecentTransactions(): Promise<Array<{
       }
     }
 
+    // Return all transactions - validation against current roster state
+    // is done in getLeagueSnapshot() to filter out phantom transactions
     return transactions;
   } catch (error) {
     console.error('Failed to fetch transactions:', error);
     return [];
+  }
+}
+
+/**
+ * Get raw ESPN transaction data for debugging
+ * Shows exactly what ESPN API returns so we can verify ADD/DROP detection
+ */
+export async function getRawTransactionData(): Promise<{
+  topics: Array<{
+    type: string;
+    date: number;
+    messages: Array<{
+      targetId: number;
+      to: number;
+      from: number;
+      for: number;
+      date: number;
+    }>;
+  }>;
+  interpretation: Array<{
+    playerId: number;
+    from: number;
+    to: number;
+    teamId: number;
+    interpretedAs: 'ADD' | 'DROP' | 'UNKNOWN';
+    reason: string;
+  }>;
+}> {
+  try {
+    const response = await espnFetch<{
+      communication?: {
+        topics?: Array<{
+          type: string;
+          date: number;
+          messages?: Array<{
+            targetId: number;
+            to: number;
+            from: number;
+            for: number;
+            date: number;
+          }>;
+        }>;
+      };
+    }>('', {
+      views: ['kona_league_communication'],
+    });
+
+    const twelveHoursAgo = Date.now() - 12 * 60 * 60 * 1000;
+    const topics: Array<{
+      type: string;
+      date: number;
+      messages: Array<{
+        targetId: number;
+        to: number;
+        from: number;
+        for: number;
+        date: number;
+      }>;
+    }> = [];
+
+    const interpretation: Array<{
+      playerId: number;
+      from: number;
+      to: number;
+      teamId: number;
+      interpretedAs: 'ADD' | 'DROP' | 'UNKNOWN';
+      reason: string;
+    }> = [];
+
+    for (const topic of response.communication?.topics || []) {
+      if (topic.type !== 'ACTIVITY_TRANSACTIONS') continue;
+      if (topic.date < twelveHoursAgo) continue;
+
+      topics.push({
+        type: topic.type,
+        date: topic.date,
+        messages: topic.messages || [],
+      });
+
+      for (const msg of topic.messages || []) {
+        let interpretedAs: 'ADD' | 'DROP' | 'UNKNOWN' = 'UNKNOWN';
+        let reason = '';
+        const FREE_AGENT_SLOT = 11;
+
+        // Skip messages without from/to
+        if (msg.from === undefined || msg.to === undefined) {
+          reason = `from=${msg.from} → to=${msg.to} (missing from/to)`;
+        } else if (msg.from !== FREE_AGENT_SLOT && msg.to !== FREE_AGENT_SLOT) {
+          reason = `from=${msg.from} → to=${msg.to} (internal roster move, ignored)`;
+        } else if (msg.to === FREE_AGENT_SLOT && msg.from !== FREE_AGENT_SLOT) {
+          interpretedAs = 'DROP';
+          reason = `from=${msg.from} (roster slot) → to=11 (free agent pool)`;
+        } else if (msg.from === FREE_AGENT_SLOT && msg.to !== FREE_AGENT_SLOT) {
+          interpretedAs = 'ADD';
+          reason = `from=11 (free agent pool) → to=${msg.to} (roster slot)`;
+        } else {
+          reason = `from=${msg.from} → to=${msg.to} (unexpected)`;
+        }
+
+        interpretation.push({
+          playerId: msg.targetId,
+          from: msg.from,
+          to: msg.to,
+          teamId: msg.for,
+          interpretedAs,
+          reason,
+        });
+      }
+    }
+
+    return { topics, interpretation };
+  } catch (error) {
+    console.error('Failed to fetch raw transactions:', error);
+    return { topics: [], interpretation: [] };
   }
 }
 
@@ -480,12 +611,93 @@ export async function getLeagueSnapshot(): Promise<{
     getRecentTransactions(),
   ]);
 
-  // Enrich transactions with player info
-  const transactionPlayerIds = rawTransactions.map(tx => tx.playerId);
-  const playerInfoMap = await fetchPlayersByIds(transactionPlayerIds, scoringPeriodId);
+  // Build a player lookup map from rosters and free agents (which have full stats)
+  const playerLookup = new Map<number, { name: string; seasonAvg: number; teamAbbrev: string }>();
 
-  const recentTransactions = rawTransactions.map(tx => {
-    const playerInfo = playerInfoMap.get(tx.playerId);
+  // Build a map of which players are on which team's roster (for validating transactions)
+  // Key: "playerId-teamId", Value: true if player is on that team's roster
+  const rosterState = new Map<string, boolean>();
+
+  // Add players from all team rosters (for recently added players)
+  for (const team of teams) {
+    for (const entry of team.roster?.entries || []) {
+      const player = entry.playerPoolEntry?.player;
+      if (player) {
+        // Track that this player is on this team's roster
+        rosterState.set(`${player.id}-${team.id}`, true);
+
+        // Extract season average from stats (statSourceId: 0 = actual season stats)
+        let seasonAvg = 0;
+        for (const stat of player.stats || []) {
+          if (stat.statSourceId === 0 && stat.appliedAverage !== undefined) {
+            seasonAvg = stat.appliedAverage;
+            break;
+          }
+        }
+        playerLookup.set(player.id, {
+          name: player.fullName,
+          seasonAvg,
+          teamAbbrev: NBA_TEAMS[player.proTeamId]?.abbrev || '',
+        });
+      }
+    }
+  }
+
+  // Add players from free agents (for recently dropped players)
+  for (const fa of freeAgents.players || []) {
+    const player = fa.player;
+    if (player && !playerLookup.has(player.id)) {
+      let seasonAvg = 0;
+      for (const stat of player.stats || []) {
+        if (stat.statSourceId === 0 && stat.appliedAverage !== undefined) {
+          seasonAvg = stat.appliedAverage;
+          break;
+        }
+      }
+      playerLookup.set(player.id, {
+        name: player.fullName,
+        seasonAvg,
+        teamAbbrev: NBA_TEAMS[player.proTeamId]?.abbrev || '',
+      });
+    }
+  }
+
+  // For any players not found in rosters/FA, fall back to public API for name only
+  const missingPlayerIds = rawTransactions
+    .map(tx => tx.playerId)
+    .filter(id => !playerLookup.has(id));
+
+  if (missingPlayerIds.length > 0) {
+    const fallbackInfo = await fetchPlayersByIds(missingPlayerIds, scoringPeriodId);
+    for (const [id, info] of fallbackInfo) {
+      if (!playerLookup.has(id)) {
+        playerLookup.set(id, info);
+      }
+    }
+  }
+
+  // Validate transactions against current roster state to filter out phantom transactions
+  // ESPN's batch processing can create phantom DROPs for players still on roster
+  const validatedTransactions = rawTransactions.filter(tx => {
+    const rosterKey = `${tx.playerId}-${tx.teamId}`;
+    const isOnRoster = rosterState.has(rosterKey);
+
+    if (tx.type === 'DROP') {
+      // If player is still on the team's roster, this is a phantom DROP - ignore it
+      if (isOnRoster) {
+        return false;
+      }
+    } else if (tx.type === 'ADD') {
+      // If player is NOT on the team's roster, this is a phantom ADD - ignore it
+      if (!isOnRoster) {
+        return false;
+      }
+    }
+    return true;
+  });
+
+  const recentTransactions = validatedTransactions.map(tx => {
+    const playerInfo = playerLookup.get(tx.playerId);
     return {
       ...tx,
       playerName: playerInfo?.name,

@@ -48,36 +48,32 @@
 
 ---
 
-### 🚧 v1.1 Alert Fixes (In Progress)
+### ✅ v1.1 Alert Fixes (Complete)
 
 **Milestone Goal:** Fix buggy add/drop transaction alerts and watchlist alerts
 
-#### Phase 5: Fix Transaction Alerts
+#### Phase 5: Fix Transaction Alerts - COMPLETE (2026-01-19)
 **Goal:** Fix add/drop detection bugs - correct roster validation, deduplication, accurate stats
-**Depends on:** v1.0 complete
-**Research:** Unlikely (internal patterns, recently investigated)
-**Plans:** TBD
+**Scope:**
+- [x] Fix ADD/DROP detection (any slot → 11 = DROP, 11 → any slot = ADD)
+- [x] Add roster state validation to filter phantom transactions
+- [x] Enrich transactions with player stats from roster/FA data
+- [x] Update debug-tx endpoint with watchlist info
 
-Plans:
-- [ ] 05-01: TBD (run /gsd:plan-phase 5 to break down)
-
-#### Phase 6: Fix Watchlist Alerts
+#### Phase 6: Fix Watchlist Alerts - COMPLETE (2026-01-19)
 **Goal:** Fix watchlist-related alert logic and ensure proper triggering
-**Depends on:** Phase 5
-**Research:** Unlikely (internal patterns)
-**Plans:** TBD
+**Scope:**
+- [x] Add alert when watchlist player gets injured (warn NOT to add)
+- [x] Add alert when watchlist player returns (good time to add)
+- [x] Verify ESPN watchlist sync working correctly
 
-Plans:
-- [ ] 06-01: TBD
-
-#### Phase 7: Alert Testing & Polish
+#### Phase 7: Alert Testing & Polish - COMPLETE (2026-01-19)
 **Goal:** End-to-end testing of all alert types, edge cases, production verification
-**Depends on:** Phase 6
-**Research:** Unlikely (testing/validation)
-**Plans:** TBD
-
-Plans:
-- [ ] 07-01: TBD
+**Scope:**
+- [x] Build passes (TypeScript + Next.js)
+- [x] Debug endpoint verifies correct transaction detection
+- [x] ESPN watchlist loads correctly (Mitchell Robinson on watchlist)
+- [x] Manual refresh works without errors
 
 ---
 
@@ -89,6 +85,6 @@ Plans:
 | 2. Smarter Injury Alerts | v1.0 | 1/1 | Complete | 2026-01-15 |
 | 3. Return-From-Injury Alerts | v1.0 | 1/1 | Complete | 2026-01-15 |
 | 4. Cleanup & Polish | v1.0 | 1/1 | Complete | 2026-01-15 |
-| 5. Fix Transaction Alerts | v1.1 | 0/? | Not started | - |
-| 6. Fix Watchlist Alerts | v1.1 | 0/? | Not started | - |
-| 7. Alert Testing & Polish | v1.1 | 0/? | Not started | - |
+| 5. Fix Transaction Alerts | v1.1 | 1/1 | Complete | 2026-01-19 |
+| 6. Fix Watchlist Alerts | v1.1 | 1/1 | Complete | 2026-01-19 |
+| 7. Alert Testing & Polish | v1.1 | 1/1 | Complete | 2026-01-19 |
