@@ -1,13 +1,13 @@
 # Project State
 
 ## Current Position
-- **Milestone:** 1 - Smart Alerts & Cleanup
-- **Phase:** 2 of 4 (Smarter Injury Alerts) - COMPLETE
-- **Plan:** 1 of 1 in current phase - COMPLETE
-- **Status:** Phase complete
-- **Last activity:** 2026-01-15 - Completed 02-01-PLAN.md
+- **Milestone:** v1.1 Alert Fixes
+- **Phase:** 5 of 7 (Fix Transaction Alerts)
+- **Plan:** Not started
+- **Status:** Ready to plan
+- **Last activity:** 2026-01-19 - Milestone v1.1 created
 
-Progress: [====================----------] 50% (2/4 phases)
+Progress: [░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░] 0% (0/3 phases)
 
 ## Key Decisions
 | Decision | Rationale | Date |
@@ -19,6 +19,9 @@ Progress: [====================----------] 50% (2/4 phases)
 | Keep waiver recommendations | User finds value in top adds and streaming | 2026-01-14 |
 | Both return scenarios | Alert when your player returns AND when threats return | 2026-01-14 |
 | Voice files untracked | Deleted from disk, no git commits needed for Task 1 | 2026-01-14 |
+| TEAMMATE_RETURN type | Dedicated type for teammate returns (clearer than reusing TEAMMATE_INJURY) | 2026-01-15 |
+| Simplified cron auth | User-Agent sniffing was weak, token-only is cleaner | 2026-01-15 |
+| Roster validation for transactions | Filter phantom ESPN transactions by checking current roster state | 2026-01-19 |
 
 ## Deferred Issues
 *None*
@@ -26,5 +29,9 @@ Progress: [====================----------] 50% (2/4 phases)
 ## Blockers
 *None*
 
+## Roadmap Evolution
+- v1.0 shipped: Smart Alerts & Cleanup, 4 phases (Phase 1-4)
+- v1.1 created: Alert Fixes, 3 phases (Phase 5-7)
+
 ---
-*Last updated: 2026-01-15*
+*Last updated: 2026-01-19*
