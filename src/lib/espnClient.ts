@@ -619,6 +619,8 @@ export async function getLeagueSnapshot(): Promise<{
   const rosterState = new Map<string, boolean>();
 
   // Add players from all team rosters (for recently added players)
+  const currentSeasonId = `00${settings.seasonId}`; // e.g., "002026" for season stats
+
   for (const team of teams) {
     for (const entry of team.roster?.entries || []) {
       const player = entry.playerPoolEntry?.player;
@@ -626,10 +628,12 @@ export async function getLeagueSnapshot(): Promise<{
         // Track that this player is on this team's roster
         rosterState.set(`${player.id}-${team.id}`, true);
 
-        // Extract season average from stats (statSourceId: 0 = actual season stats)
+        // Extract season average from stats
+        // statSourceId: 0 = actual stats, id format: "00YYYY" = season, "01YYYY" = last 7 days, etc.
         let seasonAvg = 0;
         for (const stat of player.stats || []) {
-          if (stat.statSourceId === 0 && stat.appliedAverage !== undefined) {
+          // Look for current season actual stats (e.g., "002026")
+          if (stat.statSourceId === 0 && stat.id === currentSeasonId && stat.appliedAverage !== undefined) {
             seasonAvg = stat.appliedAverage;
             break;
           }
@@ -649,7 +653,8 @@ export async function getLeagueSnapshot(): Promise<{
     if (player && !playerLookup.has(player.id)) {
       let seasonAvg = 0;
       for (const stat of player.stats || []) {
-        if (stat.statSourceId === 0 && stat.appliedAverage !== undefined) {
+        // Look for current season actual stats (e.g., "002026")
+        if (stat.statSourceId === 0 && stat.id === currentSeasonId && stat.appliedAverage !== undefined) {
           seasonAvg = stat.appliedAverage;
           break;
         }
