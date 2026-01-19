@@ -384,8 +384,8 @@ export function generateSmartAlerts(
     // 4. WATCHLIST PLAYER RETURNED
     // Alert user NOW is a good time to add them
     if (isWatchlistPlayer && returned) {
-      const projectedAvg = changedPlayer.stats?.projectedAvg || 0;
-      const avgStr = projectedAvg > 0 ? ` (${projectedAvg.toFixed(1)})` : '';
+      const seasonAvg = changedPlayer.stats?.seasonAvg || 0;
+      const avgStr = seasonAvg > 0 ? ` (${seasonAvg.toFixed(1)})` : '';
       alerts.push({
         type: 'WATCHLIST_OPPORTUNITY',
         priority: 'HIGH',
