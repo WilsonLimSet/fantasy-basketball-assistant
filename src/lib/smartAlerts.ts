@@ -28,6 +28,19 @@ import type {
 // Injury statuses that indicate player is OUT
 const OUT_STATUSES: PlayerStatus[] = ['OUT', 'INJURY_RESERVE', 'SUSPENSION'];
 
+// Status severity ranking (lower = healthier/better)
+// Used to detect status improvements vs declines
+const STATUS_SEVERITY: Record<PlayerStatus, number> = {
+  'ACTIVE': 0,
+  'PROBABLE': 1,
+  'QUESTIONABLE': 2,
+  'DAY_TO_DAY': 3,
+  'DOUBTFUL': 4,
+  'OUT': 5,
+  'INJURY_RESERVE': 6,
+  'SUSPENSION': 7,
+};
+
 // High-usage stars threshold - these are true usage monsters
 // When they're out, the whole team's usage shifts (not just their position)
 const STAR_THRESHOLD = 25; // Starter-level players whose absence redistributes usage
@@ -94,6 +107,49 @@ function justReturned(change: StatusChange): boolean {
   const wasOut = OUT_STATUSES.includes(change.previousStatus);
   const isNowAvailable = change.currentStatus === 'ACTIVE';
   return wasOut && isNowAvailable;
+}
+
+/**
+ * Check if player's status improved (closer to playing)
+ * Examples: QUESTIONABLE → PROBABLE, DOUBTFUL → QUESTIONABLE, OUT → QUESTIONABLE
+ * Excludes: full return to ACTIVE (handled by justReturned)
+ */
+function statusImproved(change: StatusChange): boolean {
+  const prevSeverity = STATUS_SEVERITY[change.previousStatus];
+  const currSeverity = STATUS_SEVERITY[change.currentStatus];
+  // Status improved if severity decreased (lower = healthier)
+  // Exclude ACTIVE returns (handled separately) and same-status
+  return currSeverity < prevSeverity && change.currentStatus !== 'ACTIVE';
+}
+
+/**
+ * Check if player's status declined (further from playing)
+ * Examples: ACTIVE → QUESTIONABLE, PROBABLE → DOUBTFUL, QUESTIONABLE → OUT
+ * Excludes: going fully OUT (handled by justWentOut)
+ */
+function statusDeclined(change: StatusChange): boolean {
+  const prevSeverity = STATUS_SEVERITY[change.previousStatus];
+  const currSeverity = STATUS_SEVERITY[change.currentStatus];
+  // Status declined if severity increased (higher = worse)
+  // Exclude going fully OUT (handled separately) and same-status
+  return currSeverity > prevSeverity && !OUT_STATUSES.includes(change.currentStatus);
+}
+
+/**
+ * Get a human-readable status label with emoji
+ */
+function getStatusLabel(status: PlayerStatus): string {
+  const labels: Record<PlayerStatus, string> = {
+    'ACTIVE': '✅ Active',
+    'PROBABLE': '🟡 Probable',
+    'QUESTIONABLE': '❓ Questionable',
+    'DAY_TO_DAY': '⚠️ Day-to-Day',
+    'DOUBTFUL': '⁉️ Doubtful',
+    'OUT': '🔴 Out',
+    'INJURY_RESERVE': '🔴 IR',
+    'SUSPENSION': '🔴 Suspended',
+  };
+  return labels[status] || status;
 }
 
 /**
@@ -399,8 +455,72 @@ export function generateSmartAlerts(
       continue;
     }
 
-    // 5. TEAMMATE OF MY ROSTER/WATCHLIST PLAYER CHANGED STATUS
+    // 5. INTERMEDIATE STATUS CHANGES (not full OUT or full ACTIVE)
+    // Alert on status upgrades (QUESTIONABLE → PROBABLE) or downgrades (ACTIVE → QUESTIONABLE)
+    const improved = statusImproved(change);
+    const declined = statusDeclined(change);
+
+    if (isMyPlayer && improved) {
+      alerts.push({
+        type: 'ROSTER_RETURN',
+        priority: 'MEDIUM',
+        title: `📈 ${change.playerName} status improved`,
+        playerName: change.playerName,
+        teamAbbrev: changedPlayer.nbaTeamAbbrev,
+        details: `${getStatusLabel(change.previousStatus)} → ${getStatusLabel(change.currentStatus)}`,
+        action: 'May be able to play - monitor closely',
+        timestamp: now,
+      });
+      continue;
+    }
+
+    if (isMyPlayer && declined) {
+      alerts.push({
+        type: 'ROSTER_INJURY',
+        priority: 'MEDIUM',
+        title: `📉 ${change.playerName} status declined`,
+        playerName: change.playerName,
+        teamAbbrev: changedPlayer.nbaTeamAbbrev,
+        details: `${getStatusLabel(change.previousStatus)} → ${getStatusLabel(change.currentStatus)}`,
+        action: 'Have a backup ready',
+        timestamp: now,
+      });
+      continue;
+    }
+
+    if (isWatchlistPlayer && improved) {
+      const seasonAvg = changedPlayer.stats?.seasonAvg || 0;
+      const avgStr = seasonAvg > 0 ? ` (${seasonAvg.toFixed(1)})` : '';
+      alerts.push({
+        type: 'WATCHLIST_OPPORTUNITY',
+        priority: 'MEDIUM',
+        title: `📈 ${change.playerName}${avgStr} status improved`,
+        playerName: change.playerName,
+        teamAbbrev: changedPlayer.nbaTeamAbbrev,
+        details: `${getStatusLabel(change.previousStatus)} → ${getStatusLabel(change.currentStatus)}`,
+        action: 'Getting closer to return - consider adding',
+        timestamp: now,
+      });
+      continue;
+    }
+
+    if (isWatchlistPlayer && declined) {
+      alerts.push({
+        type: 'WATCHLIST_OPPORTUNITY',
+        priority: 'LOW',
+        title: `📉 ${change.playerName} status declined`,
+        playerName: change.playerName,
+        teamAbbrev: changedPlayer.nbaTeamAbbrev,
+        details: `${getStatusLabel(change.previousStatus)} → ${getStatusLabel(change.currentStatus)}`,
+        action: 'Hold off on adding for now',
+        timestamp: now,
+      });
+      continue;
+    }
+
+    // 6. TEAMMATE OF MY ROSTER/WATCHLIST PLAYER CHANGED STATUS (fully OUT or ACTIVE only)
     // Alert when: star injured (affects whole team) OR same-position player injured (more minutes)
+    // Note: We only check wentOut/returned here since intermediate teammate changes aren't as impactful
     const affectedPlayers = playersWeCareAbout.get(changedPlayer.nbaTeamId) || [];
     // Filter to players who are impacted by this change (star OR position)
     const beneficiaries = affectedPlayers.filter(p =>
