@@ -90,6 +90,29 @@ const FULL_SEASON_GAMES = 72;
 const STREAM_FILL_RATE = 0.7;
 const AGE_RISK_FROM = 32;
 
+/**
+ * Expected year-over-year change in per-game production at a given age. Roughly the shape of
+ * published NBA aging curves: steep gains through 22, flat in the prime, slow decline after 32.
+ */
+function ageCurve(age: number | null): number {
+  if (age == null) return 1;
+  if (age <= 20) return 1.1;
+  if (age === 21) return 1.07;
+  if (age === 22) return 1.05;
+  if (age === 23) return 1.03;
+  if (age === 24) return 1.01;
+  if (age >= 36) return 0.95;
+  if (age >= 33) return 0.97;
+  return 1;
+}
+
+/** Scale production but not turnovers or games (a bigger role does not mean cleaner play). */
+function scaleLine(l: StatLine, f: number): StatLine {
+  const out = { ...l };
+  for (const k of STAT_KEYS) if (k !== "tov" && k !== "min") out[k] = l[k] * f;
+  return out;
+}
+
 function halfway(a: StatLine, b: StatLine): StatLine {
   const out = { ...a };
   for (const k of STAT_KEYS) out[k] = (a[k] + b[k]) / 2;
@@ -111,7 +134,10 @@ export function project(p: Player, take?: Take | null): Projection | null {
   const { proj, cur } = p;
   const lastGp = p.last?.gp ?? 0;
   // A handful of games (or a lost season) says nothing about per-game production.
-  const last = lastGp < MIN_SAMPLE_GP && proj ? null : p.last;
+  // Last season is aged one year forward: young players improve, old ones slip.
+  const rawLast = lastGp < MIN_SAMPLE_GP && proj ? null : p.last;
+  const curve = ageCurve(p.age);
+  const last = rawLast && curve !== 1 ? scaleLine(rawLast, curve) : rawLast;
   const rookieLine = take ? takeLine(take) : null;
   if (!proj && !last && !cur && !rookieLine) return null;
   // Unsigned, no ESPN projection, no current stats and no take: retired or out of the league. Not draftable.
@@ -306,7 +332,7 @@ export function valuePlayers(players: Player[], league: League, useTakes = true)
 
 /** Players past the draftable pool who are still worth a last-round dart, as a share of the pool. */
 const FLIER_SHARE = 0.25;
-const MAX_TIERS = 10;
+const MAX_TIERS = 6;
 
 /**
  * At most MAX_TIERS tiers over the players who actually get drafted in this league (teams x roster
