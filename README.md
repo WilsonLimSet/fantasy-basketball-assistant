@@ -68,10 +68,10 @@ The original in-season assistant lives under `/inseason` (pages), `/api/inseason
 
 - **Data:** the app reads ESPN's public fantasy endpoint (`kona_player_info`) on the server and caches it for 6 hours. Each player record includes last season's stats, ESPN's projection for the new season, ESPN's ADP, injury status and position eligibility.
 - **Projection** (`src/lib/engine.ts → project`):
-  - Per-game stats are 60% ESPN's projection and 40% last season's actual numbers. When a player has a sourced take, last season is first adjusted by the take's role multipliers, and the mix becomes 50/50. Rookies use the take's projected line. Injury takes override games played.
+  - Per-game stats blend ESPN's projection with last season's actual numbers. Last season counts for up to 40%, scaled down when it was cut short (a 30-game season counts half as much as a 60-game one). A sourced take's role multipliers then move the blended line halfway. Rookies use the take's projected line. Injury takes override games played.
   - Games played is a blend of ESPN's estimate and last season's real total, because ESPN is optimistic about injury-prone players.
-    One lost season can pull that estimate down only as far as 70% of ESPN's number. Players older than 32 lose 2% of their games per extra year (up to 20%), using ages from ESPN's team rosters. Unsigned players with no ESPN projection are heavily discounted.
-  - A last season of fewer than 15 games is ignored for per-game production; ESPN's projection is used instead, with any take applied to it at half strength.
+    One lost season can pull that estimate down only as far as 70% of ESPN's number. Players older than 32 lose 2% of their games per extra year (up to 20%), using ages from ESPN's team rosters.
+  - A last season of fewer than 15 games is ignored for per-game production; ESPN's projection is used instead. Unsigned players with no ESPN projection and no take (retired or out of the league) are left off the board.
   - In season, current stats get more weight as the sample grows.
 - **Value:**
   - *Points leagues:* fantasy points per game × projected games.

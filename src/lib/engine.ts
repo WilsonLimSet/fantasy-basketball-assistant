@@ -84,6 +84,7 @@ export const rosterSize = (l: League) =>
 /* ---------------- Projection model ---------------- */
 
 const MIN_SAMPLE_GP = 15;
+const FULL_SAMPLE_GP = 60;
 /** Games a healthy starter plays, and how often you can actually plug a replacement into a missed one. */
 const FULL_SEASON_GAMES = 72;
 const STREAM_FILL_RATE = 0.7;
@@ -108,33 +109,29 @@ export interface Projection {
  */
 export function project(p: Player, take?: Take | null): Projection | null {
   const { proj, cur } = p;
-  // A handful of games (or a lost season) says nothing about per-game production.
   const lastGp = p.last?.gp ?? 0;
-  const smallSample = lastGp < MIN_SAMPLE_GP;
-  let last = smallSample && proj ? null : p.last;
+  // A handful of games (or a lost season) says nothing about per-game production.
+  const last = lastGp < MIN_SAMPLE_GP && proj ? null : p.last;
   const rookieLine = take ? takeLine(take) : null;
-  // Our role-adjusted view of last season (or the rookie projection from the take).
-  const ours: StatLine | null = rookieLine ?? (take && last && hasRoleChange(take) ? applyMult(last, take) : null);
-  if (ours && !rookieLine) last = ours;
   if (!proj && !last && !cur && !rookieLine) return null;
-  // No usable last season to adjust: apply the take's role change to ESPN's line instead, at half
-  // strength because ESPN's projection already prices in some of the news.
-  const projAdj: StatLine | null =
-    proj && take && !rookieLine && !last && hasRoleChange(take) ? halfway(proj, applyMult(proj, take)) : null;
+  // Unsigned, no ESPN projection, no current stats and no take: retired or out of the league. Not draftable.
+  if (p.team === "FA" && !proj && !cur && !take) return null;
+  const roleChange = !!take && !rookieLine && hasRoleChange(take);
 
-  const line = {} as StatLine;
+  let line = {} as StatLine;
   let basis: string;
   let wProj = 0, wLast = 0, wCur = 0;
   const src = rookieLine ?? last;
   if (rookieLine) {
     wProj = proj ? 0.5 : 0; wLast = proj ? 0.5 : 1; basis = "take+espn";
   } else if (proj && last) {
-    // With an analyst take, our adjusted line gets equal weight with ESPN's projection.
-    wProj = ours ? 0.5 : 0.6; wLast = ours ? 0.5 : 0.4; basis = ours ? "take-blend" : "blend";
+    // Last season counts for up to 40%, less when it was cut short: an injury-hit year is usually
+    // a player at less than full strength, and a small sample besides.
+    wLast = 0.4 * Math.min(1, lastGp / FULL_SAMPLE_GP); wProj = 1 - wLast; basis = "blend";
   } else if (proj) {
-    wProj = 1; basis = projAdj ? "espn-proj+take" : "espn-proj";
+    wProj = 1; basis = "espn-proj";
   } else {
-    wLast = 1; basis = ours ? "take" : "last-season";
+    wLast = 1; basis = "last-season";
   }
   if (cur && cur.gp > 0) {
     // weight current season more as sample grows (full trust ~40 games)
@@ -143,8 +140,11 @@ export function project(p: Player, take?: Take | null): Projection | null {
     basis += "+current";
   }
   for (const k of STAT_KEYS) {
-    line[k] = ((projAdj ?? proj)?.[k] ?? 0) * wProj + (src?.[k] ?? 0) * wLast + (cur?.[k] ?? 0) * wCur;
+    line[k] = (proj?.[k] ?? 0) * wProj + (src?.[k] ?? 0) * wLast + (cur?.[k] ?? 0) * wCur;
   }
+  // A take's role change moves the blended line halfway: ESPN's projection already prices in some
+  // of the news, last season none of it.
+  if (roleChange) { line = halfway(line, applyMult(line, take!)); basis = `take-${basis}`; }
   // Games: ESPN projections tend to be optimistic for injury-prone players.
   let games: number;
   if (take?.games != null) games = take.games;
@@ -302,21 +302,32 @@ export function valuePlayers(players: Player[], league: League, useTakes = true)
   return valued;
 }
 
-/** Tier breaks where the value gap is unusually large relative to local spread. */
+const TIER_POOL = 150;
+const MAX_TIERS = 10;
+
+/**
+ * At most MAX_TIERS tiers over the draftable pool, split at the largest value gaps. Tiers get
+ * wider further down the board, where the gaps between players stop meaning much.
+ */
 function assignTiers(v: Valued[]) {
   if (!v.length) return;
-  const top = v.slice(0, 200);
-  const gaps = top.slice(1).map((x, i) => top[i].vorp - x.vorp);
-  const sorted = [...gaps].sort((a, b) => a - b);
-  const thresh = sorted[Math.floor(sorted.length * 0.85)] ?? 0;
-  let tier = 1;
-  let lastBreak = 0;
+  const n = Math.min(v.length, TIER_POOL);
+  const minSize = (i: number) => 3 + Math.floor(i / 12) * 2;
+  const gaps = Array.from({ length: n - 1 }, (_, i) => ({ at: i + 1, gap: v[i].vorp - v[i + 1].vorp }))
+    .sort((a, b) => b.gap - a.gap);
+  const breaks: number[] = [];
+  for (const g of gaps) {
+    if (breaks.length >= MAX_TIERS - 1) break;
+    const need = minSize(g.at);
+    if (g.at < 3 || n - g.at < need) continue;
+    if (breaks.every((b) => Math.abs(b - g.at) >= need)) breaks.push(g.at);
+  }
+  breaks.sort((a, b) => a - b);
+  let tier = 1, next = 0;
   v.forEach((x, i) => {
-    if (i > 0 && i < top.length && gaps[i - 1] >= thresh && i - lastBreak >= 4) {
-      tier++;
-      lastBreak = i;
-    }
-    x.tier = i >= top.length ? tier + 1 : tier;
+    if (i >= n) { x.tier = breaks.length + 2; return; }
+    if (next < breaks.length && i === breaks[next]) { tier++; next++; }
+    x.tier = tier;
   });
 }
 

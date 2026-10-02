@@ -95,7 +95,9 @@ export function PlayerCell({ v }: { v: Valued }) {
 
 export function ValueCell({ v, league }: { v: Valued; league: League }) {
   return league.format === "points" ? (
-    <span title="Projected fantasy points per game">{fmt(v.fppg)} <span className="text-muted text-[11px]">fp/g</span></span>
+    <span title="Projected season fantasy points (points per game × projected games). Rankings also credit a replacement for missed games and adjust for position scarcity.">
+      {Math.round(v.total).toLocaleString()} <span className="text-muted text-[11px]">pts · {fmt(v.fppg)}/g</span>
+    </span>
   ) : (
     <span title="Sum of category z-scores">{fmt(v.total, 2)} <span className="text-muted text-[11px]">z</span></span>
   );

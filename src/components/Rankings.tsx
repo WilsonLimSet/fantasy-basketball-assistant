@@ -95,7 +95,7 @@ export default function Rankings({ board, league, draftedIds }: { board: Board; 
                 <th className="py-1 pr-2">Rk</th>
                 <th className="pr-2">Tier</th>
                 <th className="pr-2">Player</th>
-                <th className="pr-2">Value</th>
+                <th className="pr-2" title="Projected season fantasy points, then points per game">Season</th>
                 <th className="pr-2">GP</th>
                 <th className="pr-2" title="ESPN's own draft rank; arrow = how far we differ">ESPN</th>
                 <th className="pr-2">ADP</th>
