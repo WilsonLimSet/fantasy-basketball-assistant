@@ -46,7 +46,7 @@ export default function News() {
         {view === "takes" && ["all", "injury", "boost", "fade", "rookie", "note"].map((k) => (
           <button key={k} onClick={() => setKind(k)}
             className={`rounded-full border px-3 py-1 text-xs capitalize ${kind === k ? "border-ink bg-ink text-white" : "border-line bg-panel text-muted"}`}>
-            {k === "all" ? "All" : `${KIND_STYLE[k as Take["kind"]].icon} ${k === "note" ? "update" : k}`} {k !== "all" && <span className="opacity-70">{counts[k] ?? 0}</span>}
+            {k === "all" ? "All" : `${KIND_STYLE[k as Take["kind"]].icon} ${k}`} {k !== "all" && <span className="opacity-70">{counts[k] ?? 0}</span>}
           </button>
         ))}
         {view === "takes" && <span className="text-xs text-muted">updated {data.updatedAt}</span>}

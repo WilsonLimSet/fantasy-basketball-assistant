@@ -9,7 +9,7 @@ export const KIND_STYLE: Record<Take["kind"], { label: string; icon: string; cls
   fade: { label: "Fade", icon: "▼", cls: "bg-red-500/15 text-red-700 border-red-500/30" },
   injury: { label: "Injury", icon: "✚", cls: "bg-amber-500/15 text-amber-800 border-amber-500/30" },
   rookie: { label: "Rookie", icon: "★", cls: "bg-sky-500/15 text-sky-800 border-sky-500/30" },
-  note: { label: "Update", icon: "i", cls: "bg-fg/5 text-fg/80 border-line" },
+  note: { label: "Note", icon: "•", cls: "bg-fg/5 text-fg/80 border-line" },
 };
 
 /** Small badge; click to open the sourced take. */
@@ -24,10 +24,10 @@ export function TakeBadge({ take }: { take: Take }) {
         tabIndex={0}
         onClick={(e) => { e.stopPropagation(); e.preventDefault(); setOpen(true); }}
         onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.stopPropagation(); e.preventDefault(); setOpen(true); } }}
-        title={take.headline}
+        title={`Our take: ${take.headline} (click for the sourced notes)`}
         className={`ml-1.5 inline-flex cursor-pointer items-center gap-0.5 rounded border px-1 text-[10px] font-semibold leading-4 ${k.cls}`}
       >
-        {k.icon} CV
+        {k.icon} {k.label}
       </span>
       {open && createPortal(<TakeModal take={take} onClose={() => setOpen(false)} />, document.body)}
     </>
