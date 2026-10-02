@@ -16,10 +16,10 @@ export function Paywall({ info, what }: { info: PassInfo; what: string }) {
   const [restore, setRestore] = useState(false);
   if (info.paid) return null;
   return (
-    <div className="rounded-xl border border-accent/40 bg-gradient-to-br from-accent/15 to-transparent p-5">
+    <div className="rounded-xl border border-line bg-panel p-5 shadow-[0_1px_2px_rgba(25,25,25,0.04)]">
       <div className="flex flex-wrap items-center gap-4">
         <div className="min-w-0 flex-1">
-          <div className="text-lg font-semibold">Unlock {what}</div>
+          <div className="text-lg font-medium tracking-tight">Unlock {what}</div>
           <p className="mt-1 text-sm text-muted">
             Free shows the top {info.freeLimit}. The season pass unlocks all {info.total} players, full mock drafts,
             the live draft assistant, every sourced take, and format edges across the whole pool.
@@ -27,11 +27,11 @@ export function Paywall({ info, what }: { info: PassInfo; what: string }) {
         </div>
         <div className="flex flex-col items-stretch gap-2">
           {info.paymentLink ? (
-            <a href={info.paymentLink} className="rounded-lg bg-accent px-4 py-2 text-center font-semibold text-black hover:brightness-110">
+            <a href={info.paymentLink} className="rounded-full bg-ink px-5 py-2 text-center text-sm font-medium text-white hover:bg-ink/85">
               Get the {info.priceLabel}
             </a>
           ) : (
-            <span className="rounded-lg border border-line px-4 py-2 text-sm text-muted">Payments not configured yet</span>
+            <span className="rounded-full border border-line px-4 py-2 text-sm text-muted">Payments not configured yet</span>
           )}
           <button onClick={() => setRestore((v) => !v)} className="text-xs text-muted underline">
             Already paid? Restore access
@@ -63,7 +63,7 @@ function RestoreForm() {
       <input className="input w-56" placeholder="Purchase email (blank for access code)" value={email} onChange={(e) => setEmail(e.target.value)} />
       <input className="input w-44" placeholder="License key / code" value={key} onChange={(e) => setKey(e.target.value)} />
       <button onClick={submit} className="btn-accent">Unlock</button>
-      {msg && <span className="text-xs text-red-300">{msg}</span>}
+      {msg && <span className="text-xs text-red-700">{msg}</span>}
     </div>
   );
 }

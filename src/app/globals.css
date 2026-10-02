@@ -1,26 +1,30 @@
 @import "tailwindcss";
 
+/* Light, warm-neutral system: off-white canvas, white panels, hairline borders, near-black ink. */
 @theme {
-  --color-bg: #0b0d10;
-  --color-panel: #12161b;
-  --color-line: #232a33;
-  --color-fg: #e8edf2;
-  --color-muted: #8a96a3;
-  --color-accent: #ff7a1a;
-  --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --color-bg: #faf8f7;
+  --color-panel: #ffffff;
+  --color-sunken: #f2f0ef;
+  --color-line: #e3e2e1;
+  --color-fg: #191919;
+  --color-ink: #191919;
+  --color-muted: #6f6e6d;
+  --color-accent: #2f7d5d;
+  --font-sans: var(--font-inter), ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --font-mono: var(--font-plex-mono), ui-monospace, SFMono-Regular, Menlo, monospace;
 }
 
 html, body { background: var(--color-bg); color: var(--color-fg); }
-body { font-feature-settings: "tnum" 0; }
+body { font-feature-settings: "tnum" 0, "cv11" 1; letter-spacing: -0.006em; }
 
 @layer components {
   .input {
-    @apply rounded-md border border-line bg-bg px-2 py-1 text-sm text-fg outline-none focus:border-accent;
+    @apply rounded-lg border border-line bg-panel px-2.5 py-1 text-sm text-fg outline-none placeholder:text-muted/70 focus:border-fg/50;
   }
   .btn-ghost {
-    @apply rounded-md border border-line px-2.5 py-1 text-xs text-muted hover:text-fg hover:border-fg/40 disabled:opacity-40;
+    @apply rounded-full border border-line bg-panel px-3 py-1 text-xs font-medium text-fg hover:border-fg/30 hover:bg-sunken disabled:opacity-40;
   }
   .btn-accent {
-    @apply rounded-md bg-accent px-2.5 py-1 text-xs font-semibold text-black hover:brightness-110;
+    @apply rounded-full bg-ink px-3 py-1 text-xs font-medium text-white hover:bg-ink/85 disabled:opacity-40;
   }
 }

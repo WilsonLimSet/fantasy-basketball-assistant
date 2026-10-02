@@ -1,16 +1,16 @@
 /* Adam (in-season) styles, scoped to .inseason so they do not leak into CourtVision. */
 .inseason {
   --background: #ffffff;
-  --foreground: #111111;
+  --foreground: #191919;
   --card-background: #ffffff;
-  --card-border: #e5e7eb;
-  --primary: #2563eb;
-  --primary-hover: #1d4ed8;
+  --card-border: #e3e2e1;
+  --primary: #191919;
+  --primary-hover: #3a3a3a;
   --success: #16a34a;
   --warning: #ca8a04;
   --danger: #dc2626;
-  --muted: #6b7280;
-  --muted-bg: #f9fafb;
+  --muted: #6f6e6d;
+  --muted-bg: #faf8f7;
 }
 
 .inseason, .inseason * {
@@ -22,7 +22,7 @@
 .inseason {
   max-width: 100vw;
   overflow-x: clip;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+  font-family: var(--font-inter), -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
 }
 
 .inseason {

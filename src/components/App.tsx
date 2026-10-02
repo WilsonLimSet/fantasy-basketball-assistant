@@ -88,19 +88,19 @@ export default function App() {
 
   return (
     <div className="min-h-screen">
-      <header className="sticky top-0 z-20 border-b border-line bg-panel/85 backdrop-blur">
+      <header className="sticky top-0 z-20 border-b border-line bg-bg/90 backdrop-blur">
         <div className="mx-auto flex max-w-7xl flex-wrap items-center gap-x-6 gap-y-2 px-4 py-3">
           <div className="flex items-center gap-2">
-            <span className="inline-block h-6 w-6 rounded-full bg-accent shadow-[0_0_0_3px_rgba(255,122,26,.25)]" />
-            <span className="text-lg font-bold tracking-tight">CourtVision</span>
+            <span className="inline-block h-4 w-4 rounded-full border-[3px] border-ink" />
+            <span className="text-base font-semibold tracking-tight">CourtVision</span>
           </div>
           <nav className="-mx-1 flex max-w-full gap-1 overflow-x-auto px-1">
             {tabs.map((t) => (
               <button
                 key={t.id}
                 onClick={() => setTab(t.id)}
-                className={`whitespace-nowrap rounded-md px-3 py-1.5 text-sm ${
-                  tab === t.id ? "bg-accent font-semibold text-black" : "text-muted hover:bg-white/5 hover:text-fg"
+                className={`whitespace-nowrap rounded-full px-3 py-1 text-sm ${
+                  tab === t.id ? "bg-sunken font-medium text-fg" : "text-muted hover:text-fg"
                 }`}
               >
                 {t.label}
@@ -108,7 +108,7 @@ export default function App() {
             ))}
             <Link
               href="/inseason"
-              className="whitespace-nowrap rounded-md px-3 py-1.5 text-sm text-muted hover:bg-white/5 hover:text-fg"
+              className="whitespace-nowrap rounded-full px-3 py-1 text-sm text-muted hover:text-fg"
             >
               In-Season
             </Link>
@@ -120,21 +120,23 @@ export default function App() {
               {loading && " · updating…"}
             </span>
             {board?.paid ? (
-              <span className="rounded bg-accent/20 px-2 py-0.5 font-semibold text-accent">PRO</span>
+              <span className="rounded-full border border-accent/30 bg-accent/10 px-2 py-0.5 font-medium text-accent">PRO</span>
             ) : board?.paymentLink ? (
-              <a href={board.paymentLink} className="rounded bg-accent px-2 py-0.5 font-semibold text-black">Unlock all</a>
+              <a href={board.paymentLink} className="rounded-full bg-ink px-3 py-1 font-medium text-white hover:bg-ink/85">Unlock all</a>
             ) : null}
           </div>
         </div>
       </header>
 
       {tab === "kit" && !board?.paid && (
-        <section className="border-b border-line bg-gradient-to-b from-accent/10 to-transparent">
-          <div className="mx-auto max-w-7xl px-4 py-6">
-            <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">
-              Rankings for <span className="text-accent">your</span> league, not ESPN&apos;s default.
+        <section className="border-b border-line">
+          <div className="mx-auto max-w-7xl px-4 py-10">
+            <h1 className="text-3xl font-medium leading-tight tracking-[-0.03em] sm:text-4xl">
+              Rankings for your league,
+              <br />
+              <span className="text-muted">not ESPN&apos;s default.</span>
             </h1>
-            <p className="mt-2 max-w-2xl text-sm text-muted">
+            <p className="mt-3 max-w-2xl text-sm leading-relaxed text-muted">
               Set your exact scoring once. We re-rank every player for it, then adjust for injuries, trades, role changes
               and media-day news, updated daily with a source for every call. Then mock draft against the ESPN ADP.
             </p>
@@ -144,7 +146,7 @@ export default function App() {
 
       <main className="mx-auto max-w-7xl px-4 py-5">
         {err && (
-          <div className="mb-4 rounded-lg border border-red-500/40 bg-red-500/10 p-3 text-sm">
+          <div className="mb-4 rounded-lg border border-red-500/30 bg-red-500/5 p-3 text-sm text-red-700">
             Couldn&apos;t load player data: {err}
           </div>
         )}

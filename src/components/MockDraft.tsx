@@ -105,7 +105,7 @@ export default function MockDraft({ board, league }: { board: Board; league: Lea
             CourtVision rankings for your {league.format === "points" ? "points" : "category"} settings.
             {!board.paid && ` Free mocks run ${maxRounds} rounds.`}
           </p>
-          <button onClick={start} className="mt-4 w-full rounded-lg bg-accent py-2 font-semibold text-black hover:brightness-110">Start mock draft</button>
+          <button onClick={start} className="mt-4 w-full rounded-full bg-ink py-2 text-sm font-medium text-white hover:bg-ink/85">Start mock draft</button>
         </Card>
         {!board.paid && <Paywall info={board} what="full-length mock drafts" />}
       </div>
@@ -124,8 +124,8 @@ export default function MockDraft({ board, league }: { board: Board; league: Lea
     const grade = pct >= 0.9 ? "A" : pct >= 0.7 ? "B+" : pct >= 0.5 ? "B" : pct >= 0.3 ? "C" : "D";
     return (
       <div className="space-y-4">
-        <div className="flex flex-wrap items-center gap-6 rounded-xl border border-accent bg-accent/10 p-5">
-          <div className="text-5xl font-black text-accent">{grade}</div>
+        <div className="flex flex-wrap items-center gap-6 rounded-xl border border-line bg-panel p-5 shadow-[0_1px_2px_rgba(25,25,25,0.04)]">
+          <div className="text-5xl font-medium tracking-tight text-fg">{grade}</div>
           <div>
             <div className="text-lg font-semibold">Your draft ranks #{place} of {cfg.teams}</div>
             <div className="text-sm text-muted">Graded on projected starting-lineup value over replacement in your scoring.</div>
@@ -143,10 +143,10 @@ export default function MockDraft({ board, league }: { board: Board; league: Lea
 
   return (
     <div className="space-y-4">
-      <div className={`flex flex-wrap items-center gap-4 rounded-xl border p-4 ${onClock === me ? "border-accent bg-accent/10" : "border-line bg-panel"}`}>
+      <div className={`flex flex-wrap items-center gap-4 rounded-xl border p-4 ${onClock === me ? "border-accent/50 bg-accent/5" : "border-line bg-panel"}`}>
         <div>
           <div className="text-xs uppercase text-muted">Pick</div>
-          <div className="text-2xl font-bold tabular-nums">{Math.floor(pickNo / cfg.teams) + 1}.{(pickNo % cfg.teams) + 1}</div>
+          <div className="text-2xl font-medium tracking-tight tabular-nums">{Math.floor(pickNo / cfg.teams) + 1}.{(pickNo % cfg.teams) + 1}</div>
         </div>
         <div className="text-lg font-semibold">{onClock === me ? "You're on the clock" : `Team ${onClock + 1} picking…`}</div>
         <div className="text-sm text-muted">You pick {mySlot} of {cfg.teams}</div>
@@ -159,14 +159,14 @@ export default function MockDraft({ board, league }: { board: Board; league: Lea
             <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
               {recs.map((r, i) => (
                 <button key={r.v.p.id} onClick={() => myPick(r.v.p.id)} disabled={onClock !== me}
-                  className={`rounded-lg border p-3 text-left transition enabled:hover:border-accent ${i === 0 ? "border-accent/60 bg-accent/5" : "border-line bg-bg"}`}>
+                  className={`rounded-lg border p-3 text-left transition enabled:hover:border-fg/40 ${i === 0 ? "border-fg/30 bg-sunken" : "border-line bg-panel"}`}>
                   <div className="flex items-start justify-between gap-2">
                     <PlayerCell v={r.v} />
                     <div className="shrink-0 text-right text-sm">#{r.v.rank}<div className="text-[11px] text-muted">ADP {r.v.p.adp ? fmt(r.v.p.adp, 0) : "–"}</div></div>
                   </div>
                   <div className="mt-1 text-sm"><ValueCell v={r.v} league={league} /></div>
                   <div className="mt-1 flex flex-wrap gap-1">
-                    {r.reasons.map((s) => <span key={s} className="rounded bg-white/5 px-1.5 py-0.5 text-[10px] text-muted">{s}</span>)}
+                    {r.reasons.map((s) => <span key={s} className="rounded bg-fg/5 px-1.5 py-0.5 text-[10px] text-muted">{s}</span>)}
                   </div>
                 </button>
               ))}
@@ -245,7 +245,7 @@ function DraftGrid({ picks, cfg, rounds, me, byId }: { picks: number[]; cfg: Cfg
                 const k = r % 2 === 0 ? r * cfg.teams + t : r * cfg.teams + (cfg.teams - 1 - t);
                 const v = byId.get(picks[k]);
                 return (
-                  <td key={t} className={`min-w-[88px] rounded px-1.5 py-1 align-top ${t === me ? "bg-accent/15" : "bg-bg"}`}>
+                  <td key={t} className={`min-w-[88px] rounded px-1.5 py-1 align-top ${t === me ? "bg-accent/10" : "bg-bg"}`}>
                     <div className="truncate font-medium">{v?.p.name ?? "—"}</div>
                     <div className="text-muted">{v ? `${v.p.pos.join("/")} · #${v.rank}` : ""}</div>
                   </td>

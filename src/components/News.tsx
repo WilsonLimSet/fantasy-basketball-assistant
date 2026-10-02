@@ -26,7 +26,7 @@ export default function News() {
         </div>
         {["all", "injury", "boost", "fade", "rookie", "note"].map((k) => (
           <button key={k} onClick={() => setKind(k)}
-            className={`rounded-md border px-2.5 py-1 text-xs capitalize ${kind === k ? "border-accent bg-accent/20" : "border-line text-muted"}`}>
+            className={`rounded-full border px-3 py-1 text-xs capitalize ${kind === k ? "border-ink bg-ink text-white" : "border-line bg-panel text-muted"}`}>
             {k === "all" ? "All" : `${KIND_STYLE[k as Take["kind"]].icon} ${k === "note" ? "update" : k}`} {k !== "all" && <span className="text-muted">{counts[k] ?? 0}</span>}
           </button>
         ))}
@@ -36,7 +36,7 @@ export default function News() {
         {items.map((t) => {
           const k = KIND_STYLE[t.kind];
           return (
-            <button key={t.key} onClick={() => setOpen(t)} className="rounded-xl border border-line bg-panel p-4 text-left hover:border-accent/60">
+            <button key={t.key} onClick={() => setOpen(t)} className="rounded-xl border border-line bg-panel p-4 text-left hover:border-fg/30">
               <div className="flex items-start justify-between gap-2">
                 <div>
                   <div className="font-semibold">{t.name} <span className="text-xs font-normal text-muted">{t.team}</span></div>

@@ -28,7 +28,7 @@ function Calls({ board, league }: { board: Board; league: League }) {
             <div>
               <span className="text-muted">ESPN</span> <b className="tabular-nums">{er}</b>{" "}
               <span className="text-muted">→ us</span>{" "}
-              <b className={`tabular-nums ${up ? "text-emerald-300" : "text-red-300"}`}>{v.rank}</b>
+              <b className={`tabular-nums ${up ? "text-emerald-700" : "text-red-700"}`}>{v.rank}</b>
             </div>
           </div>
         </li>
@@ -109,7 +109,7 @@ export default function Rankings({ board, league, draftedIds }: { board: Board; 
                 const l = v.proj.line;
                 const newTier = i > 0 && rows[i - 1].tier !== v.tier;
                 return (
-                  <tr key={v.p.id} className={`border-t ${newTier ? "border-accent/50" : "border-line/60"} ${draftedIds.has(v.p.id) ? "opacity-35" : ""}`}>
+                  <tr key={v.p.id} className={`border-t ${newTier ? "border-fg/25" : "border-line/60"} ${draftedIds.has(v.p.id) ? "opacity-35" : ""}`}>
                     <td className="py-1.5 pr-2 tabular-nums text-muted">{v.rank}</td>
                     <td className="pr-2 text-muted">{v.tier}</td>
                     <td className="max-w-[240px] pr-2"><PlayerCell v={v} /></td>
