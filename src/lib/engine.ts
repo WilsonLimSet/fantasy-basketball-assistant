@@ -183,6 +183,8 @@ export interface Valued {
   rank: number;
   posRank: Record<string, number>;
   tier: number;
+  /** core = worth a pick in this league; flier = last-round dart; waiver = leave on the wire. */
+  bucket: "core" | "flier" | "waiver";
   take: Take | null;
 }
 
@@ -290,7 +292,7 @@ export function valuePlayers(players: Player[], league: League, useTakes = true)
     const missed = league.format === "points" && r > 0 && !x.proj.basis.includes("unsigned")
       ? STREAM_FILL_RATE * (r / FULL_SEASON_GAMES) * Math.max(0, FULL_SEASON_GAMES - x.proj.games)
       : 0;
-    return { ...x, vorp: x.total - r + missed, rank: 0, posRank: {}, tier: 0, take: takeOf.get(x.p.id) ?? null };
+    return { ...x, vorp: x.total - r + missed, rank: 0, posRank: {}, tier: 0, bucket: "core", take: takeOf.get(x.p.id) ?? null };
   });
   valued.sort((a, b) => b.vorp - a.vorp);
   const posCount: Record<string, number> = {};
@@ -298,20 +300,24 @@ export function valuePlayers(players: Player[], league: League, useTakes = true)
     v.rank = i + 1;
     for (const pp of v.p.pos) v.posRank[pp] = posCount[pp] = (posCount[pp] ?? 0) + 1;
   });
-  assignTiers(valued);
+  assignTiers(valued, draftable);
   return valued;
 }
 
-const TIER_POOL = 150;
+/** Players past the draftable pool who are still worth a last-round dart, as a share of the pool. */
+const FLIER_SHARE = 0.25;
 const MAX_TIERS = 10;
 
 /**
- * At most MAX_TIERS tiers over the draftable pool, split at the largest value gaps. Tiers get
- * wider further down the board, where the gaps between players stop meaning much.
+ * At most MAX_TIERS tiers over the players who actually get drafted in this league (teams x roster
+ * size), split at the largest value gaps. Tiers get wider further down the board, where the gaps
+ * between players stop meaning much. Past the pool come a short tier of fliers, then everyone
+ * else: waiver-wire players nobody should spend a pick on.
  */
-function assignTiers(v: Valued[]) {
+function assignTiers(v: Valued[], draftable: number) {
   if (!v.length) return;
-  const n = Math.min(v.length, TIER_POOL);
+  const n = Math.min(v.length, Math.max(20, draftable));
+  const fliers = Math.max(10, Math.round(n * FLIER_SHARE));
   const minSize = (i: number) => 3 + Math.floor(i / 12) * 2;
   const gaps = Array.from({ length: n - 1 }, (_, i) => ({ at: i + 1, gap: v[i].vorp - v[i + 1].vorp }))
     .sort((a, b) => b.gap - a.gap);
@@ -325,11 +331,19 @@ function assignTiers(v: Valued[]) {
   breaks.sort((a, b) => a - b);
   let tier = 1, next = 0;
   v.forEach((x, i) => {
-    if (i >= n) { x.tier = breaks.length + 2; return; }
+    if (i >= n) {
+      const flier = i < n + fliers;
+      x.tier = breaks.length + (flier ? 2 : 3);
+      x.bucket = flier ? "flier" : "waiver";
+      return;
+    }
     if (next < breaks.length && i === breaks[next]) { tier++; next++; }
     x.tier = tier;
   });
 }
+
+export const tierLabel = (v: Pick<Valued, "tier" | "bucket">) =>
+  v.bucket === "flier" ? "Flier" : v.bucket === "waiver" ? "Waiver" : String(v.tier);
 
 /* ---------------- Explanations ---------------- */
 

@@ -1,7 +1,7 @@
 "use client";
 
 import { Fragment, useState } from "react";
-import { League, Valued } from "@/lib/engine";
+import { League, Valued, tierLabel } from "@/lib/engine";
 import { Card, PlayerCell, ValueCell, VsEspn, ZChip, espnRankFor, fmt } from "./ui";
 import { Paywall } from "./Paywall";
 import type { Board } from "./App";
@@ -47,6 +47,7 @@ function Calls({ board, league }: { board: Board; league: League }) {
 export default function Rankings({ board, league, draftedIds }: { board: Board; league: League; draftedIds: Set<number> }) {
   const [pos, setPos] = useState("ALL");
   const [hideDrafted, setHideDrafted] = useState(false);
+  const [showWaiver, setShowWaiver] = useState(false);
   const [q, setQ] = useState("");
   const valued = board.valued;
   const cats = league.cats.filter((c) => !league.punts.includes(c));
@@ -54,14 +55,17 @@ export default function Rankings({ board, league, draftedIds }: { board: Board; 
     (v) =>
       (pos === "ALL" || v.p.pos.includes(pos as never)) &&
       (!hideDrafted || !draftedIds.has(v.p.id)) &&
-      (!q || v.p.name.toLowerCase().includes(q.toLowerCase())),
+      (!q || v.p.name.toLowerCase().includes(q.toLowerCase())) &&
+      // Waiver-wire players stay out of the way unless asked for or searched by name.
+      (showWaiver || !!q || v.bucket !== "waiver"),
   );
+  const waiverCount = valued.filter((v) => v.bucket === "waiver").length;
 
   const exportCsv = () => {
     const head = ["rank", "name", "team", "pos", "value", "games", "espn_rank", "adp", "tier", "take"];
     const lines = valued.map((v) =>
       [v.rank, `"${v.p.name}"`, v.p.team, v.p.pos.join("/"), (league.format === "points" ? v.fppg : v.total).toFixed(2),
-        v.proj.games.toFixed(0), espnRankFor(v, league) ?? "", v.p.adp?.toFixed(1) ?? "", v.tier, `"${v.take?.headline ?? ""}"`].join(","),
+        v.proj.games.toFixed(0), espnRankFor(v, league) ?? "", v.p.adp?.toFixed(1) ?? "", tierLabel(v), `"${v.take?.headline ?? ""}"`].join(","),
     );
     const blob = new Blob([[head.join(","), ...lines].join("\n")], { type: "text/csv" });
     const a = document.createElement("a");
@@ -113,13 +117,17 @@ export default function Rankings({ board, league, draftedIds }: { board: Board; 
                   {(newTier || i === 0) && !q && (
                     <tr className="bg-sunken/60">
                       <td colSpan={7 + (league.format === "cats" ? cats.length : 8)} className="px-2 py-1 text-[11px] font-medium uppercase tracking-wide text-muted">
-                        Tier {v.tier}
+                        {v.bucket === "flier"
+                          ? "Late-round fliers · only with your last pick"
+                          : v.bucket === "waiver"
+                            ? "Waiver wire · not worth a draft pick in this league"
+                            : `Tier ${v.tier}`}
                       </td>
                     </tr>
                   )}
                   <tr className={`border-t border-line/60 hover:bg-fg/[.02] ${draftedIds.has(v.p.id) ? "opacity-35" : ""}`}>
                     <td className="py-1.5 pr-2 tabular-nums text-muted">{v.rank}</td>
-                    <td className="pr-2 text-muted">{v.tier}</td>
+                    <td className="pr-2 text-muted">{tierLabel(v)}</td>
                     <td className="max-w-[240px] pr-2"><PlayerCell v={v} /></td>
                     <td className="whitespace-nowrap pr-2 tabular-nums"><ValueCell v={v} league={league} /></td>
                     <td className="pr-2 tabular-nums text-muted">{fmt(v.proj.games, 0)}</td>
@@ -147,6 +155,13 @@ export default function Rankings({ board, league, draftedIds }: { board: Board; 
           </table>
         </div>
       </Card>
+      {board.paid && waiverCount > 0 && !q && (
+        <div className="text-center">
+          <button onClick={() => setShowWaiver((s) => !s)} className="btn-ghost">
+            {showWaiver ? "Hide waiver-wire players" : `Show ${waiverCount} waiver-wire players`}
+          </button>
+        </div>
+      )}
       <Paywall info={board} what={`ranks ${board.freeLimit + 1}–${board.total}`} />
     </div>
   );

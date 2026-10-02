@@ -2,7 +2,7 @@
 
 import { createContext, useCallback, useContext, useEffect, useState } from "react";
 import { createPortal } from "react-dom";
-import { League, Valued, fantasyPoints } from "@/lib/engine";
+import { League, Valued, fantasyPoints, tierLabel } from "@/lib/engine";
 import { playerInsights } from "@/lib/insights";
 import type { NewsItem } from "@/lib/playerNews";
 import type { StatLine } from "@/lib/types";
@@ -94,7 +94,7 @@ function PlayerSheet({ v, league, onClose }: { v: Valued; league: League; onClos
                 <Chip label="Our rank" value={`#${v.rank}`} strong />
                 <Chip label="ESPN" value={er != null ? `#${er}` : "–"} />
                 <Chip label="ADP" value={p.adp ? fmt(p.adp, 1) : "–"} />
-                <Chip label="Tier" value={String(v.tier)} />
+                <Chip label="Tier" value={tierLabel(v)} />
               </div>
             </div>
             <button onClick={onClose} aria-label="Close" className="btn-ghost shrink-0">Close</button>

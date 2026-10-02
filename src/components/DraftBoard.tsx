@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { League, Valued } from "@/lib/engine";
+import { League, Valued, tierLabel } from "@/lib/engine";
 import { DraftState, fillLineup, nextPicksFor, recommend, teamCatProfile, teamForPick } from "@/lib/draft";
 import { Card, PlayerCell, ValueCell, VsEspn, ZChip, fmt } from "./ui";
 import { Paywall } from "./Paywall";
@@ -232,7 +232,7 @@ export default function DraftBoard({ board, league, draft, setDraft }: Props) {
                       <td className="pr-2 tabular-nums text-muted">{fmt(v.proj.games, 0)}</td>
                       <td className="pr-2 tabular-nums text-muted">{v.p.adp ? fmt(v.p.adp, 0) : "–"}</td>
                       <td className="whitespace-nowrap pr-2"><VsEspn v={v} league={league} /></td>
-                      <td className="pr-2 text-muted">{v.tier}</td>
+                      <td className="pr-2 text-muted">{tierLabel(v)}</td>
                       <td className="text-right">
                         <button onClick={() => pick(v.p.id)} disabled={sync} className={myTurn && !sync ? "btn-accent" : "btn-ghost"}>
                           Draft
