@@ -82,7 +82,12 @@ export function playerInsights(v: Valued, league: League): Insight[] {
 /* ---------------- Mock draft review ---------------- */
 
 export interface PickReview { k: number; v: Valued; delta: number; label: "Steal" | "Value" | "Fair" | "Reach" }
-export interface TeamReview { t: number; score: number; place: number; grade: string; fppg: number; best: Valued | null }
+export interface TeamReview {
+  t: number; score: number; place: number; grade: string; fppg: number;
+  /** Average projected games of the starters. */
+  games: number;
+  best: Valued | null;
+}
 export interface DraftReview {
   teams: TeamReview[];
   mine: TeamReview;
@@ -123,12 +128,17 @@ export function reviewDraft(picks: number[], byId: Map<number, Valued>, league: 
   });
 
   const starterFp = (r: Valued[]) => fillLineup(r, league).filled.reduce((s, f) => s + (f.v?.fppg ?? 0), 0);
+  const starterGames = (r: Valued[]) => {
+    const s = fillLineup(r, league).filled.filter((f) => f.v);
+    return s.length ? s.reduce((a, f) => a + f.v!.proj.games, 0) / s.length : 0;
+  };
   const ranked = rosters.map((r, t) => ({ t, score: teamScore(r, league) })).sort((a, b) => b.score - a.score);
   const teams: TeamReview[] = ranked.map((x, i) => ({
     ...x,
     place: i + 1,
     grade: gradeOf(1 - i / Math.max(1, n - 1)),
     fppg: starterFp(rosters[x.t]),
+    games: starterGames(rosters[x.t]),
     best: [...rosters[x.t]].sort((a, b) => b.vorp - a.vorp)[0] ?? null,
   }));
   const mine = teams.find((x) => x.t === me)!;

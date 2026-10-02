@@ -228,8 +228,9 @@ function Review({ picks, byId, league, me, onAgain, onSettings }: {
         <div>
           <div className="text-xl font-medium tracking-tight">Your draft ranks #{r.mine.place} of {n}</div>
           <div className="mt-0.5 text-sm text-muted">
-            Graded on projected starting-lineup value over replacement in your scoring
-            {points && <> · starters project <b className="text-fg">{fmt(r.mine.fppg, 0)}</b> fantasy points a night</>}.
+            Graded on season-long value over replacement for your starters, in your scoring. That counts projected
+            games and position scarcity, so it can differ from raw points per night
+            {points && <> (yours: <b className="text-fg">{fmt(r.mine.fppg, 0)}</b> a night over <b className="text-fg">{fmt(r.mine.games, 0)}</b> games per starter)</>}.
           </div>
         </div>
         <div className="ml-auto flex gap-2">
@@ -314,13 +315,20 @@ function Review({ picks, byId, league, me, onAgain, onSettings }: {
                 <span className="w-5 tabular-nums text-muted">{t.place}</span>
                 <span className="w-8 font-medium tabular-nums">{t.grade}</span>
                 <span className={`w-16 shrink-0 whitespace-nowrap ${t.t === me ? "font-medium text-accent" : ""}`}>{t.t === me ? "You" : `Team ${t.t + 1}`}</span>
-                <span className="min-w-0 flex-1 truncate text-xs text-muted">{t.best ? `led by ${t.best.p.name}` : ""}</span>
-                {points && <span className="tabular-nums text-xs text-muted">{fmt(t.fppg, 0)} fp</span>}
+                <span className="min-w-0 flex-1 truncate text-xs text-muted">{t.best ? t.best.p.name : ""}</span>
+                <span className="whitespace-nowrap text-right text-xs tabular-nums text-muted" title="Season value over replacement · starters' fantasy points per night · average projected games per starter">
+                  <b className="font-medium text-fg">{t.score >= 0 ? "+" : ""}{fmt(t.score, points ? 0 : 1)}</b>
+                  {points && <> · {fmt(t.fppg, 0)}/g</>} · {fmt(t.games, 0)} gp
+                </span>
               </li>
             ))}
           </ol>
+          <p className="mt-3 border-t border-line pt-3 text-xs text-muted">
+            Ranked by the bold number: season value over replacement. The other teams draft by ESPN ADP, and the grade
+            uses our projections, so drafting from our board will usually grade well.
+          </p>
           {r.leagueSteal && r.leagueSteal.delta > 0 && (
-            <p className="mt-3 border-t border-line pt-3 text-xs text-muted">
+            <p className="mt-2 text-xs text-muted">
               Steal of the draft: <b className="text-fg">{r.leagueSteal.v.p.name}</b> to {r.leagueSteal.t === me ? "you" : `Team ${r.leagueSteal.t + 1}`} at
               pick #{r.leagueSteal.k + 1}, {r.leagueSteal.delta} spots after our rank.
             </p>
