@@ -3,6 +3,9 @@
 import { Cat, League, NINE_CAT, PRESETS, Slot, leagueFromPreset, rosterSize } from "@/lib/engine";
 import { DraftState } from "@/lib/draft";
 import type { StatKey } from "@/lib/types";
+import { useState } from "react";
+import type { EspnLeagueSettings } from "@/lib/espnLeague";
+import { useStored } from "@/lib/useStored";
 import { Card } from "./ui";
 
 const SCORING_KEYS: { k: StatKey; label: string }[] = [
@@ -20,6 +23,7 @@ export default function LeagueSettings({ league, setLeague, draft, setDraft }: P
 
   return (
     <div className="grid gap-4 lg:grid-cols-2">
+      <EspnImport league={league} setLeague={setLeague} draft={draft} setDraft={setDraft} />
       <Card title="League">
         <div className="space-y-3 text-sm">
           <Row label="Preset">
@@ -115,6 +119,108 @@ export default function LeagueSettings({ league, setLeague, draft, setDraft }: P
   );
 }
 
+/** Reads the real settings of an ESPN league and offers to apply them. */
+function EspnImport({ league, setLeague, draft, setDraft }: Props) {
+  const [leagueId, setLeagueId] = useStored("cv.espnLeagueId", "");
+  const [found, setFound] = useState<EspnLeagueSettings | null>(null);
+  const [err, setErr] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [applied, setApplied] = useState(false);
+
+  const load = async () => {
+    setBusy(true); setErr(null); setFound(null); setApplied(false);
+    try {
+      const r = await fetch(`/api/league-settings?leagueId=${encodeURIComponent(leagueId.trim())}`, { cache: "no-store" });
+      const j = await r.json();
+      if (!r.ok) throw new Error(j.error ?? r.statusText);
+      setFound(j as EspnLeagueSettings);
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : String(e));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const apply = () => {
+    if (!found) return;
+    const l = found.league;
+    setLeague({
+      ...league,
+      presetId: "custom",
+      format: l.format,
+      teams: Math.max(4, Math.min(20, l.teams)),
+      slots: l.slots,
+      bench: l.bench,
+      scoring: l.format === "points" ? l.scoring : league.scoring,
+      cats: l.format === "cats" && l.cats.length ? l.cats : league.cats,
+      punts: l.format === "cats" ? league.punts.filter((c) => l.cats.includes(c)) : league.punts,
+    });
+    setDraft({
+      ...draft,
+      rounds: Math.max(5, Math.min(20, found.rounds)),
+      mySlot: Math.max(1, Math.min(l.teams, found.mySlot ?? draft.mySlot)),
+    });
+    setApplied(true);
+  };
+
+  const label = (k: string) => SCORING_KEYS.find((x) => x.k === k)?.label ?? k.toUpperCase();
+  const signed = (n: number) => (n > 0 ? `+${n}` : String(n));
+
+  return (
+    <div className="lg:col-span-2">
+      <Card title="Import from ESPN">
+        <div className="flex flex-wrap items-center gap-2 text-sm">
+          <input
+            value={leagueId}
+            onChange={(e) => setLeagueId(e.target.value.replace(/\D/g, ""))}
+            onKeyDown={(e) => e.key === "Enter" && load()}
+            inputMode="numeric"
+            placeholder="ESPN league ID"
+            aria-label="ESPN league ID"
+            className="input w-40"
+          />
+          <button onClick={load} disabled={busy} className="btn-accent disabled:opacity-60">
+            {busy ? "Reading…" : "Read my league's settings"}
+          </button>
+          <span className="text-xs text-muted">
+            The number after leagueId= in your league&apos;s URL. Leave blank to use the server&apos;s league.
+          </span>
+        </div>
+        {err && <p className="mt-3 text-sm text-red-700">{err}</p>}
+        {found && (
+          <div className="mt-3 rounded-lg border border-line bg-bg p-3 text-sm">
+            <div className="font-semibold">{found.name.trim()}</div>
+            <div className="mt-0.5 text-xs text-muted">
+              {found.league.format === "points" ? "Points" : "Categories"} · {found.league.teams} teams · {found.rounds} rounds
+              {found.mySlot != null && ` · you draft at slot ${found.mySlot}`}
+            </div>
+            <div className="mt-2 flex flex-wrap gap-1.5 text-xs">
+              {found.league.format === "points"
+                ? Object.entries(found.league.scoring).map(([k, v]) => (
+                    <span key={k} className="rounded bg-fg/5 px-1.5 py-0.5 tabular-nums">{label(k)} {signed(v ?? 0)}</span>
+                  ))
+                : found.league.cats.map((c) => (
+                    <span key={c} className="rounded bg-fg/5 px-1.5 py-0.5 uppercase">{c}</span>
+                  ))}
+            </div>
+            <div className="mt-2 flex flex-wrap gap-1.5 text-xs text-muted">
+              {(Object.entries(found.league.slots) as [Slot, number][]).filter(([, n]) => n > 0).map(([sl, n]) => (
+                <span key={sl} className="rounded bg-fg/5 px-1.5 py-0.5">{sl === "UT" ? "UTIL" : sl} ×{n}</span>
+              ))}
+              <span className="rounded bg-fg/5 px-1.5 py-0.5">Bench ×{found.league.bench}</span>
+            </div>
+            {found.notes.map((n) => <p key={n} className="mt-2 text-xs text-muted">{n}</p>)}
+            <div className="mt-3 flex items-center gap-3">
+              <button onClick={apply} disabled={applied} className="btn-accent disabled:opacity-60">Apply these settings</button>
+              {applied && <span className="text-xs text-emerald-700">Applied. Rankings now use this league&apos;s settings.</span>}
+            </div>
+          </div>
+        )}
+      </Card>
+    </div>
+  );
+}
+
 function Row({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div className="flex items-center gap-3">
@@ -127,7 +233,7 @@ function Row({ label, children }: { label: string; children: React.ReactNode }) 
 function Toggle({ on, label, onClick, danger }: { on: boolean; label: string; onClick: () => void; danger?: boolean }) {
   return (
     <button onClick={onClick}
-      className={`rounded-md border px-2.5 py-1 text-xs uppercase ${on ? (danger ? "border-red-400 bg-red-500/20" : "border-accent bg-accent/20") : "border-line text-muted"}`}>
+      className={`rounded-full border px-3 py-1 text-xs uppercase ${on ? (danger ? "border-red-300 bg-red-500/10 text-red-700" : "border-ink bg-ink text-white") : "border-line bg-panel text-muted"}`}>
       {label}
     </button>
   );

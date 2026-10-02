@@ -1,11 +1,14 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { League, Valued } from "@/lib/engine";
 import { DraftState, fillLineup, nextPicksFor, recommend, teamCatProfile, teamForPick } from "@/lib/draft";
 import { Card, PlayerCell, ValueCell, VsEspn, ZChip, fmt } from "./ui";
 import { Paywall } from "./Paywall";
 import type { Board } from "./App";
+import { useStored } from "@/lib/useStored";
+
+const SYNC_MS = 5000;
 
 interface Props {
   board: Board;
@@ -37,8 +40,42 @@ export default function DraftBoard({ board, league, draft, setDraft }: Props) {
   const recs = useMemo(() => recommend(avail, myRoster, league, pickNo, myNext), [avail, myRoster, league, pickNo, myNext]);
   const picksUntilMe = myNext.length ? myNext[0] - pickNo : null;
 
+  // Live sync: poll ESPN's draft and replace our picks with theirs.
+  const [leagueId, setLeagueId] = useStored("cv.espnLeagueId", "");
+  const [sync, setSync] = useState(false);
+  const [syncInfo, setSyncInfo] = useState<{ ok: boolean; text: string } | null>(null);
+  const draftRef = useRef(draft);
+  draftRef.current = draft;
+  useEffect(() => {
+    if (!sync) return;
+    let stop = false;
+    let busy = false;
+    const tick = async () => {
+      if (busy) return;
+      busy = true;
+      try {
+        const r = await fetch(`/api/draft-sync?leagueId=${encodeURIComponent(leagueId.trim())}`, { cache: "no-store" });
+        const j = await r.json();
+        if (stop) return;
+        if (!r.ok) throw new Error(j.error ?? r.statusText);
+        const picks: number[] = j.picks ?? [];
+        const cur = draftRef.current;
+        if (picks.length !== cur.picks.length || picks.some((id, i) => id !== cur.picks[i])) setDraft({ ...cur, picks });
+        const state = j.inProgress ? "draft in progress" : j.drafted ? "draft complete" : "draft not started";
+        setSyncInfo({ ok: true, text: `${picks.length} picks from ESPN · ${state} · ${new Date().toLocaleTimeString()}` });
+      } catch (e) {
+        if (!stop) setSyncInfo({ ok: false, text: e instanceof Error ? e.message : String(e) });
+      } finally {
+        busy = false;
+      }
+    };
+    tick();
+    const t = setInterval(tick, SYNC_MS);
+    return () => { stop = true; clearInterval(t); };
+  }, [sync, leagueId, setDraft]);
+
   const pick = (id: number) => {
-    if (pickNo >= total) return;
+    if (sync || pickNo >= total) return;
     setDraft({ ...draft, picks: [...draft.picks, id] });
     setQ("");
   };
@@ -60,12 +97,12 @@ export default function DraftBoard({ board, league, draft, setDraft }: Props) {
         {/* Status bar */}
         <div
           className={`rounded-xl border p-4 flex flex-wrap items-center gap-4 ${
-            myTurn ? "border-accent bg-accent/10" : "border-line bg-panel"
+            myTurn ? "border-accent/50 bg-accent/5" : "border-line bg-panel"
           }`}
         >
           <div>
             <div className="text-xs uppercase tracking-wide text-muted">Pick</div>
-            <div className="text-2xl font-bold tabular-nums">
+            <div className="text-2xl font-medium tracking-tight tabular-nums">
               {pickNo < total ? `${Math.floor(pickNo / teams) + 1}.${(pickNo % teams) + 1}` : "Done"}
               <span className="text-sm text-muted font-normal"> (#{pickNo + 1})</span>
             </div>
@@ -83,8 +120,9 @@ export default function DraftBoard({ board, league, draft, setDraft }: Props) {
             </div>
           )}
           <div className="ml-auto flex gap-2">
-            <button onClick={undo} disabled={!pickNo} className="btn-ghost">Undo</button>
+            <button onClick={undo} disabled={!pickNo || sync} className="btn-ghost">Undo</button>
             <button
+              disabled={sync}
               onClick={() => {
                 if (armed) { setDraft({ ...draft, picks: [] }); setArmed(false); }
                 else { setArmed(true); setTimeout(() => setArmed(false), 3000); }
@@ -96,6 +134,33 @@ export default function DraftBoard({ board, league, draft, setDraft }: Props) {
           </div>
         </div>
 
+        {/* ESPN live sync */}
+        <div className="flex flex-wrap items-center gap-3 rounded-xl border border-line bg-panel px-4 py-3 text-sm">
+          <label className="flex cursor-pointer items-center gap-2 font-medium">
+            <input
+              type="checkbox"
+              checked={sync}
+              onChange={(e) => { setSync(e.target.checked); if (!e.target.checked) setSyncInfo(null); }}
+            />
+            Sync from ESPN
+          </label>
+          <input
+            value={leagueId}
+            onChange={(e) => setLeagueId(e.target.value.replace(/\D/g, ""))}
+            disabled={sync}
+            inputMode="numeric"
+            placeholder="ESPN league ID"
+            aria-label="ESPN league ID"
+            className="input w-36 disabled:opacity-60"
+          />
+          <span className={`min-w-0 text-xs ${syncInfo && !syncInfo.ok ? "text-red-700" : "text-muted"}`}>
+            {syncInfo?.text ??
+              (sync
+                ? "Connecting to ESPN…"
+                : "Picks fill in from your ESPN draft room every 5 seconds. Leave the ID blank to use the server's league.")}
+          </span>
+        </div>
+
         {/* Recommendations */}
         <Card title={myTurn ? "Your pick — recommended" : `Plan for your pick at #${(myNext[0] ?? pickNo) + 1}`}>
           <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
@@ -103,8 +168,8 @@ export default function DraftBoard({ board, league, draft, setDraft }: Props) {
               <button
                 key={r.v.p.id}
                 onClick={() => pick(r.v.p.id)}
-                className={`text-left rounded-lg border p-3 hover:border-accent transition ${
-                  i === 0 ? "border-accent/60 bg-accent/5" : "border-line bg-bg"
+                className={`text-left rounded-lg border p-3 hover:border-fg/40 transition ${
+                  i === 0 ? "border-fg/30 bg-sunken" : "border-line bg-panel"
                 }`}
               >
                 <div className="flex items-start justify-between gap-2">
@@ -117,7 +182,7 @@ export default function DraftBoard({ board, league, draft, setDraft }: Props) {
                 <div className="mt-1.5 text-sm"><ValueCell v={r.v} league={league} /></div>
                 <div className="mt-1 flex flex-wrap gap-1">
                   {r.reasons.map((s) => (
-                    <span key={s} className={`text-[10px] rounded px-1.5 py-0.5 ${r.canWait && s.startsWith("ADP") ? "bg-sky-500/15 text-sky-200" : "bg-white/5 text-muted"}`}>{s}</span>
+                    <span key={s} className={`text-[10px] rounded px-1.5 py-0.5 ${r.canWait && s.startsWith("ADP") ? "bg-sky-500/15 text-sky-800" : "bg-fg/5 text-muted"}`}>{s}</span>
                   ))}
                 </div>
               </button>
@@ -160,7 +225,7 @@ export default function DraftBoard({ board, league, draft, setDraft }: Props) {
               <tbody>
                 {shown.slice(0, 80).map((v) => {
                   return (
-                    <tr key={v.p.id} className="border-t border-line/60 hover:bg-white/[.03]">
+                    <tr key={v.p.id} className="border-t border-line/60 hover:bg-fg/[.03]">
                       <td className="py-1.5 pr-2 tabular-nums text-muted">{v.rank}</td>
                       <td className="pr-2 max-w-[220px]"><PlayerCell v={v} /></td>
                       <td className="pr-2 tabular-nums"><ValueCell v={v} league={league} /></td>
@@ -169,7 +234,7 @@ export default function DraftBoard({ board, league, draft, setDraft }: Props) {
                       <td className="whitespace-nowrap pr-2"><VsEspn v={v} league={league} /></td>
                       <td className="pr-2 text-muted">{v.tier}</td>
                       <td className="text-right">
-                        <button onClick={() => pick(v.p.id)} className={myTurn ? "btn-accent" : "btn-ghost"}>
+                        <button onClick={() => pick(v.p.id)} disabled={sync} className={myTurn && !sync ? "btn-accent" : "btn-ghost"}>
                           Draft
                         </button>
                       </td>
@@ -235,7 +300,11 @@ export default function DraftBoard({ board, league, draft, setDraft }: Props) {
                 </li>
               );
             })}
-            {!draft.picks.length && <li className="text-muted">No picks yet. Click Draft as players come off the board.</li>}
+            {!draft.picks.length && (
+              <li className="text-muted">
+                {sync ? "No picks yet. They appear here as your ESPN draft runs." : "No picks yet. Click Draft as players come off the board."}
+              </li>
+            )}
           </ol>
         </Card>
       </div>

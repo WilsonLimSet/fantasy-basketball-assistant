@@ -31,6 +31,16 @@ After deploying, open `/api/players` to check the live feed. It should show `wit
 
 To update every day, run `/update-takes` in Claude Code from this folder, review the summary, and push. If Vercel is connected to the GitHub repo, the update deploys automatically.
 
+## ESPN league sync
+
+- **Live draft sync:** in the Live Draft tab, enter your ESPN league ID and turn on "Sync from ESPN". The app polls `GET /api/draft-sync?leagueId=…` every 5 seconds (ESPN's `mDraftDetail` view) and replaces the board's picks with the real ones.
+- **League settings import:** League Settings → "Import from ESPN" reads `GET /api/league-settings?leagueId=…` (ESPN's `mSettings` view) and offers to apply your real scoring, roster slots, team count and draft slot.
+- Private leagues need `ESPN_LEAGUE_ID`, `ESPN_S2` and `ESPN_SWID` on the server. The cookies are only ever sent for that one league. Both endpoints accept `&season=` and default to `CV_SEASON`.
+
+## In-season module (Adam)
+
+The original in-season assistant lives under `/inseason` (pages), `/api/inseason/*` (routes) and `src/lib/inseason` (logic). Its original README is in `README.adam.md`. The Vercel cron calls `/api/inseason/refresh`.
+
 ## Paywall and payments
 
 - Free users get the top `CV_FREE_LIMIT` players (50 by default) and short mock drafts. A season pass unlocks everything.
