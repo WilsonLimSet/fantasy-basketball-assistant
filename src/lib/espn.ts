@@ -51,7 +51,7 @@ export function toLine(e: EspnStatEntry): StatLine | null {
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-export function parsePlayers(json: any, season: number): Player[] {
+export function parsePlayers(json: any, season: number, outlooks?: Map<number, string>): Player[] {
   const out: Player[] = [];
   for (const wrap of json?.players ?? []) {
     const p = wrap.player ?? wrap;
@@ -66,6 +66,7 @@ export function parsePlayers(json: any, season: number): Player[] {
       new Set((p.eligibleSlots ?? []).map((s: number) => SLOT_POS[s]).filter(Boolean))
     ) as Pos[];
     if (!pos.length && DEFAULT_POS[p.defaultPositionId]) pos.push(DEFAULT_POS[p.defaultPositionId]);
+    if (outlooks && typeof p.seasonOutlook === "string" && p.seasonOutlook.trim()) outlooks.set(p.id, p.seasonOutlook.trim());
     out.push({
       id: p.id,
       name: p.fullName,
@@ -79,6 +80,8 @@ export function parsePlayers(json: any, season: number): Player[] {
       last: lastE ? toLine(lastE) : null,
       proj: projE ? toLine(projE) : null,
       cur: curE ? toLine(curE) : null,
+      age: null,
+      lastNews: typeof p.lastNewsDate === "number" ? p.lastNewsDate : null,
     });
   }
   return out;
@@ -120,6 +123,31 @@ function filters(season: number, limit: number) {
   ];
 }
 
+const ROSTER = "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/teams";
+
+/** Player ages by ESPN id, read from the 30 team rosters. Cached for a day; missing teams are skipped. */
+export async function fetchAges(): Promise<Map<number, number>> {
+  const ages = new Map<number, number>();
+  await Promise.all(
+    Array.from({ length: 30 }, (_, i) => i + 1).map(async (teamId) => {
+      try {
+        const r = await fetch(`${ROSTER}/${teamId}/roster`, {
+          headers: { Accept: "application/json", "User-Agent": "Mozilla/5.0 (compatible; CourtVision/0.1)" },
+          next: { revalidate: 60 * 60 * 24 },
+        });
+        if (!r.ok) return;
+        const j = await r.json();
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        for (const a of (j?.athletes ?? []) as any[]) {
+          const id = Number(a?.id), age = Number(a?.age);
+          if (id > 0 && age > 15 && age < 50) ages.set(id, age);
+        }
+      } catch { /* ages are a refinement; rankings still work without them */ }
+    }),
+  );
+  return ages;
+}
+
 export async function fetchEspnPlayers(season: number, limit = 400) {
   const url = `${BASE}/${season}/segments/0/leaguedefaults/1?view=kona_player_info`;
   const errors: string[] = [];
@@ -137,9 +165,10 @@ export async function fetchEspnPlayers(season: number, limit = 400) {
         errors.push(`${name}: HTTP ${r.status}`);
         continue;
       }
-      const players = parsePlayers(await r.json(), season);
+      const outlooks = new Map<number, string>();
+      const players = parsePlayers(await r.json(), season, outlooks);
       const withStats = players.filter((p) => p.proj || p.last).length;
-      if (withStats >= Math.min(50, players.length / 2)) return { players, source: `espn:${name}` };
+      if (withStats >= Math.min(50, players.length / 2)) return { players, source: `espn:${name}`, outlooks };
       errors.push(`${name}: only ${withStats}/${players.length} players had season stats`);
     } catch (e) {
       errors.push(`${name}: ${String(e)}`);

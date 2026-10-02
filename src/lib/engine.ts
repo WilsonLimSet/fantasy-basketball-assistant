@@ -83,6 +83,18 @@ export const rosterSize = (l: League) =>
 
 /* ---------------- Projection model ---------------- */
 
+const MIN_SAMPLE_GP = 15;
+/** Games a healthy starter plays, and how often you can actually plug a replacement into a missed one. */
+const FULL_SEASON_GAMES = 72;
+const STREAM_FILL_RATE = 0.7;
+const AGE_RISK_FROM = 32;
+
+function halfway(a: StatLine, b: StatLine): StatLine {
+  const out = { ...a };
+  for (const k of STAT_KEYS) out[k] = (a[k] + b[k]) / 2;
+  return out;
+}
+
 export interface Projection {
   line: StatLine; // per game
   games: number;
@@ -96,25 +108,31 @@ export interface Projection {
  */
 export function project(p: Player, take?: Take | null): Projection | null {
   const { proj, cur } = p;
-  let { last } = p;
+  // A handful of games (or a lost season) says nothing about per-game production.
+  const lastGp = p.last?.gp ?? 0;
+  const smallSample = lastGp < MIN_SAMPLE_GP;
+  let last = smallSample && proj ? null : p.last;
   const rookieLine = take ? takeLine(take) : null;
   // Our role-adjusted view of last season (or the rookie projection from the take).
   const ours: StatLine | null = rookieLine ?? (take && last && hasRoleChange(take) ? applyMult(last, take) : null);
   if (ours && !rookieLine) last = ours;
   if (!proj && !last && !cur && !rookieLine) return null;
+  // No usable last season to adjust: apply the take's role change to ESPN's line instead, at half
+  // strength because ESPN's projection already prices in some of the news.
+  const projAdj: StatLine | null =
+    proj && take && !rookieLine && !last && hasRoleChange(take) ? halfway(proj, applyMult(proj, take)) : null;
 
   const line = {} as StatLine;
   let basis: string;
   let wProj = 0, wLast = 0, wCur = 0;
-  const lastGp = p.last?.gp ?? 0;
   const src = rookieLine ?? last;
   if (rookieLine) {
     wProj = proj ? 0.5 : 0; wLast = proj ? 0.5 : 1; basis = "take+espn";
-  } else if (proj && last && (lastGp >= 15 || ours)) {
+  } else if (proj && last) {
     // With an analyst take, our adjusted line gets equal weight with ESPN's projection.
     wProj = ours ? 0.5 : 0.6; wLast = ours ? 0.5 : 0.4; basis = ours ? "take-blend" : "blend";
   } else if (proj) {
-    wProj = 1; basis = "espn-proj";
+    wProj = 1; basis = projAdj ? "espn-proj+take" : "espn-proj";
   } else {
     wLast = 1; basis = ours ? "take" : "last-season";
   }
@@ -125,16 +143,24 @@ export function project(p: Player, take?: Take | null): Projection | null {
     basis += "+current";
   }
   for (const k of STAT_KEYS) {
-    line[k] = (proj?.[k] ?? 0) * wProj + (src?.[k] ?? 0) * wLast + (cur?.[k] ?? 0) * wCur;
+    line[k] = ((projAdj ?? proj)?.[k] ?? 0) * wProj + (src?.[k] ?? 0) * wLast + (cur?.[k] ?? 0) * wCur;
   }
   // Games: ESPN projections tend to be optimistic for injury-prone players.
   let games: number;
   if (take?.games != null) games = take.games;
-  else if (proj && lastGp > 0) games = 0.55 * proj.gp + 0.45 * Math.min(lastGp, 82);
+  // One injury-wrecked season is a warning, not a forecast: last season can pull the estimate down
+  // only as far as 70% of ESPN's number.
+  else if (proj && lastGp > 0) games = 0.55 * proj.gp + 0.45 * Math.max(Math.min(lastGp, 82), 0.7 * proj.gp);
   else if (proj) games = proj.gp * 0.95;
   else games = Math.min(lastGp, 78) * 0.95;
   games = Math.max(0, Math.min(games, 79));
   if (p.injury === "OUT" && take?.games == null) games *= 0.85;
+  if (take?.games == null) {
+    // Availability falls off with age: 2% fewer games per year past 32, up to 20%.
+    if (p.age != null && p.age > AGE_RISK_FROM) { games *= Math.max(0.8, 1 - 0.02 * (p.age - AGE_RISK_FROM)); basis += "+age"; }
+    // Unsigned with no ESPN projection: he may not have a job, let alone last season's role.
+    if (p.team === "FA" && !proj) { games *= 0.4; basis += "+unsigned"; }
+  }
   line.gp = games;
   return { line, games, basis };
 }
@@ -259,7 +285,12 @@ export function valuePlayers(players: Player[], league: League, useTakes = true)
 
   const valued: Valued[] = scored.map((x) => {
     const r = x.p.pos.length ? Math.min(...x.p.pos.map((pp) => repl[pp])) : Math.max(...Object.values(repl));
-    return { ...x, vorp: x.total - r, rank: 0, posRank: {}, tier: 0, take: takeOf.get(x.p.id) ?? null };
+    // In points leagues a missed game isn't a zero: a replacement-level player fills the slot most
+    // of the time. Without this credit, anyone with injury risk is punished twice.
+    const missed = league.format === "points" && r > 0 && !x.proj.basis.includes("unsigned")
+      ? STREAM_FILL_RATE * (r / FULL_SEASON_GAMES) * Math.max(0, FULL_SEASON_GAMES - x.proj.games)
+      : 0;
+    return { ...x, vorp: x.total - r + missed, rank: 0, posRank: {}, tier: 0, take: takeOf.get(x.p.id) ?? null };
   });
   valued.sort((a, b) => b.vorp - a.vorp);
   const posCount: Record<string, number> = {};

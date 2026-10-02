@@ -21,6 +21,8 @@ export interface Player {
   last: StatLine | null; // last season actual, per game
   proj: StatLine | null; // ESPN projection, per game
   cur: StatLine | null; // current season actual (in-season)
+  age: number | null; // from ESPN team rosters; null when unknown (e.g. free agents)
+  lastNews: number | null; // ms timestamp of the latest ESPN news item
 }
 
 export interface PlayersPayload {
