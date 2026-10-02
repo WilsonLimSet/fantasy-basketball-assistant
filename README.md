@@ -1,132 +1,69 @@
-# Adam - ESPN Fantasy Basketball Assistant
+# CourtVision: fantasy basketball draft assistant
 
-Smart alerts for your ESPN Fantasy Basketball league. Get notified via Telegram when something actually matters - no noise, just actionable insights.
+This app gives you rankings and a live draft board for your league's exact scoring settings: ESPN or Yahoo, points or categories.
 
-## What It Does
-
-- **Smart Injury Alerts**: When a high-usage star gets injured, alerts you if it affects YOUR roster or watchlist
-- **Usage Boost Detection**: "Kawhi is OUT - your Norman Powell should see MORE usage"
-- **League Activity Tracking**: Alerts when a league mate drops a star-level player
-- **Watchlist Snipe Alerts**: Know when someone picks up a player you were watching
-- **Automatic ESPN Watchlist Sync**: Uses your ESPN watchlist, no manual setup
-
-## What It Doesn't Do
-
-- No auto-transactions (you stay in control)
-- No spam about every injury (only high-impact players matter)
-- No generic "top adds" lists (ESPN already shows those)
-
-## Quick Setup (15 mins)
-
-### 1. Clone & Install
+## Run it
 
 ```bash
-git clone https://github.com/yourusername/adam.git
-cd adam
 npm install
+npm run dev            # http://localhost:3000, pulls live ESPN data
 ```
 
-### 2. Get Your ESPN Cookies
-
-1. Go to [ESPN Fantasy Basketball](https://fantasy.espn.com/basketball) and log in
-2. Open DevTools: `Cmd+Option+I` (Mac) or `F12` (Windows)
-3. Go to **Application** tab → **Cookies** → `https://fantasy.espn.com`
-4. Copy these values:
-   - `espn_s2` - long string starting with `AE...`
-   - `SWID` - looks like `{XXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXXX}`
-5. Get your **League ID** from the URL: `fantasy.espn.com/basketball/league?leagueId=12345678`
-6. Get your **Team ID** by clicking your team - it's in the URL: `teamId=6`
-
-### 3. Set Up Telegram Bot
-
-1. Open Telegram, search for `@BotFather`
-2. Send `/newbot`, follow prompts, save the token
-3. Start a chat with your new bot (send it any message)
-4. Get your chat ID:
-   ```bash
-   curl "https://api.telegram.org/bot<YOUR_TOKEN>/getUpdates"
-   ```
-   Look for `"chat":{"id":123456789` - that number is your chat ID
-
-### 4. Configure Environment
+To work offline with synthetic data:
 
 ```bash
-cp .env.example .env.local
+node scripts/make-fixture.mjs
+CV_MOCK_FILE=$PWD/.data/espn-mock.json npm run dev
 ```
 
-Edit `.env.local`:
-```env
-# ESPN (Required)
-ESPN_S2=your_espn_s2_cookie_here
-ESPN_SWID={YOUR-SWID-HERE}
-ESPN_LEAGUE_ID=12345678
-ESPN_SEASON=2026
-ESPN_MY_TEAM_ID=1
-
-# Telegram (Required for alerts)
-TELEGRAM_BOT_TOKEN=your_bot_token_here
-TELEGRAM_CHAT_ID=your_chat_id_here
-```
-
-### 5. Test Locally
+## Deploy to Vercel
 
 ```bash
-npm run dev
+npx vercel            # first time: link or create the project
+npx vercel --prod
 ```
 
-Visit `http://localhost:3000/api/refresh` - you should see a JSON response with your league data.
+After deploying, open `/api/players` to check the live feed. It should show `withProj`, `withLast` and `withAdp` counts in the hundreds.
 
-### 6. Deploy to Vercel
+## Daily news updates (the takes)
 
-```bash
-npm i -g vercel
-vercel
-```
+`research/raw-takes.json` holds sourced analyst takes: injuries, trades, role changes and rookies. Each take carries stat multipliers, a games estimate and a source link. `node scripts/build-takes.mjs` merges them into `src/data/takes.json`, which drives both the projections and the News & Takes feed.
 
-Add your environment variables in Vercel Dashboard → Settings → Environment Variables.
+To update every day, run `/update-takes` in Claude Code from this folder, review the summary, and push. If Vercel is connected to the GitHub repo, the update deploys automatically.
 
-The cron job runs every 12 hours automatically (`vercel.json` is already configured).
+## Paywall and payments
 
-## How Smart Alerts Work
+- Free users get the top `CV_FREE_LIMIT` players (50 by default) and short mock drafts. A season pass unlocks everything.
+- Create a Stripe **Payment Link** and set its after-payment redirect to `https://YOUR-DOMAIN/api/unlock?session_id={CHECKOUT_SESSION_ID}`. The server checks the payment with Stripe, sets a signed cookie, and shows the buyer a license key they can use to restore access on other devices.
+- Environment variables:
 
-We only alert on **high-usage stars** (25+ projected fantasy points). Role players getting injured doesn't matter for usage redistribution.
+| Variable | Purpose |
+| --- | --- |
+| `STRIPE_PAYMENT_LINK` | URL of the buy button |
+| `STRIPE_SECRET_KEY` | `sk_live_...`, used to verify payments |
+| `CV_SECRET` | Long random string that signs cookies and license keys (set before launch) |
+| `CV_PRICE_LABEL` | Price shown in the UI, e.g. "$19 season pass" |
+| `CV_ACCESS_CODES` | Comma-separated free codes for friends and testers |
+| `CV_PASS_EXPIRES` | When passes expire, e.g. `2027-07-01T00:00:00Z` |
+| `CV_FREE_LIMIT` | Number of players shown free (default 50) |
 
-| Scenario | Alert? | Why |
-|----------|--------|-----|
-| Kawhi (star) injured, you have Norman Powell | YES | Norman's usage goes UP |
-| Zubac (role player) injured, you have Harden | NO | Zubac doesn't affect Harden's touches |
-| League mate drops 40-point player | YES | Rare opportunity to grab a star |
-| League mate drops 20-point player | NO | Not worth the noise |
-| Someone adds your watchlist player | YES | You missed out, update your watchlist |
+## How it works
 
-## Files That Matter
+- **Data:** the app reads ESPN's public fantasy endpoint (`kona_player_info`) on the server and caches it for 6 hours. Each player record includes last season's stats, ESPN's projection for the new season, ESPN's ADP, injury status and position eligibility.
+- **Projection** (`src/lib/engine.ts → project`):
+  - Per-game stats are 60% ESPN's projection and 40% last season's actual numbers. When a player has a sourced take, last season is first adjusted by the take's role multipliers, and the mix becomes 50/50. Rookies use the take's projected line. Injury takes override games played.
+  - Games played is a blend of ESPN's estimate and last season's real total, because ESPN is optimistic about injury-prone players.
+  - In season, current stats get more weight as the sample grows.
+- **Value:**
+  - *Points leagues:* fantasy points per game × projected games.
+  - *Category leagues:* z-scores against the draftable pool. FG% and FT% are weighted by shot volume, and you can punt categories.
+  - Both formats then subtract replacement level, which is found by filling every team's lineup slots league-wide. That builds positional scarcity into the rankings.
+- **Draft board:** tracks snake-draft order and recommends your next pick. It weighs value, open roster slots and your weakest categories. It also compares ADP to your next two picks to flag "can wait" and "likely gone".
+- **Format Edges:** shows the players whose rank changes most between two formats, for example ESPN points vs Yahoo points.
 
-```
-src/
-├── lib/
-│   ├── espnClient.ts    # ESPN API calls
-│   ├── smartAlerts.ts   # Alert logic (this is the brain)
-│   └── telegram.ts      # Telegram messaging
-├── app/api/
-│   └── refresh/route.ts # Cron endpoint
-└── types/
-    └── index.ts         # Data types
-```
+## Roadmap to a paid product
 
-## FAQ
-
-**Q: How do I find my Team ID?**
-Click on your team in ESPN, look at the URL for `teamId=X`
-
-**Q: ESPN cookies expired?**
-Re-copy them from DevTools. They last a few months usually.
-
-**Q: Can I change alert frequency?**
-Edit `vercel.json` - currently set to every 12 hours (`0 */12 * * *`)
-
-**Q: Is this against ESPN ToS?**
-It's read-only personal use. No automation, no scraping at scale.
-
-## License
-
-MIT - do whatever you want with it.
+1. Sync with private ESPN leagues (`espn_s2` / `SWID` cookies) and Yahoo leagues (OAuth). That allows auto-importing settings and draft picks.
+2. In-season tools: waiver add/drop scores, a weekly games-played grid, and injury and news alerts for a watchlist via Telegram or push.
+3. Accounts (Clerk or Supabase) and Stripe, with a free tier (rankings) and a paid tier (sync, alerts, in-season tools).
+4. A licensed data feed before charging. ESPN's endpoint is unofficial and has no commercial license.

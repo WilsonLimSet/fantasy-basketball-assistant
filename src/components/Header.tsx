@@ -9,35 +9,36 @@ export function Header() {
   return (
     <header className="header">
       <div className="header-content">
-        <Link href="/" className="logo">
+        <Link href="/inseason" className="logo">
           <span>🏀</span>
           <span>Adam</span>
         </Link>
         <nav className="nav">
           <Link
-            href="/"
-            className={pathname === '/' ? 'active' : ''}
+            href="/inseason"
+            className={pathname === '/inseason' ? 'active' : ''}
           >
             Dashboard
           </Link>
           <Link
-            href="/waivers"
-            className={pathname === '/waivers' ? 'active' : ''}
+            href="/inseason/waivers"
+            className={pathname === '/inseason/waivers' ? 'active' : ''}
           >
             Waivers
           </Link>
           <Link
-            href="/weekly"
-            className={pathname === '/weekly' ? 'active' : ''}
+            href="/inseason/weekly"
+            className={pathname === '/inseason/weekly' ? 'active' : ''}
           >
             Weekly Plan
           </Link>
           <Link
-            href="/connect"
-            className={pathname === '/connect' ? 'active' : ''}
+            href="/inseason/connect"
+            className={pathname === '/inseason/connect' ? 'active' : ''}
           >
             Connect
           </Link>
+          <Link href="/">Draft Kit</Link>
         </nav>
       </div>
     </header>
