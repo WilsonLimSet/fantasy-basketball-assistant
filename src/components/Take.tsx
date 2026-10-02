@@ -18,13 +18,17 @@ export function TakeBadge({ take }: { take: Take }) {
   const k = KIND_STYLE[take.kind];
   return (
     <>
-      <button
-        onClick={(e) => { e.stopPropagation(); setOpen(true); }}
+      {/* A span, not a button: this badge often sits inside a clickable card. */}
+      <span
+        role="button"
+        tabIndex={0}
+        onClick={(e) => { e.stopPropagation(); e.preventDefault(); setOpen(true); }}
+        onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.stopPropagation(); e.preventDefault(); setOpen(true); } }}
         title={take.headline}
-        className={`ml-1.5 inline-flex items-center gap-0.5 rounded border px-1 text-[10px] font-semibold leading-4 ${k.cls}`}
+        className={`ml-1.5 inline-flex cursor-pointer items-center gap-0.5 rounded border px-1 text-[10px] font-semibold leading-4 ${k.cls}`}
       >
         {k.icon} CV
-      </button>
+      </span>
       {open && createPortal(<TakeModal take={take} onClose={() => setOpen(false)} />, document.body)}
     </>
   );

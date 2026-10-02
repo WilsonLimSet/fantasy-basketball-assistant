@@ -11,6 +11,11 @@ const SECRET = process.env.CV_SECRET ?? "dev-secret-change-me";
 export const PASS_COOKIE = "cv_pass";
 export const SEASON_END = Date.parse(process.env.CV_PASS_EXPIRES ?? "2027-07-01T00:00:00Z");
 export const FREE_LIMIT = Number(process.env.CV_FREE_LIMIT ?? 50);
+/**
+ * The paywall only applies once payments are set up (STRIPE_PAYMENT_LINK) or it is forced with
+ * CV_PAYWALL=on. Until then everyone gets the full product.
+ */
+export const PAYWALL_ON = !!process.env.STRIPE_PAYMENT_LINK || process.env.CV_PAYWALL === "on";
 
 const sign = (s: string) => createHmac("sha256", SECRET).update(s).digest("base64url");
 

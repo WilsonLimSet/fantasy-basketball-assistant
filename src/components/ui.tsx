@@ -2,6 +2,7 @@
 
 import { Valued, League } from "@/lib/engine";
 import { TakeBadge } from "./Take";
+import { usePlayerSheet } from "./PlayerSheet";
 
 export const fmt = (n: number, d = 1) => (Number.isFinite(n) ? n.toFixed(d) : "–");
 
@@ -29,7 +30,7 @@ export function Headshot({ id, name, size = 32 }: { id: number; name: string; si
         alt={name}
         width={size}
         height={size}
-        loading="lazy"
+        loading={size >= 64 ? "eager" : "lazy"}
         onError={hideOnError}
         className="h-full w-full object-cover object-top"
       />
@@ -54,13 +55,32 @@ export function TeamLogo({ team, size = 14 }: { team: string; size?: number }) {
   );
 }
 
+/** Player name that opens the profile panel. A span, because it often sits inside a button. */
+export function PlayerName({ v, className = "" }: { v: Valued; className?: string }) {
+  const open = usePlayerSheet();
+  if (!open) return <span className={className}>{v.p.name}</span>;
+  const go = (e: React.SyntheticEvent) => { e.stopPropagation(); e.preventDefault(); open(v); };
+  return (
+    <span
+      role="link"
+      tabIndex={0}
+      title={`${v.p.name}: notes, projection and news`}
+      onClick={go}
+      onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") go(e); }}
+      className={`cursor-pointer decoration-fg/30 underline-offset-2 hover:underline ${className}`}
+    >
+      {v.p.name}
+    </span>
+  );
+}
+
 export function PlayerCell({ v }: { v: Valued }) {
   return (
     <div className="flex min-w-0 items-center gap-2.5">
       <Headshot id={v.p.id} name={v.p.name} />
       <div className="min-w-0">
         <div className="truncate font-medium">
-          {v.p.name}
+          <PlayerName v={v} />
           <InjuryBadge s={v.p.injury} />
           {v.take && <TakeBadge take={v.take} />}
         </div>

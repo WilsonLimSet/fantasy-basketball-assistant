@@ -31,6 +31,12 @@ After deploying, open `/api/players` to check the live feed. It should show `wit
 
 To update every day, run `/update-takes` in Claude Code from this folder, review the summary, and push. If Vercel is connected to the GitHub repo, the update deploys automatically.
 
+## Player notes, news and draft review
+
+- **Player profile:** click any player name to open his panel: our projection next to ESPN's and last season's, plain-language reasons for his rank (`src/lib/insights.ts`), our sourced take, ESPN's season outlook and his latest news. Outlook and news come live from ESPN through `GET /api/player/[id]` and are never stored in the repo.
+- **Latest news:** the News & Takes tab has a "Latest news" view built from the most recently updated players.
+- **Mock draft review:** a finished mock is graded against every other team, with best value pick, biggest reach, team strengths and holes, a pick-by-pick verdict and league standings.
+
 ## ESPN league sync
 
 - **Live draft sync:** in the Live Draft tab, enter your ESPN league ID and turn on "Sync from ESPN". The app polls `GET /api/draft-sync?leagueId=…` every 5 seconds (ESPN's `mDraftDetail` view) and replaces the board's picks with the real ones.
@@ -44,6 +50,7 @@ The original in-season assistant lives under `/inseason` (pages), `/api/inseason
 ## Paywall and payments
 
 - Free users get the top `CV_FREE_LIMIT` players (50 by default) and short mock drafts. A season pass unlocks everything.
+- The paywall is **off until payments are configured**: with no `STRIPE_PAYMENT_LINK`, everyone gets the full product. Set `CV_PAYWALL=on` to force it on without Stripe.
 - Create a Stripe **Payment Link** and set its after-payment redirect to `https://YOUR-DOMAIN/api/unlock?session_id={CHECKOUT_SESSION_ID}`. The server checks the payment with Stripe, sets a signed cookie, and shows the buyer a license key they can use to restore access on other devices.
 - Environment variables:
 
@@ -63,10 +70,13 @@ The original in-season assistant lives under `/inseason` (pages), `/api/inseason
 - **Projection** (`src/lib/engine.ts → project`):
   - Per-game stats are 60% ESPN's projection and 40% last season's actual numbers. When a player has a sourced take, last season is first adjusted by the take's role multipliers, and the mix becomes 50/50. Rookies use the take's projected line. Injury takes override games played.
   - Games played is a blend of ESPN's estimate and last season's real total, because ESPN is optimistic about injury-prone players.
+    One lost season can pull that estimate down only as far as 70% of ESPN's number. Players older than 32 lose 2% of their games per extra year (up to 20%), using ages from ESPN's team rosters. Unsigned players with no ESPN projection are heavily discounted.
+  - A last season of fewer than 15 games is ignored for per-game production; ESPN's projection is used instead, with any take applied to it at half strength.
   - In season, current stats get more weight as the sample grows.
 - **Value:**
   - *Points leagues:* fantasy points per game × projected games.
   - *Category leagues:* z-scores against the draftable pool. FG% and FT% are weighted by shot volume, and you can punt categories.
+  - In points leagues, a missed game is credited at 70% of replacement level, because you can usually start someone else. Without that, injury-risk stars were being punished twice.
   - Both formats then subtract replacement level, which is found by filling every team's lineup slots league-wide. That builds positional scarcity into the rankings.
 - **Draft board:** tracks snake-draft order and recommends your next pick. It weighs value, open roster slots and your weakest categories. It also compares ADP to your next two picks to flag "can wait" and "likely gone".
 - **Format Edges:** shows the players whose rank changes most between two formats, for example ESPN points vs Yahoo points.

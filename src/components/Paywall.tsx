@@ -4,6 +4,8 @@ import { useState } from "react";
 
 export interface PassInfo {
   paid: boolean;
+  /** Has a season pass (as opposed to the paywall simply being off). */
+  pro?: boolean;
   email: string | null;
   paymentLink: string | null;
   priceLabel: string;

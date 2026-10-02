@@ -1,14 +1,14 @@
 import { NextResponse } from "next/server";
 import { getPlayers } from "@/lib/data";
 import { edgeTags, leagueFromPreset, valuePlayers } from "@/lib/engine";
-import { currentPass, FREE_LIMIT } from "@/lib/auth";
+import { currentPass, FREE_LIMIT, PAYWALL_ON } from "@/lib/auth";
 
 export async function GET(req: Request) {
   const u = new URL(req.url);
   const a = u.searchParams.get("a") ?? "espn-points";
   const b = u.searchParams.get("b") ?? "yahoo-points";
   const teams = Number(u.searchParams.get("teams") ?? 10);
-  const pass = await currentPass();
+  const pass = (await currentPass()) || !PAYWALL_ON;
   const topN = pass ? Math.min(250, Number(u.searchParams.get("top") ?? 150)) : FREE_LIMIT;
   const { players } = await getPlayers();
   const ra = new Map(valuePlayers(players, leagueFromPreset(a, teams)).map((v) => [v.p.id, v]));

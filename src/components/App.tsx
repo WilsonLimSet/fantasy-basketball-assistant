@@ -11,6 +11,7 @@ import FormatEdges from "./FormatEdges";
 import LeagueSettings from "./LeagueSettings";
 import News from "./News";
 import { PassInfo } from "./Paywall";
+import { PlayerSheetProvider } from "./PlayerSheet";
 
 type Tab = "kit" | "mock" | "draft" | "news" | "edges" | "settings";
 
@@ -87,6 +88,7 @@ export default function App() {
   ];
 
   return (
+    <PlayerSheetProvider league={league}>
     <div className="min-h-screen">
       <header className="sticky top-0 z-20 border-b border-line bg-bg/90 backdrop-blur">
         <div className="mx-auto flex max-w-7xl flex-wrap items-center gap-x-6 gap-y-2 px-4 py-3">
@@ -119,18 +121,19 @@ export default function App() {
               {board && ` · news ${board.takesUpdated}`}
               {loading && " · updating…"}
             </span>
-            {board?.paid ? (
+            {board?.pro ? (
               <span className="rounded-full border border-accent/30 bg-accent/10 px-2 py-0.5 font-medium text-accent">PRO</span>
-            ) : board?.paymentLink ? (
+            ) : board && !board.paid && board.paymentLink ? (
               <a href={board.paymentLink} className="rounded-full bg-ink px-3 py-1 font-medium text-white hover:bg-ink/85">Unlock all</a>
             ) : null}
           </div>
         </div>
       </header>
 
-      {tab === "kit" && !board?.paid && (
+      {tab === "kit" && !board?.pro && (
         <section className="border-b border-line">
-          <div className="mx-auto max-w-7xl px-4 py-10">
+          <div className="mx-auto grid max-w-7xl gap-8 px-4 py-12 lg:grid-cols-[1fr_auto] lg:items-end">
+            <div>
             <h1 className="text-3xl font-medium leading-tight tracking-[-0.03em] sm:text-4xl">
               Rankings for your league,
               <br />
@@ -140,6 +143,29 @@ export default function App() {
               Set your exact scoring once. We re-rank every player for it, then adjust for injuries, trades, role changes
               and media-day news, updated daily with a source for every call. Then mock draft against the ESPN ADP.
             </p>
+            <div className="mt-5 flex flex-wrap gap-2">
+              <button onClick={() => setTab("mock")} className="rounded-full bg-ink px-5 py-2 text-sm font-medium text-white hover:bg-ink/85">
+                Start a mock draft →
+              </button>
+              <button onClick={() => setTab("settings")} className="rounded-full border border-line bg-panel px-5 py-2 text-sm font-medium hover:border-fg/30 hover:bg-sunken">
+                Set up my league
+              </button>
+            </div>
+            </div>
+            {board && (
+              <dl className="grid grid-cols-3 divide-x divide-line rounded-xl border border-line bg-panel text-center shadow-[0_1px_2px_rgba(25,25,25,0.04)]">
+                {[
+                  { k: "Players ranked", v: String(board.total) },
+                  { k: "With a sourced take", v: String(board.valued.filter((x) => x.take).length) },
+                  { k: "News updated", v: new Date(`${board.takesUpdated}T12:00:00`).toLocaleDateString(undefined, { month: "short", day: "numeric" }) },
+                ].map((x) => (
+                  <div key={x.k} className="px-6 py-4">
+                    <dd className="text-2xl font-medium tracking-tight tabular-nums">{x.v}</dd>
+                    <dt className="mt-0.5 whitespace-nowrap text-[11px] uppercase tracking-wide text-muted">{x.k}</dt>
+                  </div>
+                ))}
+              </dl>
+            )}
           </div>
         </section>
       )}
@@ -169,5 +195,6 @@ export default function App() {
         takes and a durability-adjusted games estimate. Not affiliated with ESPN or Yahoo.
       </footer>
     </div>
+    </PlayerSheetProvider>
   );
 }

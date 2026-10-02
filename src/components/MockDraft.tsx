@@ -3,7 +3,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { League, Valued } from "@/lib/engine";
 import { fillLineup, nextPicksFor, recommend, teamForPick } from "@/lib/draft";
-import { Card, PlayerCell, ValueCell, VsEspn, fmt } from "./ui";
+import { Card, Headshot, PlayerCell, PlayerName, ValueCell, VsEspn, fmt } from "./ui";
+import { reviewDraft } from "@/lib/insights";
 import { Paywall } from "./Paywall";
 import type { Board } from "./App";
 
@@ -21,12 +22,6 @@ function cpuPick(avail: Valued[], roster: Valued[], rnd: () => number): Valued {
   let r = rnd() * w.reduce((a, b) => a + b, 0);
   for (let i = 0; i < pool.length; i++) { r -= w[i]; if (r <= 0) return pool[i]; }
   return pool[0];
-}
-
-function teamScore(roster: Valued[], league: League) {
-  const { filled, bench } = fillLineup(roster, league);
-  const starters = filled.reduce((s, f) => s + (f.v?.vorp ?? 0), 0);
-  return starters + 0.35 * bench.reduce((s, v) => s + Math.max(v.vorp, 0), 0);
 }
 
 export default function MockDraft({ board, league }: { board: Board; league: League }) {
@@ -118,23 +113,9 @@ export default function MockDraft({ board, league }: { board: Board; league: Lea
   const shown = avail.filter((v) => !q || v.p.name.toLowerCase().includes(q.toLowerCase())).slice(0, 40);
 
   if (done) {
-    const scores = Array.from({ length: cfg.teams }, (_, t) => ({ t, s: teamScore(rosterOf(t), lg) })).sort((a, b) => b.s - a.s);
-    const place = scores.findIndex((x) => x.t === me) + 1;
-    const pct = 1 - (place - 1) / Math.max(1, cfg.teams - 1);
-    const grade = pct >= 0.9 ? "A" : pct >= 0.7 ? "B+" : pct >= 0.5 ? "B" : pct >= 0.3 ? "C" : "D";
     return (
       <div className="space-y-4">
-        <div className="flex flex-wrap items-center gap-6 rounded-xl border border-line bg-panel p-5 shadow-[0_1px_2px_rgba(25,25,25,0.04)]">
-          <div className="text-5xl font-medium tracking-tight text-fg">{grade}</div>
-          <div>
-            <div className="text-lg font-semibold">Your draft ranks #{place} of {cfg.teams}</div>
-            <div className="text-sm text-muted">Graded on projected starting-lineup value over replacement in your scoring.</div>
-          </div>
-          <div className="ml-auto flex gap-2">
-            <button onClick={start} className="btn-accent">Mock again</button>
-            <button onClick={() => setPicks(null)} className="btn-ghost">Change settings</button>
-          </div>
-        </div>
+        <Review picks={picks} byId={byId} league={lg} me={me} onAgain={start} onSettings={() => setPicks(null)} />
         <DraftGrid picks={picks} cfg={cfg} rounds={maxRounds} me={me} byId={byId} />
         {!board.paid && <Paywall info={board} what="full-length mock drafts" />}
       </div>
@@ -225,6 +206,140 @@ export default function MockDraft({ board, league }: { board: Board; league: Lea
   );
 }
 
+const LABEL_CLS: Record<string, string> = {
+  Steal: "border-emerald-500/30 bg-emerald-500/10 text-emerald-700",
+  Value: "border-emerald-500/20 bg-emerald-500/5 text-emerald-700",
+  Fair: "border-line bg-sunken text-muted",
+  Reach: "border-red-500/30 bg-red-500/10 text-red-700",
+};
+
+/** Post-draft review: grade, what went right and wrong, pick-by-pick value and league standings. */
+function Review({ picks, byId, league, me, onAgain, onSettings }: {
+  picks: number[]; byId: Map<number, Valued>; league: League; me: number; onAgain: () => void; onSettings: () => void;
+}) {
+  const r = useMemo(() => reviewDraft(picks, byId, league, me), [picks, byId, league, me]);
+  const n = league.teams;
+  const pickLabel = (k: number) => `${Math.floor(k / n) + 1}.${(k % n) + 1}`;
+  const points = league.format === "points";
+  return (
+    <>
+      <div className="flex flex-wrap items-center gap-6 rounded-xl border border-line bg-panel p-6 shadow-[0_1px_2px_rgba(25,25,25,0.04)]">
+        <div className="flex h-20 w-20 items-center justify-center rounded-full border border-line bg-sunken text-4xl font-medium tracking-tight">{r.mine.grade}</div>
+        <div>
+          <div className="text-xl font-medium tracking-tight">Your draft ranks #{r.mine.place} of {n}</div>
+          <div className="mt-0.5 text-sm text-muted">
+            Graded on projected starting-lineup value over replacement in your scoring
+            {points && <> · starters project <b className="text-fg">{fmt(r.mine.fppg, 0)}</b> fantasy points a night</>}.
+          </div>
+        </div>
+        <div className="ml-auto flex gap-2">
+          <button onClick={onAgain} className="btn-accent">Mock again</button>
+          <button onClick={onSettings} className="btn-ghost">Change settings</button>
+        </div>
+      </div>
+
+      <div className="grid gap-4 md:grid-cols-3">
+        <Tile title="Best value pick">
+          {r.bestPick ? (
+            <>
+              <div className="flex items-center gap-2.5">
+                <Headshot id={r.bestPick.v.p.id} name={r.bestPick.v.p.name} size={40} />
+                <div className="min-w-0">
+                  <div className="truncate font-medium"><PlayerName v={r.bestPick.v} /></div>
+                  <div className="text-xs text-muted">Pick {pickLabel(r.bestPick.k)} (#{r.bestPick.k + 1})</div>
+                </div>
+              </div>
+              <p className="mt-2 text-sm text-muted">Our #{r.bestPick.v.rank} player, taken {r.bestPick.delta} picks later than his value.</p>
+            </>
+          ) : <p className="text-sm text-muted">No pick came at a discount this time.</p>}
+        </Tile>
+        <Tile title="Biggest reach">
+          {r.worstPick && r.worstPick.delta <= -5 ? (
+            <>
+              <div className="flex items-center gap-2.5">
+                <Headshot id={r.worstPick.v.p.id} name={r.worstPick.v.p.name} size={40} />
+                <div className="min-w-0">
+                  <div className="truncate font-medium"><PlayerName v={r.worstPick.v} /></div>
+                  <div className="text-xs text-muted">Pick {pickLabel(r.worstPick.k)} (#{r.worstPick.k + 1})</div>
+                </div>
+              </div>
+              <p className="mt-2 text-sm text-muted">Our #{r.worstPick.v.rank} player, taken {-r.worstPick.delta} picks early.</p>
+            </>
+          ) : <p className="text-sm text-muted">No real reaches. Every pick was at or after his value.</p>}
+        </Tile>
+        <Tile title="Team shape">
+          <dl className="space-y-1.5 text-sm">
+            <div><dt className="inline text-muted">Strong in </dt><dd className="inline">{r.strengths.length ? r.strengths.join(", ") : "nothing stands out"}</dd></div>
+            <div><dt className="inline text-muted">Light on </dt><dd className="inline">{r.weaknesses.length ? r.weaknesses.join(", ") : "no clear holes"}</dd></div>
+            {r.openSlots.length > 0 && (
+              <div><dt className="inline text-muted">Unfilled starters </dt><dd className="inline text-red-700">{r.openSlots.join(", ")}</dd></div>
+            )}
+          </dl>
+        </Tile>
+      </div>
+
+      <div className="grid gap-4 lg:grid-cols-[1fr_360px]">
+        <Card title="Your picks">
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead className="text-[11px] uppercase text-muted">
+                <tr className="text-left">
+                  <th className="py-1 pr-2">Pick</th><th className="pr-2">Player</th><th className="pr-2">Value</th>
+                  <th className="pr-2">Our rank</th><th className="pr-2">ADP</th><th className="text-right">Verdict</th>
+                </tr>
+              </thead>
+              <tbody>
+                {r.myPicks.map((x) => (
+                  <tr key={x.k} className="border-t border-line/60">
+                    <td className="py-1.5 pr-2 tabular-nums text-muted">{pickLabel(x.k)} <span className="text-[11px]">#{x.k + 1}</span></td>
+                    <td className="max-w-[220px] pr-2"><PlayerCell v={x.v} /></td>
+                    <td className="whitespace-nowrap pr-2 tabular-nums"><ValueCell v={x.v} league={league} /></td>
+                    <td className="pr-2 tabular-nums">#{x.v.rank}</td>
+                    <td className="pr-2 tabular-nums text-muted">{x.v.p.adp ? fmt(x.v.p.adp, 0) : "–"}</td>
+                    <td className="text-right">
+                      <span className={`rounded-full border px-2 py-0.5 text-[11px] font-medium ${LABEL_CLS[x.label]}`}>
+                        {x.label}{x.label !== "Fair" && ` ${x.delta > 0 ? "+" : ""}${x.delta}`}
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </Card>
+        <Card title="League standings">
+          <ol className="space-y-1 text-sm">
+            {r.teams.map((t) => (
+              <li key={t.t} className={`flex items-center gap-2 rounded-lg px-2 py-1.5 ${t.t === me ? "bg-accent/10" : ""}`}>
+                <span className="w-5 tabular-nums text-muted">{t.place}</span>
+                <span className="w-8 font-medium tabular-nums">{t.grade}</span>
+                <span className={`w-16 shrink-0 whitespace-nowrap ${t.t === me ? "font-medium text-accent" : ""}`}>{t.t === me ? "You" : `Team ${t.t + 1}`}</span>
+                <span className="min-w-0 flex-1 truncate text-xs text-muted">{t.best ? `led by ${t.best.p.name}` : ""}</span>
+                {points && <span className="tabular-nums text-xs text-muted">{fmt(t.fppg, 0)} fp</span>}
+              </li>
+            ))}
+          </ol>
+          {r.leagueSteal && r.leagueSteal.delta > 0 && (
+            <p className="mt-3 border-t border-line pt-3 text-xs text-muted">
+              Steal of the draft: <b className="text-fg">{r.leagueSteal.v.p.name}</b> to {r.leagueSteal.t === me ? "you" : `Team ${r.leagueSteal.t + 1}`} at
+              pick #{r.leagueSteal.k + 1}, {r.leagueSteal.delta} spots after our rank.
+            </p>
+          )}
+        </Card>
+      </div>
+    </>
+  );
+}
+
+function Tile({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <section className="rounded-xl border border-line bg-panel p-4 shadow-[0_1px_2px_rgba(25,25,25,0.04)]">
+      <h3 className="mb-2 text-[11px] font-medium uppercase tracking-wide text-muted">{title}</h3>
+      {children}
+    </section>
+  );
+}
+
 function DraftGrid({ picks, cfg, rounds, me, byId }: { picks: number[]; cfg: Cfg; rounds: number; me: number; byId: Map<number, Valued> }) {
   return (
     <div className="overflow-x-auto rounded-xl border border-line bg-panel p-3">
@@ -246,7 +361,7 @@ function DraftGrid({ picks, cfg, rounds, me, byId }: { picks: number[]; cfg: Cfg
                 const v = byId.get(picks[k]);
                 return (
                   <td key={t} className={`min-w-[88px] rounded px-1.5 py-1 align-top ${t === me ? "bg-accent/10" : "bg-bg"}`}>
-                    <div className="truncate font-medium">{v?.p.name ?? "—"}</div>
+                    <div className="truncate font-medium">{v ? <PlayerName v={v} /> : "—"}</div>
                     <div className="text-muted">{v ? `${v.p.pos.join("/")} · #${v.rank}` : ""}</div>
                   </td>
                 );

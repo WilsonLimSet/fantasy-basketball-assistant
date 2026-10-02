@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { Fragment, useState } from "react";
 import { League, Valued } from "@/lib/engine";
 import { Card, PlayerCell, ValueCell, VsEspn, ZChip, espnRankFor, fmt } from "./ui";
 import { Paywall } from "./Paywall";
@@ -109,7 +109,15 @@ export default function Rankings({ board, league, draftedIds }: { board: Board; 
                 const l = v.proj.line;
                 const newTier = i > 0 && rows[i - 1].tier !== v.tier;
                 return (
-                  <tr key={v.p.id} className={`border-t ${newTier ? "border-fg/25" : "border-line/60"} ${draftedIds.has(v.p.id) ? "opacity-35" : ""}`}>
+                  <Fragment key={v.p.id}>
+                  {(newTier || i === 0) && !q && (
+                    <tr className="bg-sunken/60">
+                      <td colSpan={7 + (league.format === "cats" ? cats.length : 8)} className="px-2 py-1 text-[11px] font-medium uppercase tracking-wide text-muted">
+                        Tier {v.tier}
+                      </td>
+                    </tr>
+                  )}
+                  <tr className={`border-t border-line/60 hover:bg-fg/[.02] ${draftedIds.has(v.p.id) ? "opacity-35" : ""}`}>
                     <td className="py-1.5 pr-2 tabular-nums text-muted">{v.rank}</td>
                     <td className="pr-2 text-muted">{v.tier}</td>
                     <td className="max-w-[240px] pr-2"><PlayerCell v={v} /></td>
@@ -132,6 +140,7 @@ export default function Rankings({ board, league, draftedIds }: { board: Board; 
                         </>
                       )}
                   </tr>
+                  </Fragment>
                 );
               })}
             </tbody>
