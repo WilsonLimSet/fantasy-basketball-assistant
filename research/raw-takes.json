@@ -969,22 +969,6 @@
 "confidence": "med"
 },
 {
-"name": "Jrue Holiday",
-"team": "POR",
-"kind": "fade",
-"mult": {
-"min": 0.88,
-"pts": 0.88,
-"ast": 0.85,
-"fga": 0.88
-},
-"headline": "Morant's arrival threatens Holiday's role",
-"note": "At risk of a smaller role with Morant and Lillard ahead of him.",
-"source": "https://www.rotowire.com/basketball/headlines/jrue-holiday-news-major-backcourt-additions-arriving-531322",
-"date": "2026-07-01",
-"confidence": "med"
-},
-{
 "name": "Keegan Murray",
 "team": "SAC",
 "kind": "boost",
@@ -1374,5 +1358,169 @@
 "source": "https://www.cbssports.com/fantasy/basketball/players/29005044/ausar-thompson",
 "date": "2026-10-01",
 "confidence": "high"
+},
+{
+"name": "Keaton Wagler",
+"team": "LAC",
+"kind": "rookie",
+"games": 70,
+"line": {
+"min": 30.5,
+"pts": 15.0,
+"reb": 3.3,
+"ast": 5.0,
+"stl": 1.0,
+"blk": 0.2,
+"tpm": 1.2,
+"fgm": 5.6,
+"fga": 12.6,
+"ftm": 2.8,
+"fta": 3.4,
+"tov": 2.7
+},
+"headline": "Lue: the No. 5 pick will get 'a lot of on-ball opportunities'",
+"note": "With Brandon Ingram out to start the season and Bradley Beal headed for a bench role, Ty Lue plans to put the ball in the rookie's hands and let him play through mistakes. That sets him up as the second scoring option next to Darius Garland for at least the first two months. Expect usage ahead of efficiency: his summer league shooting was rough.",
+"source": "https://www.rotowire.com/basketball/headlines/keaton-wagler-news-poised-to-handle-ball-often-533025",
+"date": "2026-10-01",
+"confidence": "med"
+},
+{
+"name": "Keaton Wagler",
+"team": "LAC",
+"kind": "rookie",
+"mult": {},
+"headline": "Battling Max Strus for the starting shooting guard spot",
+"note": "Lue says only Garland is a true lock to start; Brook Lopez is likely at center and three spots are open. Wagler and Strus are competing at shooting guard. Wagler was drafted to pair with Garland, but Strus has chemistry with him from Cleveland, so a bench role to open the year is possible.",
+"source": "https://sports.yahoo.com/articles/ty-lue-reveals-clippers-still-100038552.html",
+"date": "2026-10-01",
+"confidence": "med"
+},
+{
+"name": "Darius Garland",
+"team": "LAC",
+"kind": "boost",
+"mult": {
+"pts": 1.06,
+"fga": 1.06,
+"ast": 1.04,
+"tov": 1.04
+},
+"headline": "The only locked-in Clippers starter; the offense runs through him until Ingram returns",
+"note": "Lue called Garland the one true lock in the starting lineup. With Ingram sidelined and Beal coming off the bench, he is the lone proven creator to open the season. Health is the catch: he played 45 games last season.",
+"source": "https://sports.yahoo.com/articles/ty-lue-reveals-clippers-still-100038552.html",
+"date": "2026-10-01",
+"confidence": "high"
+},
+{
+"name": "Ja Morant",
+"team": "POR",
+"kind": "fade",
+"mult": {
+"min": 0.9,
+"pts": 0.9,
+"fga": 0.9,
+"ast": 0.9
+},
+"headline": "Could open the season coming off Portland's bench",
+"note": "Portland is weighing easing Morant in behind Damian Lillard, with Jrue Holiday the likeliest starter in his place. Morant has come off the bench twice in seven seasons. It may be temporary, but it is a real hit to his early-season minutes and usage.",
+"source": "https://www.rotowire.com/basketball/headlines/ja-morant-news-could-start-year-off-bench-533068",
+"date": "2026-10-02",
+"confidence": "med"
+},
+{
+"name": "Jrue Holiday",
+"team": "POR",
+"kind": "new-team",
+"mult": {
+"min": 0.97,
+"pts": 0.95,
+"ast": 0.9,
+"fga": 0.95
+},
+"headline": "Now the favorite to start, with Morant possibly coming off the bench",
+"note": "Earlier in the summer Morant's arrival looked like it would cost Holiday his role. Camp reports now have Holiday as the likely starter if Portland brings Morant off the bench, and playing more on the wing in three-guard lineups. His assists still take a hit next to Lillard and Morant.",
+"source": "https://www.rotowire.com/basketball/headlines/ja-morant-news-could-start-year-off-bench-533068",
+"date": "2026-10-02",
+"confidence": "med"
+},
+{
+"name": "Damian Lillard",
+"team": "POR",
+"kind": "injury",
+"mult": {},
+"headline": "Expected to open camp with Portland's starters",
+"note": "Back from his Achilles tear, Lillard may open camp with the first unit. Portland could use three-guard lineups with Morant and Holiday. The preseason opener against Golden State on Oct 7 is the first look at how they share the ball.",
+"source": "https://www.rotowire.com/basketball/headlines/damian-lillard-news-could-open-camp-with-starters-533070",
+"date": "2026-10-02",
+"confidence": "med"
+},
+{
+"name": "Jimmy Butler",
+"team": "GSW",
+"kind": "injury",
+"games": 28,
+"mult": {
+"min": 0.85
+},
+"headline": "Still months away; a December return 'might be too optimistic'",
+"note": "The Warriors now expect Butler back from his ACL surgery in early 2027, later than the Dec 1 target reported at media day. He is a late-round injury stash only. Podziemski, Lendeborg and Melton absorb the wing minutes until then.",
+"source": "https://www.rotowire.com/basketball/headlines/jimmy-butler-injury-still-months-away-from-returning-533069",
+"date": "2026-10-02",
+"confidence": "high"
+},
+{
+"name": "Kawhi Leonard",
+"team": "TOR",
+"kind": "injury",
+"games": 58,
+"mult": {},
+"headline": "Load management plan in place; no contact work yet in camp",
+"note": "Toronto is ramping him up in phases: no contact drills so far and he is unlikely to play the preseason opener. The team says it has a load management plan for the season, which means scheduled rest days on top of his injury history. Budget for roughly 55 to 60 games.",
+"source": "https://www.cbssports.com/fantasy/basketball/news/raptors-kawhi-leonard-easing-into-camp/",
+"date": "2026-10-01",
+"confidence": "med"
+},
+{
+"name": "Jalen Duren",
+"team": "DET",
+"kind": "boost",
+"mult": {},
+"headline": "Holdout over: signs five-year, $200M fully guaranteed extension",
+"note": "Duren skipped media day and the start of camp during the contract standoff. With the deal done on Oct 1 he rejoins the team with time to play in the preseason. No change to his role; the risk of a slow start is gone.",
+"source": "https://www.rotowire.com/basketball/headlines/jalen-duren-news-inks-five-year-extension-with-detroit-533052",
+"date": "2026-10-01",
+"confidence": "high"
+},
+{
+"name": "P.J. Washington",
+"team": "DAL",
+"kind": "fade",
+"mult": {
+"min": 0.95,
+"pts": 0.95,
+"reb": 0.95,
+"fga": 0.95
+},
+"headline": "Starting spot not guaranteed under Dusty May",
+"note": "May would not commit to Washington as a starter, and rookie Morez Johnson crowds the frontcourt. Washington has come off the bench only four times in 113 games over two seasons in Dallas, so even a small minutes cut would be new.",
+"source": "https://www.rotowire.com/basketball/headlines/pj-washington-news-in-conversation-for-starting-spot-533046",
+"date": "2026-10-01",
+"confidence": "low"
+},
+{
+"name": "Neemias Queta",
+"team": "BOS",
+"kind": "fade",
+"mult": {
+"min": 0.94,
+"pts": 0.94,
+"reb": 0.94,
+"blk": 0.94
+},
+"headline": "In a camp battle with Mitchell Robinson for the starting center job",
+"note": "Mazzulla praised Queta's offensive growth, but he is competing with Robinson to start. If Robinson wins the job or the two split time, Queta's minutes fall short of what last season's line assumes. Wait for a preseason starting lineup before reaching.",
+"source": "https://www.rotowire.com/basketball/headlines/neemias-queta-news-continuing-offensive-development-533049",
+"date": "2026-10-01",
+"confidence": "med"
 }
 ]

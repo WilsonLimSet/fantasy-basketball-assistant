@@ -2,6 +2,104 @@
  "updatedAt": "2026-10-02",
  "takes": [
   {
+   "key": "jimmy butler",
+   "name": "Jimmy Butler",
+   "team": "GSW",
+   "kind": "injury",
+   "games": 28,
+   "mult": {
+    "min": 0.85
+   },
+   "line": null,
+   "headline": "Still months away; a December return 'might be too optimistic'",
+   "notes": [
+    {
+     "headline": "Still months away; a December return 'might be too optimistic'",
+     "text": "The Warriors now expect Butler back from his ACL surgery in early 2027, later than the Dec 1 target reported at media day. He is a late-round injury stash only. Podziemski, Lendeborg and Melton absorb the wing minutes until then.",
+     "source": "https://www.rotowire.com/basketball/headlines/jimmy-butler-injury-still-months-away-from-returning-533069",
+     "date": "2026-10-02",
+     "confidence": "high"
+    },
+    {
+     "headline": "Torn ACL (Jan 2026); only light on-court work, out until at least Dec 1",
+     "text": "Tore his ACL on Jan 19, 2026 and is still 'months away'. Return estimates run from December to February 2027. At age 37, expect limited minutes after he's back. Late-round stash at best.",
+     "source": "https://bleacherreport.com/articles/25504121-kristaps-porzingis-out-indefinitely-jimmy-butler-injury-update-announced-warriors",
+     "date": "2026-09-28",
+     "confidence": "high"
+    }
+   ],
+   "updated": "2026-10-02"
+  },
+  {
+   "key": "damian lillard",
+   "name": "Damian Lillard",
+   "team": "POR",
+   "kind": "injury",
+   "games": 62,
+   "mult": {
+    "min": 0.95
+   },
+   "line": null,
+   "headline": "Fully cleared after Achilles; expected ready for Oct 21 opener",
+   "notes": [
+    {
+     "headline": "Expected to open camp with Portland's starters",
+     "text": "Back from his Achilles tear, Lillard may open camp with the first unit. Portland could use three-guard lineups with Morant and Holiday. The preseason opener against Golden State on Oct 7 is the first look at how they share the ball.",
+     "source": "https://www.rotowire.com/basketball/headlines/damian-lillard-news-could-open-camp-with-starters-533070",
+     "date": "2026-10-02",
+     "confidence": "med"
+    },
+    {
+     "headline": "Fully cleared after Achilles; expected ready for Oct 21 opener",
+     "text": "Passed physicals with no limitations, and coaches rave about his movement. He's 36, coming off a full missed season, and now shares the backcourt with Morant, so expect some rest days.",
+     "source": "https://bleacherreport.com/articles/25503026-damian-lillard-hyped-blazers-return-achilles-injury-he-looks-phenomenal",
+     "date": "2026-09-25",
+     "confidence": "high"
+    }
+   ],
+   "updated": "2026-10-02"
+  },
+  {
+   "key": "ja morant",
+   "name": "Ja Morant",
+   "team": "POR",
+   "kind": "injury",
+   "games": 58,
+   "mult": {
+    "min": 0.9,
+    "pts": 0.91,
+    "fga": 0.91,
+    "ast": 0.9,
+    "tov": 0.92
+   },
+   "line": null,
+   "headline": "Could open the season coming off Portland's bench",
+   "notes": [
+    {
+     "headline": "Could open the season coming off Portland's bench",
+     "text": "Portland is weighing easing Morant in behind Damian Lillard, with Jrue Holiday the likeliest starter in his place. Morant has come off the bench twice in seven seasons. It may be temporary, but it is a real hit to his early-season minutes and usage.",
+     "source": "https://www.rotowire.com/basketball/headlines/ja-morant-news-could-start-year-off-bench-533068",
+     "date": "2026-10-02",
+     "confidence": "med"
+    },
+    {
+     "headline": "Traded MEM to POR; crowded backcourt",
+     "text": "Shares the ball with Lillard, Holiday and Henderson. High-risk pick.",
+     "source": "https://www.nba.com/news/blazers-grizzlies-ja-morant-trade",
+     "date": "2026-06-30",
+     "confidence": "med"
+    },
+    {
+     "headline": "Left elbow UCL sprain ended 2025-26; traded to POR",
+     "text": "Shut down in March 2026 with a left elbow UCL sprain (treated with a PRP injection) after playing only 20 games. A full recovery is expected, but his durability is the concern.",
+     "source": "https://www.rotowire.com/basketball/headlines/ja-morant-injury-traded-to-portland-531234",
+     "date": "2026-06-29",
+     "confidence": "med"
+    }
+   ],
+   "updated": "2026-10-02"
+  },
+  {
    "key": "yaxel lendeborg",
    "name": "Yaxel Lendeborg",
    "team": "GSW",
@@ -28,6 +126,31 @@
      "headline": "Kerr starts the 24-year-old rookie in the preseason opener",
      "text": "Summer League MVP, starting next to Curry, Podziemski, Green and Horford. A 3-and-D profile with a 7-4 wingspan gives solid steals and blocks with few turnovers.",
      "source": "https://fadeawayworld.net/nba/golden-state-warriors/steve-kerr-names-warriors-starters-preseason-opener-clippers-has-yaxel-lendeborg-defied-odds",
+     "date": "2026-10-02",
+     "confidence": "med"
+    }
+   ],
+   "updated": "2026-10-02"
+  },
+  {
+   "key": "jrue holiday",
+   "name": "Jrue Holiday",
+   "team": "POR",
+   "kind": "fade",
+   "games": null,
+   "mult": {
+    "min": 0.97,
+    "pts": 0.95,
+    "ast": 0.9,
+    "fga": 0.95
+   },
+   "line": null,
+   "headline": "Now the favorite to start, with Morant possibly coming off the bench",
+   "notes": [
+    {
+     "headline": "Now the favorite to start, with Morant possibly coming off the bench",
+     "text": "Earlier in the summer Morant's arrival looked like it would cost Holiday his role. Camp reports now have Holiday as the likely starter if Portland brings Morant off the bench, and playing more on the wing in three-guard lineups. His assists still take a hit next to Lillard and Morant.",
+     "source": "https://www.rotowire.com/basketball/headlines/ja-morant-news-could-start-year-off-bench-533068",
      "date": "2026-10-02",
      "confidence": "med"
     }
@@ -131,6 +254,69 @@
    "updated": "2026-10-01"
   },
   {
+   "key": "kawhi leonard",
+   "name": "Kawhi Leonard",
+   "team": "TOR",
+   "kind": "injury",
+   "games": 58,
+   "mult": {
+    "pts": 0.93,
+    "fga": 0.93,
+    "fta": 0.95
+   },
+   "line": null,
+   "headline": "Traded LAC to TOR for Ingram, Gradey Dick and picks",
+   "notes": [
+    {
+     "headline": "Load management plan in place; no contact work yet in camp",
+     "text": "Toronto is ramping him up in phases: no contact drills so far and he is unlikely to play the preseason opener. The team says it has a load management plan for the season, which means scheduled rest days on top of his injury history. Budget for roughly 55 to 60 games.",
+     "source": "https://www.cbssports.com/fantasy/basketball/news/raptors-kawhi-leonard-easing-into-camp/",
+     "date": "2026-10-01",
+     "confidence": "med"
+    },
+    {
+     "headline": "Traded LAC to TOR for Ingram, Gradey Dick and picks",
+     "text": "Coming off 27.9 PPG. He'll share touches with Barnes, Quickley and Barrett, so a slight volume dip. Health is still the main risk.",
+     "source": "https://www.nba.com/news/2026-offseason-trade-tracker",
+     "date": "2026-09-14",
+     "confidence": "high"
+    }
+   ],
+   "updated": "2026-10-01"
+  },
+  {
+   "key": "darius garland",
+   "name": "Darius Garland",
+   "team": "LAC",
+   "kind": "boost",
+   "games": null,
+   "mult": {
+    "pts": 1.05,
+    "fga": 1.05,
+    "ast": 1.03,
+    "tov": 1.04
+   },
+   "line": null,
+   "headline": "The only locked-in Clippers starter; the offense runs through him until Ingram returns",
+   "notes": [
+    {
+     "headline": "The only locked-in Clippers starter; the offense runs through him until Ingram returns",
+     "text": "Lue called Garland the one true lock in the starting lineup. With Ingram sidelined and Beal coming off the bench, he is the lone proven creator to open the season. Health is the catch: he played 45 games last season.",
+     "source": "https://sports.yahoo.com/articles/ty-lue-reveals-clippers-still-100038552.html",
+     "date": "2026-10-01",
+     "confidence": "high"
+    },
+    {
+     "headline": "Kawhi gone; Garland's role grows",
+     "text": "He arrived midseason, so his LAC role is partly priced in. Kawhi leaving adds a small usage bump.",
+     "source": "https://www.nba.com/news/2025-26-nba-trade-tracker",
+     "date": "2026-02-04",
+     "confidence": "med"
+    }
+   ],
+   "updated": "2026-10-01"
+  },
+  {
    "key": "collin murrayboyles",
    "name": "Collin Murray-Boyles",
    "team": "TOR",
@@ -208,6 +394,116 @@
      "source": "https://www.cbssports.com/fantasy/basketball/players/29005044/ausar-thompson",
      "date": "2026-10-01",
      "confidence": "high"
+    }
+   ],
+   "updated": "2026-10-01"
+  },
+  {
+   "key": "keaton wagler",
+   "name": "Keaton Wagler",
+   "team": "LAC",
+   "kind": "rookie",
+   "games": 70,
+   "mult": {},
+   "line": {
+    "min": 30.5,
+    "pts": 15,
+    "reb": 3.3,
+    "ast": 5,
+    "stl": 1,
+    "blk": 0.2,
+    "tpm": 1.2,
+    "fgm": 5.6,
+    "fga": 12.6,
+    "ftm": 2.8,
+    "fta": 3.4,
+    "tov": 2.7
+   },
+   "headline": "Lue: the No. 5 pick will get 'a lot of on-ball opportunities'",
+   "notes": [
+    {
+     "headline": "Lue: the No. 5 pick will get 'a lot of on-ball opportunities'",
+     "text": "With Brandon Ingram out to start the season and Bradley Beal headed for a bench role, Ty Lue plans to put the ball in the rookie's hands and let him play through mistakes. That sets him up as the second scoring option next to Darius Garland for at least the first two months. Expect usage ahead of efficiency: his summer league shooting was rough.",
+     "source": "https://www.rotowire.com/basketball/headlines/keaton-wagler-news-poised-to-handle-ball-often-533025",
+     "date": "2026-10-01",
+     "confidence": "med"
+    },
+    {
+     "headline": "Battling Max Strus for the starting shooting guard spot",
+     "text": "Lue says only Garland is a true lock to start; Brook Lopez is likely at center and three spots are open. Wagler and Strus are competing at shooting guard. Wagler was drafted to pair with Garland, but Strus has chemistry with him from Cleveland, so a bench role to open the year is possible.",
+     "source": "https://sports.yahoo.com/articles/ty-lue-reveals-clippers-still-100038552.html",
+     "date": "2026-10-01",
+     "confidence": "med"
+    }
+   ],
+   "updated": "2026-10-01"
+  },
+  {
+   "key": "jalen duren",
+   "name": "Jalen Duren",
+   "team": "DET",
+   "kind": "note",
+   "games": null,
+   "mult": {},
+   "line": null,
+   "headline": "Holdout over: signs five-year, $200M fully guaranteed extension",
+   "notes": [
+    {
+     "headline": "Holdout over: signs five-year, $200M fully guaranteed extension",
+     "text": "Duren skipped media day and the start of camp during the contract standoff. With the deal done on Oct 1 he rejoins the team with time to play in the preseason. No change to his role; the risk of a slow start is gone.",
+     "source": "https://www.rotowire.com/basketball/headlines/jalen-duren-news-inks-five-year-extension-with-detroit-533052",
+     "date": "2026-10-01",
+     "confidence": "high"
+    }
+   ],
+   "updated": "2026-10-01"
+  },
+  {
+   "key": "pj washington",
+   "name": "P.J. Washington",
+   "team": "DAL",
+   "kind": "fade",
+   "games": null,
+   "mult": {
+    "min": 0.95,
+    "pts": 0.95,
+    "reb": 0.95,
+    "fga": 0.95
+   },
+   "line": null,
+   "headline": "Starting spot not guaranteed under Dusty May",
+   "notes": [
+    {
+     "headline": "Starting spot not guaranteed under Dusty May",
+     "text": "May would not commit to Washington as a starter, and rookie Morez Johnson crowds the frontcourt. Washington has come off the bench only four times in 113 games over two seasons in Dallas, so even a small minutes cut would be new.",
+     "source": "https://www.rotowire.com/basketball/headlines/pj-washington-news-in-conversation-for-starting-spot-533046",
+     "date": "2026-10-01",
+     "confidence": "low"
+    }
+   ],
+   "updated": "2026-10-01"
+  },
+  {
+   "key": "neemias queta",
+   "name": "Neemias Queta",
+   "team": "BOS",
+   "kind": "fade",
+   "games": null,
+   "mult": {
+    "min": 0.94,
+    "pts": 0.94,
+    "reb": 0.94,
+    "blk": 0.94
+   },
+   "line": null,
+   "headline": "In a camp battle with Mitchell Robinson for the starting center job",
+   "notes": [
+    {
+     "headline": "In a camp battle with Mitchell Robinson for the starting center job",
+     "text": "Mazzulla praised Queta's offensive growth, but he is competing with Robinson to start. If Robinson wins the job or the two split time, Queta's minutes fall short of what last season's line assumes. Wait for a preseason starting lineup before reaching.",
+     "source": "https://www.rotowire.com/basketball/headlines/neemias-queta-news-continuing-offensive-development-533049",
+     "date": "2026-10-01",
+     "confidence": "med"
     }
    ],
    "updated": "2026-10-01"
@@ -409,28 +705,6 @@
    "updated": "2026-09-28"
   },
   {
-   "key": "jimmy butler",
-   "name": "Jimmy Butler",
-   "team": "GSW",
-   "kind": "injury",
-   "games": 35,
-   "mult": {
-    "min": 0.85
-   },
-   "line": null,
-   "headline": "Torn ACL (Jan 2026); only light on-court work, out until at least Dec 1",
-   "notes": [
-    {
-     "headline": "Torn ACL (Jan 2026); only light on-court work, out until at least Dec 1",
-     "text": "Tore his ACL on Jan 19, 2026 and is still 'months away'. Return estimates run from December to February 2027. At age 37, expect limited minutes after he's back. Late-round stash at best.",
-     "source": "https://bleacherreport.com/articles/25504121-kristaps-porzingis-out-indefinitely-jimmy-butler-injury-update-announced-warriors",
-     "date": "2026-09-28",
-     "confidence": "high"
-    }
-   ],
-   "updated": "2026-09-28"
-  },
-  {
    "key": "kristaps porzingis",
    "name": "Kristaps Porzingis",
    "team": "GSW",
@@ -621,28 +895,6 @@
      "headline": "Cleared with no restrictions after 19 months out (ACL)",
      "text": "Says he has 'no restrictions' but expects daily talks with the medical staff about back-to-backs. Expect some back-to-back rest and possibly slightly lower minutes early in the season.",
      "source": "https://bleacherreport.com/articles/25502968-kyrie-irving-gives-injury-update-latest-mavericks-stars-status-2026-27-nba-season",
-     "date": "2026-09-25",
-     "confidence": "high"
-    }
-   ],
-   "updated": "2026-09-25"
-  },
-  {
-   "key": "damian lillard",
-   "name": "Damian Lillard",
-   "team": "POR",
-   "kind": "injury",
-   "games": 62,
-   "mult": {
-    "min": 0.95
-   },
-   "line": null,
-   "headline": "Fully cleared after Achilles; expected ready for Oct 21 opener",
-   "notes": [
-    {
-     "headline": "Fully cleared after Achilles; expected ready for Oct 21 opener",
-     "text": "Passed physicals with no limitations, and coaches rave about his movement. He's 36, coming off a full missed season, and now shares the backcourt with Morant, so expect some rest days.",
-     "source": "https://bleacherreport.com/articles/25503026-damian-lillard-hyped-blazers-return-achilles-injury-he-looks-phenomenal",
      "date": "2026-09-25",
      "confidence": "high"
     }
@@ -1236,30 +1488,6 @@
      "source": "https://nba.com/news/southeast-division-offseason-recap-look-ahead",
      "date": "2026-09-14",
      "confidence": "med"
-    }
-   ],
-   "updated": "2026-09-14"
-  },
-  {
-   "key": "kawhi leonard",
-   "name": "Kawhi Leonard",
-   "team": "TOR",
-   "kind": "fade",
-   "games": null,
-   "mult": {
-    "pts": 0.93,
-    "fga": 0.93,
-    "fta": 0.95
-   },
-   "line": null,
-   "headline": "Traded LAC to TOR for Ingram, Gradey Dick and picks",
-   "notes": [
-    {
-     "headline": "Traded LAC to TOR for Ingram, Gradey Dick and picks",
-     "text": "Coming off 27.9 PPG. He'll share touches with Barnes, Quickley and Barrett, so a slight volume dip. Health is still the main risk.",
-     "source": "https://www.nba.com/news/2026-offseason-trade-tracker",
-     "date": "2026-09-14",
-     "confidence": "high"
     }
    ],
    "updated": "2026-09-14"
@@ -1872,64 +2100,6 @@
    "updated": "2026-07-02"
   },
   {
-   "key": "jrue holiday",
-   "name": "Jrue Holiday",
-   "team": "POR",
-   "kind": "fade",
-   "games": null,
-   "mult": {
-    "min": 0.88,
-    "pts": 0.88,
-    "ast": 0.85,
-    "fga": 0.88
-   },
-   "line": null,
-   "headline": "Morant's arrival threatens Holiday's role",
-   "notes": [
-    {
-     "headline": "Morant's arrival threatens Holiday's role",
-     "text": "At risk of a smaller role with Morant and Lillard ahead of him.",
-     "source": "https://www.rotowire.com/basketball/headlines/jrue-holiday-news-major-backcourt-additions-arriving-531322",
-     "date": "2026-07-01",
-     "confidence": "med"
-    }
-   ],
-   "updated": "2026-07-01"
-  },
-  {
-   "key": "ja morant",
-   "name": "Ja Morant",
-   "team": "POR",
-   "kind": "injury",
-   "games": 58,
-   "mult": {
-    "min": 0.9,
-    "pts": 0.92,
-    "fga": 0.92,
-    "ast": 0.9,
-    "tov": 0.92
-   },
-   "line": null,
-   "headline": "Traded MEM to POR; crowded backcourt",
-   "notes": [
-    {
-     "headline": "Traded MEM to POR; crowded backcourt",
-     "text": "Shares the ball with Lillard, Holiday and Henderson. High-risk pick.",
-     "source": "https://www.nba.com/news/blazers-grizzlies-ja-morant-trade",
-     "date": "2026-06-30",
-     "confidence": "med"
-    },
-    {
-     "headline": "Left elbow UCL sprain ended 2025-26; traded to POR",
-     "text": "Shut down in March 2026 with a left elbow UCL sprain (treated with a PRP injection) after playing only 20 games. A full recovery is expected, but his durability is the concern.",
-     "source": "https://www.rotowire.com/basketball/headlines/ja-morant-injury-traded-to-portland-531234",
-     "date": "2026-06-29",
-     "confidence": "med"
-    }
-   ],
-   "updated": "2026-06-30"
-  },
-  {
    "key": "lamelo ball",
    "name": "LaMelo Ball",
    "team": "MIN",
@@ -1987,30 +2157,6 @@
     }
    ],
    "updated": "2026-06-23"
-  },
-  {
-   "key": "darius garland",
-   "name": "Darius Garland",
-   "team": "LAC",
-   "kind": "boost",
-   "games": null,
-   "mult": {
-    "pts": 1.04,
-    "fga": 1.04,
-    "ast": 1.02
-   },
-   "line": null,
-   "headline": "Kawhi gone; Garland's role grows",
-   "notes": [
-    {
-     "headline": "Kawhi gone; Garland's role grows",
-     "text": "He arrived midseason, so his LAC role is partly priced in. Kawhi leaving adds a small usage bump.",
-     "source": "https://www.nba.com/news/2025-26-nba-trade-tracker",
-     "date": "2026-02-04",
-     "confidence": "med"
-    }
-   ],
-   "updated": "2026-02-04"
   }
  ]
 }
