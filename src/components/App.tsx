@@ -178,14 +178,15 @@ export default function App() {
         )}
         {tab === "news" && <News />}
         {tab === "settings" && <LeagueSettings league={league} setLeague={setLeague} draft={draft} setDraft={setDraft} />}
-        {tab === "edges" && <FormatEdges teams={league.teams} />}
-        {!board && !err && ["kit", "mock", "draft"].includes(tab) && (
+
+        {!board && !err && ["kit", "mock", "draft", "edges"].includes(tab) && (
           <div className="py-20 text-center text-muted">Loading players…</div>
         )}
         {board && (
           <>
             {tab === "kit" && <Rankings board={board} league={league} draftedIds={new Set(draft.picks)} />}
             {tab === "mock" && <MockDraft board={board} league={league} />}
+            {tab === "edges" && <FormatEdges board={board} league={league} />}
             {tab === "draft" && <DraftBoard board={board} league={league} draft={draft} setDraft={setDraft} />}
           </>
         )}
