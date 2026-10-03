@@ -182,7 +182,7 @@ export default function DraftBoard({ board, league, draft, setDraft }: Props) {
                 <div className="mt-1.5 text-sm"><ValueCell v={r.v} league={league} /></div>
                 <div className="mt-1 flex flex-wrap gap-1">
                   {r.reasons.map((s) => (
-                    <span key={s} className={`text-[10px] rounded px-1.5 py-0.5 ${r.canWait && s.startsWith("ADP") ? "bg-sky-500/15 text-sky-800" : "bg-fg/5 text-muted"}`}>{s}</span>
+                    <span key={s} className={`text-[10px] rounded px-1.5 py-0.5 ${r.canWait && s.startsWith("Can wait") ? "bg-sky-500/15 text-sky-800" : "bg-fg/5 text-muted"}`}>{s}</span>
                   ))}
                 </div>
               </button>

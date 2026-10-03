@@ -74,8 +74,9 @@ export function recommend(
   return avail.slice(0, 60).map((v) => {
     const reasons: string[] = [];
     let score = v.vorp / Math.abs(topV);
-    const fillsSlot = openSlots.some((s) => SLOT_ELIG[s].some((p) => v.p.pos.includes(p)) && s !== "UT");
-    if (fillsSlot && myRoster.length >= 4) { score += 0.04; reasons.push("Fills open slot"); }
+    // A starting spot (not UTIL) in your lineup that is still empty and he can play.
+    const fills = openSlots.find((s) => s !== "UT" && SLOT_ELIG[s].some((p) => v.p.pos.includes(p)));
+    if (fills && myRoster.length >= 4) { score += 0.04; reasons.push(`Fills your empty ${fills} spot`); }
     if (league.format === "cats" && myRoster.length >= 3) {
       const helps = weakest.filter((c) => (v.z[c] ?? 0) > 0.8);
       if (helps.length) { score += 0.03 * helps.length; reasons.push(`Helps ${helps.map((c) => c.toUpperCase()).join("/")}`); }
@@ -87,9 +88,9 @@ export function recommend(
     const canWait = adp - 1 > pickAfterNext + 2;
     // market says he's gone before my upcoming pick
     const goingSoon = !myTurn ? adp - 1 < myPick - 2 : adp - 1 <= currentPick + 3;
-    if (canWait) { score -= 0.06; reasons.push(`ADP ${adp.toFixed(0)}: likely there next turn`); }
-    if (goingSoon && !myTurn) { score -= 0.05; reasons.push("Likely gone before your pick"); }
-    else if (goingSoon) reasons.push("Market takes him soon");
+    if (canWait) { score -= 0.06; reasons.push(`Can wait: usually goes around pick ${adp.toFixed(0)}`); }
+    if (goingSoon && !myTurn) { score -= 0.05; reasons.push("Probably gone before your pick"); }
+    else if (goingSoon) reasons.push(`Won't last: usually goes around pick ${adp.toFixed(0)}`);
     if (v.p.injury !== "ACTIVE") { score -= 0.03; reasons.push(v.p.injury.replace(/_/g, " ").toLowerCase()); }
     return { v, score, reasons, canWait, goingSoon };
   }).sort((a, b) => b.score - a.score);

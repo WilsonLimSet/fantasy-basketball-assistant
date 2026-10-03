@@ -74,6 +74,7 @@ export default function FormatEdges({ board, league }: { board: Board; league: L
   const [pos, setPos] = useState("ALL");
   const [more, setMore] = useState(false);
   const [data, setData] = useState<Data | null>(null);
+  const [open, setOpen] = useState<number | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const byId = useMemo(() => new Map(board.valued.map((v) => [v.p.id, v])), [board.valued]);
 
@@ -111,12 +112,17 @@ export default function FormatEdges({ board, league }: { board: Board; league: L
           const from = favorsA ? r.rb : r.ra, to = favorsA ? r.ra : r.rb;
           const shift = Math.abs(r.diff);
           return (
-            <li key={r.id} className="flex items-center gap-3 py-2">
+            <li key={r.id} className="py-2">
+              <div className="flex items-center gap-3">
               <div className="min-w-0 flex-1">
                 {v ? <PlayerCell v={v as Valued} /> : <Plain r={r} />}
-                <div className="mt-0.5 truncate pl-[42px] text-[11px] text-muted">
-                  {data && why(r, data.a, data.b, favorsA).join(" · ")}
-                </div>
+                <button
+                  onClick={() => setOpen(open === r.id ? null : r.id)}
+                  aria-expanded={open === r.id}
+                  className="mt-0.5 block max-w-full truncate pl-[42px] text-left text-[11px] text-muted hover:text-fg"
+                >
+                  {data && why(r, data.a, data.b, favorsA).join(" · ")} <span className="underline">{open === r.id ? "less" : "why?"}</span>
+                </button>
               </div>
               <div className="w-40 shrink-0">
                 <div className="flex items-baseline justify-end gap-1.5 text-sm tabular-nums">
@@ -129,6 +135,8 @@ export default function FormatEdges({ board, league }: { board: Board; league: L
                   <div className="h-1 rounded-full bg-emerald-600/60" style={{ width: `${Math.min(100, (shift / 60) * 100)}%` }} />
                 </div>
               </div>
+              </div>
+              {open === r.id && data && <Breakdown r={r} a={data.a} b={data.b} />}
             </li>
           );
         })}
@@ -176,6 +184,72 @@ export default function FormatEdges({ board, league }: { board: Board; league: L
           <button onClick={() => setMore((m) => !m)} className="btn-ghost">{more ? "Show fewer" : "Show more movers"}</button>
         </div>
       )}
+    </div>
+  );
+}
+
+const fmt1 = (x: number) => (Number.isFinite(x) ? x.toFixed(1) : "–");
+const signed = (x: number) => `${x > 0 ? "+" : ""}${x.toFixed(1)}`;
+
+/**
+ * The full why: for points formats, how many fantasy points each part of his game earns per night
+ * in each format; for category formats, his z-score in each category.
+ */
+function Breakdown({ r, a, b }: { r: Row; a: SideInfo; b: SideInfo }) {
+  const fpGroup = (s: SideInfo, keys: StatKey[]) => keys.reduce((t, k) => t + (r.line[k] ?? 0) * (s.scoring[k] ?? 0), 0);
+  const fpTotal = (s: SideInfo) => (Object.keys(s.scoring) as StatKey[]).reduce((t, k) => t + (r.line[k] ?? 0) * (s.scoring[k] ?? 0), 0);
+  const l = r.line;
+  const pct = (m: number, x: number) => (x ? `${((100 * m) / x).toFixed(1)}%` : "–");
+  return (
+    <div className="mt-2 ml-[42px] rounded-lg border border-line bg-bg p-3 text-xs">
+      <div className="mb-2 text-muted">
+        Projected per game: {fmt1(l.pts)} pts, {fmt1(l.reb)} reb, {fmt1(l.ast)} ast, {fmt1(l.stl)} stl, {fmt1(l.blk)} blk,{" "}
+        {fmt1(l.tpm)} 3pm, {fmt1(l.tov)} to, {pct(l.fgm, l.fga)} FG on {fmt1(l.fga)} shots, {pct(l.ftm, l.fta)} FT on {fmt1(l.fta)}.
+      </div>
+      {a.format === "points" && b.format === "points" ? (
+        <table className="w-full tabular-nums">
+          <thead className="text-[10px] uppercase text-muted">
+            <tr><th className="py-0.5 text-left font-medium">Fantasy points per game from</th><th className="text-right font-medium">{a.label}</th><th className="text-right font-medium">{b.label}</th><th className="text-right font-medium">Gap</th></tr>
+          </thead>
+          <tbody>
+            {GROUPS.map((g) => ({ g, fa: fpGroup(a, g.keys), fb: fpGroup(b, g.keys) }))
+              .filter((x) => Math.abs(x.fa) > 0.05 || Math.abs(x.fb) > 0.05)
+              .map(({ g, fa, fb }) => (
+                <tr key={g.name} className="border-t border-line/60">
+                  <td className="py-0.5">{g.name[0].toUpperCase() + g.name.slice(1)}</td>
+                  <td className="text-right">{signed(fa)}</td>
+                  <td className="text-right">{signed(fb)}</td>
+                  <td className={`text-right ${Math.abs(fa - fb) >= 1 ? "font-medium text-fg" : "text-muted"}`}>{signed(fa - fb)}</td>
+                </tr>
+              ))}
+            <tr className="border-t border-line font-medium">
+              <td className="py-0.5">Total per game</td>
+              <td className="text-right">{fmt1(fpTotal(a))}</td>
+              <td className="text-right">{fmt1(fpTotal(b))}</td>
+              <td className="text-right">{signed(fpTotal(a) - fpTotal(b))}</td>
+            </tr>
+          </tbody>
+        </table>
+      ) : (
+        [a, b].filter((s) => s.format === "cats").map((s) => {
+          const z = s === a ? r.zA : r.zB;
+          return (
+            <div key={s.label}>
+              <div className="mb-1 text-[10px] uppercase text-muted">{s.label}: value in each category (0 = average starter)</div>
+              <div className="flex flex-wrap gap-1.5">
+                {s.cats.map((c) => {
+                  const v = z[c] ?? 0;
+                  const cls = v >= 1 ? "bg-emerald-500/15 text-emerald-700" : v <= -1 ? "bg-red-500/10 text-red-700" : "bg-sunken text-muted";
+                  return <span key={c} className={`rounded px-1.5 py-0.5 tabular-nums ${cls}`}>{CAT_LABEL[c]} {signed(v)}</span>;
+                })}
+              </div>
+            </div>
+          );
+        })
+      )}
+      <p className="mt-2 text-muted">
+        Ranks also account for projected games and how scarce his positions are, so per-game gaps don&apos;t map one to one onto rank changes.
+      </p>
     </div>
   );
 }
