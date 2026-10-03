@@ -173,3 +173,122 @@ export function reviewDraft(picks: number[], byId: Map<number, Valued>, league: 
 
   return { teams, mine, myPicks, bestPick, worstPick, leagueSteal, strengths, weaknesses, openSlots };
 }
+
+/* ---------------- Player notes ---------------- */
+
+const TEAM_NAME: Record<string, string> = {
+  ATL: "Atlanta", BOS: "Boston", BKN: "Brooklyn", CHA: "Charlotte", CHI: "Chicago", CLE: "Cleveland", DAL: "Dallas",
+  DEN: "Denver", DET: "Detroit", GSW: "Golden State", HOU: "Houston", IND: "Indiana", LAC: "the Clippers", LAL: "the Lakers",
+  MEM: "Memphis", MIA: "Miami", MIL: "Milwaukee", MIN: "Minnesota", NOP: "New Orleans", NYK: "New York", OKC: "Oklahoma City",
+  ORL: "Orlando", PHI: "Philadelphia", PHX: "Phoenix", POR: "Portland", SAC: "Sacramento", SAS: "San Antonio", TOR: "Toronto",
+  UTA: "Utah", WAS: "Washington",
+};
+const ordinal = (n: number) => `${n}${n % 10 === 1 && n % 100 !== 11 ? "st" : n % 10 === 2 && n % 100 !== 12 ? "nd" : n % 10 === 3 && n % 100 !== 13 ? "rd" : "th"}`;
+const list = (xs: string[]) => (xs.length <= 1 ? xs.join("") : `${xs.slice(0, -1).join(", ")} and ${xs[xs.length - 1]}`);
+
+/** One line for tables: our take's headline, or his role on his team. */
+export function noteLine(v: Valued): string {
+  if (v.take) return v.take.headline;
+  const r = v.role;
+  const l = v.proj.line;
+  if (!r) return `${l.min.toFixed(0)} minutes a night projected`;
+  const share = Math.round(r.shotShare * 100);
+  return `${r.shotRank === 1 ? "Go-to scorer" : `${ordinal(r.shotRank)} option`} in ${TEAM_NAME[r.team] ?? r.team} · ${l.min.toFixed(0)} min, ${share}% of the shots`;
+}
+
+/**
+ * CourtVision's written notes on a player, generated from the numbers: his role on his team,
+ * how his line changes from last season, what kind of fantasy player he is, his range of
+ * outcomes, and when to draft him.
+ */
+export function playerNotes(v: Valued, league: League): string[] {
+  const { p } = v;
+  const l = v.proj.line;
+  const out: string[] = [];
+  const team = TEAM_NAME[p.team] ?? p.team;
+
+  // Role.
+  const r = v.role;
+  if (r) {
+    const share = Math.round(r.shotShare * 100);
+    const who = r.shotRank === 1
+      ? `${team}'s go-to scorer, ahead of ${list(r.topTeammates.slice(0, 2))}`
+      : `the ${ordinal(r.shotRank)} option in ${team}, behind ${list(r.topTeammates.slice(0, Math.min(2, r.shotRank - 1)))}`;
+    let s = `Projected for ${l.min.toFixed(0)} minutes and ${l.fga.toFixed(0)} shots a night (${share}% of the team's), ${who}.`;
+    const cut = Math.round((1 - r.minutesFit * r.shotsFit) * 100);
+    if (cut >= 3) {
+      s += ` ${team}'s projections add up to more ${r.minutesFit < 0.99 ? "minutes" : "shots"} than one team can use, so we trimmed his line about ${cut}%.`;
+    }
+    out.push(s);
+  } else if (p.team === "FA") {
+    out.push("Unsigned right now; his value depends on where he lands and in what role.");
+  }
+
+  // Line versus last season.
+  if (p.last && p.last.gp >= 20) {
+    const d = (k: "pts" | "reb" | "ast", label: string) => {
+      const x = l[k] - p.last![k];
+      return Math.abs(x) >= 1 ? `${label} ${x > 0 ? "up" : "down"} ${Math.abs(x).toFixed(1)}` : null;
+    };
+    const moves = [d("pts", "points"), d("reb", "rebounds"), d("ast", "assists")].filter(Boolean) as string[];
+    out.push(
+      `Last season: ${p.last.pts.toFixed(1)} points, ${p.last.reb.toFixed(1)} rebounds and ${p.last.ast.toFixed(1)} assists in ${p.last.gp.toFixed(0)} games. `
+        + (moves.length ? `We have ${list(moves)}.` : "We project about the same per game."),
+    );
+  } else if (p.last && p.last.gp > 0) {
+    out.push(`Played only ${p.last.gp.toFixed(0)} games last season, so his line leans on ESPN's projection.`);
+  } else {
+    out.push("No NBA games last season, so his line comes from ESPN's projection and our reporting.");
+  }
+
+  // Fantasy profile.
+  if (league.format === "points") {
+    const parts: [string, number][] = [
+      ["scoring", l.pts * (league.scoring.pts ?? 0)],
+      ["rebounding", l.reb * (league.scoring.reb ?? 0)],
+      ["passing", l.ast * (league.scoring.ast ?? 0)],
+      ["steals and blocks", l.stl * (league.scoring.stl ?? 0) + l.blk * (league.scoring.blk ?? 0)],
+      ["threes", l.tpm * (league.scoring.tpm ?? 0)],
+    ];
+    const top = parts.filter(([, x]) => x > 0).sort((a, b) => b[1] - a[1]).slice(0, 2).map(([n]) => n);
+    const tags = edgeTags(l).filter((t) => !/monster|volume|engine|cleaner/i.test(t)).map((t) => t.toLowerCase());
+    out.push(
+      `In your scoring he's worth ${v.fppg.toFixed(1)} a night, mostly from ${list(top)}.`
+        + (tags.length ? ` Watch out for: ${list(tags)}.` : ""),
+    );
+  } else {
+    const cats = league.cats.filter((c) => !league.punts.includes(c));
+    const zs = cats.map((c) => ({ c, z: v.z[c] ?? 0 })).sort((a, b) => b.z - a.z);
+    const good = zs.filter((x) => x.z >= 0.8).slice(0, 3).map((x) => CAT_LABEL[x.c]);
+    const bad = zs.filter((x) => x.z <= -0.8).slice(-2).map((x) => CAT_LABEL[x.c]);
+    out.push(
+      (good.length ? `A category winner in ${list(good)}.` : "No standout category; his value is in balance.")
+        + (bad.length ? ` He costs you in ${list(bad)}, so he fits builds that punt ${bad.length > 1 ? "those" : "it"}.` : ""),
+    );
+  }
+
+  // Range of outcomes.
+  const c = v.ceiling;
+  if (c.label !== "Steady" && c.rank < v.rank - 5) {
+    out.push(`${c.label}: if things break right he's a top-${c.rank} player${c.reasons.length ? ` (${c.reasons.slice(0, 2).join("; ").toLowerCase()})` : ""}.`);
+  } else if (v.proj.games < 62) {
+    out.push(`The risk is availability: we expect ${v.proj.games.toFixed(0)} games.`);
+  } else {
+    out.push("A steady pick: what you see is about what you get.");
+  }
+
+  // When to draft him.
+  const n = league.teams;
+  const ourRound = Math.ceil(v.rank / n);
+  if (p.adp != null) {
+    const adpRound = Math.ceil(p.adp / n);
+    out.push(
+      adpRound > ourRound
+        ? `Drafters take him around pick ${p.adp.toFixed(0)} (round ${adpRound}); he's worth a round-${ourRound} pick to us, so you can get him at a discount.`
+        : adpRound < ourRound
+          ? `Drafters take him around pick ${p.adp.toFixed(0)} (round ${adpRound}), earlier than his round-${ourRound} value here. Let someone else reach.`
+          : `Usually goes around pick ${p.adp.toFixed(0)}, right where we'd take him (round ${ourRound}).`,
+    );
+  }
+  return out;
+}

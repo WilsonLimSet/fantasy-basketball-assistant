@@ -3,6 +3,7 @@
 import { Fragment, useState } from "react";
 import { League, Valued, rosterSize, tierLabel } from "@/lib/engine";
 import { LATE_ROUND_SHARE } from "@/lib/draft";
+import { noteLine } from "@/lib/insights";
 import { Card, PlayerCell, ValueCell, VsEspn, ZChip, espnRankFor, fmt } from "./ui";
 import { Paywall } from "./Paywall";
 import type { Board } from "./App";
@@ -176,7 +177,7 @@ export default function Rankings({ board, league, draftedIds }: { board: Board; 
                   <tr className={`border-t border-line/60 hover:bg-fg/[.02] ${draftedIds.has(v.p.id) ? "opacity-35" : ""}`}>
                     <td className="py-1.5 pr-2 tabular-nums text-muted">{v.rank}</td>
                     <td className="pr-2 text-muted">{tierLabel(v)}</td>
-                    <td className="max-w-[240px] pr-2"><PlayerCell v={v} /></td>
+                    <td className="max-w-[260px] pr-2"><PlayerCell v={v} /><div className="truncate pl-[42px] text-[11px] text-muted" title={noteLine(v)}>{noteLine(v)}</div></td>
                     <td className="whitespace-nowrap pr-2 tabular-nums"><ValueCell v={v} league={league} /></td>
                     <td className="pr-2 tabular-nums text-muted">{fmt(v.proj.games, 0)}</td>
                     <td className="whitespace-nowrap pr-2"><VsEspn v={v} league={league} /></td>

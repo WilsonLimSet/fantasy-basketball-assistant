@@ -191,6 +191,99 @@ export function project(p: Player, take?: Take | null): Projection | null {
   return { line, games, basis };
 }
 
+/* ---------------- Team fit ---------------- */
+
+const TEAM_MINUTES = 240;
+const TEAM_SHOTS = 89;
+const SHOT_STATS: StatKey[] = ["pts", "fgm", "fga", "ftm", "fta", "tpm", "tpa"];
+
+/**
+ * Projections are made one player at a time, so a team's players can add up to more minutes and
+ * shots than one team can use (Washington's projected four starters alone took ~62 shots a game).
+ * This trims them back to what fits:
+ *  - Minutes: anything over 240 a game (weighted by games played) comes mostly out of the bench,
+ *    and everything a player produces shrinks with his minutes.
+ *  - Shots: teams whose players shoot at a rate well above the league's typical team get their
+ *    shots and points scaled down, partly, since projections at team level are noisy.
+ * Mutates the projected lines; returns each player's role on his team.
+ */
+function fitTeams(base: { p: Player; proj: Projection }[]): Map<number, TeamRole> {
+  const byTeam = new Map<string, { p: Player; proj: Projection }[]>();
+  for (const x of base) if (x.p.team !== "FA") (byTeam.get(x.p.team) ?? byTeam.set(x.p.team, []).get(x.p.team)!).push(x);
+  const w = (x: { proj: Projection }) => Math.min(1, x.proj.games / 82);
+
+  // 1. Minutes.
+  const minutesFit = new Map<number, number>();
+  for (const xs of byTeam.values()) {
+    const total = xs.reduce((s, x) => s + x.proj.line.min * w(x), 0);
+    const excess = total - TEAM_MINUTES;
+    if (excess <= 0) continue;
+    // Bench players give up more: weight by how far below 36 minutes they are.
+    const give = xs.map((x) => Math.max(2, 36 - x.proj.line.min) * w(x));
+    const sum = give.reduce((a, b) => a + b, 0);
+    xs.forEach((x, i) => {
+      const cut = Math.min(0.4 * x.proj.line.min, (excess * give[i]) / sum / Math.max(w(x), 0.1));
+      const f = x.proj.line.min ? (x.proj.line.min - cut) / x.proj.line.min : 1;
+      minutesFit.set(x.p.id, f);
+      x.proj.line = scaleAll(x.proj.line, f);
+    });
+  }
+
+  // 2. Shot rate, relative to the typical team.
+  const rate = (xs: { proj: Projection }[]) => {
+    const fga = xs.reduce((s, x) => s + x.proj.line.fga * w(x), 0);
+    const min = xs.reduce((s, x) => s + x.proj.line.min * w(x), 0);
+    return min ? (fga * TEAM_MINUTES) / min : 0;
+  };
+  const rates = [...byTeam.values()].map(rate).sort((a, b) => a - b);
+  const typical = rates[Math.floor(rates.length / 2)] ?? 0;
+  const shotsFit = new Map<number, number>();
+  for (const xs of byTeam.values()) {
+    const r = rate(xs);
+    if (!typical || r <= typical * 1.03) continue;
+    const f = Math.pow((typical * 1.03) / r, 0.7);
+    // The team's go-to scorer keeps his shots; the cut lands more on the second and third options.
+    const order = [...xs].sort((a, b) => b.proj.line.fga * w(b) - a.proj.line.fga * w(a));
+    const k = new Map(order.map((x, i) => [x, 0.4 + (1.2 * i) / Math.max(1, order.length - 1)]));
+    const shots = (x: { proj: Projection }) => x.proj.line.fga * w(x);
+    const norm = xs.reduce((sum, x) => sum + shots(x), 0) / (xs.reduce((sum, x) => sum + k.get(x)! * shots(x), 0) || 1);
+    for (const x of xs) {
+      const fi = Math.max(0.75, 1 - (1 - f) * k.get(x)! * norm);
+      shotsFit.set(x.p.id, fi);
+      const l = { ...x.proj.line };
+      for (const key of SHOT_STATS) l[key] *= fi;
+      l.ast *= 1 - (1 - fi) * 0.5;
+      x.proj.line = l;
+    }
+  }
+
+  // 3. Roles.
+  const roles = new Map<number, TeamRole>();
+  for (const [team, xs] of byTeam) {
+    const shots = xs.map((x) => ({ x, s: x.proj.line.fga * w(x) })).sort((a, b) => b.s - a.s);
+    // A team takes about 89 shots a game; our pool can miss deep-bench players, so never divide by less.
+    const teamShots = Math.max(TEAM_SHOTS, shots.reduce((a, b) => a + b.s, 0));
+    shots.forEach(({ x }, i) => {
+      roles.set(x.p.id, {
+        team,
+        // Share of the team's shots on nights he plays.
+        shotShare: x.proj.line.fga / teamShots,
+        shotRank: i + 1,
+        topTeammates: shots.filter((o) => o.x !== x).slice(0, 3).map((o) => o.x.p.name),
+        minutesFit: minutesFit.get(x.p.id) ?? 1,
+        shotsFit: shotsFit.get(x.p.id) ?? 1,
+      });
+    });
+  }
+  return roles;
+}
+
+function scaleAll(l: StatLine, f: number): StatLine {
+  const out = { ...l };
+  for (const k of STAT_KEYS) out[k] = l[k] * f;
+  return out;
+}
+
 /* ---------------- Valuation ---------------- */
 
 export function fantasyPoints(line: StatLine, scoring: PointsScoring) {
@@ -214,6 +307,22 @@ export interface Valued {
   take: Take | null;
   /** What his season looks like if things break right. */
   ceiling: Ceiling;
+  /** His share of his team's minutes and shots, after the team-level fit. Null for free agents. */
+  role: TeamRole | null;
+}
+
+export interface TeamRole {
+  team: string;
+  /** Share of the team's projected shots, 0-1. */
+  shotShare: number;
+  /** 1 = takes the most shots on his team. */
+  shotRank: number;
+  /** The team's other top shot-takers, most shots first. */
+  topTeammates: string[];
+  /** How much we cut his minutes (and everything with them) to fit 240 team minutes. 1 = no cut. */
+  minutesFit: number;
+  /** How much we cut his shots and points because his team's projections take too many shots. */
+  shotsFit: number;
 }
 
 export interface Ceiling {
@@ -276,6 +385,7 @@ export function valuePlayers(players: Player[], league: League, useTakes = true)
   const base = players
     .map((p) => ({ p, proj: project(p, takeOf.get(p.id)) }))
     .filter((x): x is { p: Player; proj: Projection } => !!x.proj && x.proj.games > 0);
+  const roles = fitTeams(base);
 
   const draftable = league.teams * rosterSize(league);
   let scored: { p: Player; proj: Projection; fppg: number; total: number; z: Partial<Record<Cat, number>> }[];
@@ -334,7 +444,7 @@ export function valuePlayers(players: Player[], league: League, useTakes = true)
       : 0;
     const vorp = x.total - r + missed;
     const take = takeOf.get(x.p.id) ?? null;
-    return { ...x, vorp, rank: 0, posRank: {}, tier: 0, bucket: "core", take, ceiling: ceilingFor(x, take, league, vorp) } as Valued;
+    return { ...x, vorp, rank: 0, posRank: {}, tier: 0, bucket: "core", take, ceiling: ceilingFor(x, take, league, vorp), role: roles.get(x.p.id) ?? null } as Valued;
   });
   valued.sort((a, b) => b.vorp - a.vorp);
   // Rank each ceiling against today's board.

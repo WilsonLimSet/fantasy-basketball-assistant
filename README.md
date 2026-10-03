@@ -77,6 +77,7 @@ The original in-season assistant lives under `/inseason` (pages), `/api/inseason
 - **Value:**
   - *Points leagues:* fantasy points per game × projected games.
   - *Category leagues:* z-scores against the draftable pool. FG% and FT% are weighted by shot volume, and you can punt categories.
+  - **Team fit:** each team's projections are checked against what one team can use. Minutes over 240 a game (weighted by games played) come mostly out of the bench. Teams whose players shoot well above the typical team's rate get shots and points trimmed, with the go-to scorer cut least.
   - In points leagues, a missed game is credited at 70% of replacement level, because you can usually start someone else. Without that, injury-risk stars were being punished twice.
   - Both formats then subtract replacement level, which is found by filling every team's lineup slots league-wide. That builds positional scarcity into the rankings.
 - **Draft board:** tracks snake-draft order and recommends your next pick. It weighs value, open roster slots and your weakest categories. It also compares ADP to your next two picks to flag "can wait" and "likely gone".

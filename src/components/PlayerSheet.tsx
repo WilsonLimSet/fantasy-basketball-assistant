@@ -3,7 +3,7 @@
 import { createContext, useCallback, useContext, useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { League, Valued, fantasyPoints, tierLabel } from "@/lib/engine";
-import { playerInsights } from "@/lib/insights";
+import { playerInsights, playerNotes } from "@/lib/insights";
 import type { NewsItem } from "@/lib/playerNews";
 import type { StatLine } from "@/lib/types";
 import { KIND_STYLE } from "./Take";
@@ -118,6 +118,13 @@ function PlayerSheet({ v, league, onClose }: { v: Valued; league: League; onClos
               </>
             )}
           </section>
+
+          {/* Our notes */}
+          <Section title="CourtVision notes">
+            <div className="space-y-2 text-sm leading-relaxed">
+              {playerNotes(v, league).map((n) => <p key={n}>{n}</p>)}
+            </div>
+          </Section>
 
           {/* Range of outcomes */}
           <section className="rounded-xl border border-line bg-panel p-4">
