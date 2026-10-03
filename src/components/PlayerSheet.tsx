@@ -4,6 +4,7 @@ import { createContext, useCallback, useContext, useEffect, useState } from "rea
 import { createPortal } from "react-dom";
 import { League, Valued, fantasyPoints, tierLabel } from "@/lib/engine";
 import { playerInsights, playerNotes } from "@/lib/insights";
+import { useScouting } from "@/lib/scouting";
 import type { NewsItem } from "@/lib/playerNews";
 import type { StatLine } from "@/lib/types";
 import { KIND_STYLE } from "./Take";
@@ -58,6 +59,7 @@ function PlayerSheet({ v, league, onClose }: { v: Valued; league: League; onClos
 
   const points = league.format === "points";
   const er = espnRankFor(v, league);
+  const leagueHistory = useScouting()?.historyOf(p.id) ?? [];
   const insights = playerInsights(v, league);
   const espnTotal = points && p.proj ? fantasyPoints(p.proj, league.scoring) * p.proj.gp : null;
   const seasonLabel = notes ? `${notes.season - 1}-${String(notes.season).slice(2)}` : "";
@@ -124,6 +126,12 @@ function PlayerSheet({ v, league, onClose }: { v: Valued; league: League; onClos
           <Section title="CourtVision notes">
             <div className="space-y-2 text-sm leading-relaxed">
               {playerNotes(v, league).map((n) => <p key={n}>{n}</p>)}
+              {leagueHistory.length > 0 && (
+                <p>
+                  In your league:{" "}
+                  {leagueHistory.map((h) => `${h.manager.name} drafted him in round ${h.pick.round} (pick ${h.pick.overall}) in ${h.pick.season - 1}-${String(h.pick.season).slice(2)}`).join("; ")}.
+                </p>
+              )}
             </div>
           </Section>
 

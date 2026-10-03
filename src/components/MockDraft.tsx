@@ -6,6 +6,7 @@ import { fillLineup, nextPicksFor, recommend, teamForPick } from "@/lib/draft";
 import { Card, Headshot, PlayerCell, PlayerName, ValueCell, VsEspn, fmt } from "./ui";
 import { reviewDraft } from "@/lib/insights";
 import { useStars } from "@/lib/stars";
+import { useScouting } from "@/lib/scouting";
 import Targets from "./Targets";
 import { Paywall } from "./Paywall";
 import type { Board } from "./App";
@@ -16,9 +17,11 @@ interface Cfg { teams: number; slot: number; rounds: number; speed: number; rand
 const isSharp = (t: number, me: number) => t !== me && t % 3 === 2;
 
 /** CPU drafter: picks by ESPN ADP (or our board, if sharp) with noise, avoiding absurd roster builds. */
-function cpuPick(avail: Valued[], roster: Valued[], rnd: () => number, sharp: boolean): Valued {
+function cpuPick(avail: Valued[], roster: Valued[], rnd: () => number, sharp: boolean, favorites: ReadonlySet<number> = new Set()): Valued {
   const adp = (v: Valued) => v.p.adp ?? v.rank + 20;
-  const key = sharp ? (v: Valued) => 0.9 * v.rank + 0.1 * adp(v) : adp;
+  const base0 = sharp ? (v: Valued) => 0.9 * v.rank + 0.1 * adp(v) : adp;
+  // A league mate reaches for players he has drafted before.
+  const key = (v: Valued) => base0(v) - (favorites.has(v.p.id) ? 12 : 0);
   const cands = [...avail].sort((a, b) => key(a) - key(b)).slice(0, 8);
   const centers = roster.filter((v) => v.p.pos.length === 1 && v.p.pos[0] === "C").length;
   const ok = cands.filter((v) => !(centers >= 3 && v.p.pos.length === 1 && v.p.pos[0] === "C"));
@@ -39,6 +42,7 @@ export default function MockDraft({ board, league }: { board: Board; league: Lea
   const [starsOnly, setStarsOnly] = useState(false);
   const [limit, setLimit] = useState(40);
   const stars = useStars();
+  const scouting = useScouting();
   const valued = board.valued;
   const byId = useMemo(() => new Map(valued.map((v) => [v.p.id, v])), [valued]);
 
@@ -62,7 +66,10 @@ export default function MockDraft({ board, league }: { board: Board; league: Lea
   useEffect(() => {
     if (!picks || done || onClock === me || !avail.length) return;
     const t = setTimeout(() => {
-      const choice = cpuPick(avail, rosterOf(onClock), rnd, isSharp(onClock, me));
+      // With league scouting loaded, each CPU team leans toward players its real manager has drafted before.
+      const mgr = scouting?.data && cfg.teams === league.teams ? scouting.managerAtSlot(onClock) : null;
+      const favs = new Set(mgr ? mgr.picks.filter((p) => !p.auto).map((p) => p.playerId) : []);
+      const choice = cpuPick(avail, rosterOf(onClock), rnd, isSharp(onClock, me), favs);
       setPicks((p) => (p ? [...p, choice.p.id] : p));
     }, cfg.speed);
     return () => clearTimeout(t);
@@ -111,6 +118,11 @@ export default function MockDraft({ board, league }: { board: Board; league: Lea
             CourtVision rankings for your {league.format === "points" ? "points" : "category"} settings.
             {!board.paid && ` Free mocks run ${maxRounds} rounds.`}
           </p>
+          {scouting?.data && cfg.teams === league.teams && (
+            <p className="mt-2 text-xs text-emerald-700">
+              League scouting is loaded: CPU teams lean toward players their real managers drafted before.
+            </p>
+          )}
           {cfg.teams !== league.teams && (
             <p className="mt-2 text-xs text-amber-800">
               Rankings are tuned for your {league.teams}-team league. To mock a {cfg.teams}-team draft with rankings to

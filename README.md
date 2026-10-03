@@ -43,6 +43,17 @@ To update every day, run `/update-takes` in Claude Code from this folder, review
 - **League settings import:** League Settings → "Import from ESPN" reads `GET /api/league-settings?leagueId=…` (ESPN's `mSettings` view) and offers to apply your real scoring, roster slots, team count and draft slot.
 - Private leagues need `ESPN_LEAGUE_ID`, `ESPN_S2` and `ESPN_SWID` on the server. The cookies are only ever sent for that one league. Both endpoints accept `&season=` and default to `CV_SEASON`.
 
+## League scouting
+
+League Settings → "League scouting" reads the last two seasons of drafts for your ESPN league (`GET /api/scouting?leagueId=…`), matching managers across seasons by ESPN account so renamed teams line up. It shows each manager's early-round position lean, how often they autodraft, and players they drafted before who are still on the board. With it loaded:
+
+- Live Draft shows who picks before your next turn and who they've taken before.
+- Your targets warn when a manager picking before you drafted that player last year.
+- Player profiles say who in your league drafted him before.
+- Mock draft CPU teams lean toward their real managers' past picks.
+
+Private leagues need `ESPN_LEAGUE_ID`, `ESPN_S2` and `ESPN_SWID`, same as draft sync.
+
 ## In-season module (Adam)
 
 The original in-season assistant lives under `/inseason` (pages), `/api/inseason/*` (routes) and `src/lib/inseason` (logic). Its original README is in `README.adam.md`. The Vercel cron calls `/api/inseason/refresh`.

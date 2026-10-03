@@ -12,6 +12,7 @@ import LeagueSettings from "./LeagueSettings";
 import News from "./News";
 import { PassInfo } from "./Paywall";
 import { PlayerSheetProvider } from "./PlayerSheet";
+import { ScoutingProvider } from "@/lib/scouting";
 
 type Tab = "kit" | "mock" | "draft" | "news" | "edges" | "settings";
 
@@ -88,6 +89,7 @@ export default function App() {
   ];
 
   return (
+    <ScoutingProvider>
     <PlayerSheetProvider league={league}>
     <div className="min-h-screen">
       <header className="sticky top-0 z-20 border-b border-line bg-bg/90 backdrop-blur">
@@ -177,7 +179,7 @@ export default function App() {
           </div>
         )}
         {tab === "news" && <News />}
-        {tab === "settings" && <LeagueSettings league={league} setLeague={setLeague} draft={draft} setDraft={setDraft} />}
+        {tab === "settings" && <LeagueSettings league={league} setLeague={setLeague} draft={draft} setDraft={setDraft} valued={board?.valued ?? null} />}
 
         {!board && !err && ["kit", "mock", "draft", "edges"].includes(tab) && (
           <div className="py-20 text-center text-muted">Loading players…</div>
@@ -197,5 +199,6 @@ export default function App() {
       </footer>
     </div>
     </PlayerSheetProvider>
+    </ScoutingProvider>
   );
 }

@@ -7,6 +7,8 @@ import { useState } from "react";
 import type { EspnLeagueSettings } from "@/lib/espnLeague";
 import { useStored } from "@/lib/useStored";
 import { Card } from "./ui";
+import ScoutingCard from "./ScoutingCard";
+import type { Valued } from "@/lib/engine";
 
 const SCORING_KEYS: { k: StatKey; label: string }[] = [
   { k: "pts", label: "PTS" }, { k: "reb", label: "REB" }, { k: "ast", label: "AST" }, { k: "stl", label: "STL" },
@@ -15,15 +17,16 @@ const SCORING_KEYS: { k: StatKey; label: string }[] = [
   { k: "dd", label: "DD" }, { k: "td", label: "TD" },
 ];
 
-interface Props { league: League; setLeague: (l: League) => void; draft: DraftState; setDraft: (d: DraftState) => void }
+interface Props { league: League; setLeague: (l: League) => void; draft: DraftState; setDraft: (d: DraftState) => void; valued?: Valued[] | null }
 
-export default function LeagueSettings({ league, setLeague, draft, setDraft }: Props) {
+export default function LeagueSettings({ league, setLeague, draft, setDraft, valued = null }: Props) {
   const set = (patch: Partial<League>) => setLeague({ ...league, ...patch, presetId: patch.presetId ?? "custom" });
   const num = (s: string) => (s === "" || s === "-" ? 0 : Number(s));
 
   return (
     <div className="grid gap-4 lg:grid-cols-2">
       <EspnImport league={league} setLeague={setLeague} draft={draft} setDraft={setDraft} />
+      <ScoutingCard valued={valued} />
       <Card title="League">
         <div className="space-y-3 text-sm">
           <Row label="Preset">

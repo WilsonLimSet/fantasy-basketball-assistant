@@ -9,6 +9,7 @@ import type { Board } from "./App";
 import { useStored } from "@/lib/useStored";
 import { useStars } from "@/lib/stars";
 import Targets from "./Targets";
+import PickingBefore from "./PickingBefore";
 
 const SYNC_MS = 5000;
 
@@ -298,6 +299,7 @@ export default function DraftBoard({ board, league, draft, setDraft }: Props) {
           )}
         </Card>
 
+        <PickingBefore pickNo={pickNo} myNext={myNext[0]} teams={teams} avail={avail} byId={byId} />
         <Targets byId={byId} picks={draft.picks} league={league} me={me} myNext={myNext} canDraft={!sync && pickNo < total} onDraft={pick} />
 
         <Card title="Recent picks">

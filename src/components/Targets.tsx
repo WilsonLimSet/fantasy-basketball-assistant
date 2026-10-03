@@ -3,6 +3,7 @@
 import { League, Valued } from "@/lib/engine";
 import { teamForPick } from "@/lib/draft";
 import { useStars } from "@/lib/stars";
+import { useScouting } from "@/lib/scouting";
 import { Card, PlayerCell, fmt } from "./ui";
 
 interface Props {
@@ -22,12 +23,22 @@ interface Props {
  */
 export default function Targets({ byId, picks, league, me, myNext, canDraft, onDraft }: Props) {
   const stars = useStars();
+  const scouting = useScouting();
   const takenAt = new Map(picks.map((id, k) => [id, k]));
   const starred = [...stars].map((id) => byId.get(id)).filter(Boolean) as Valued[];
   const open = starred.filter((v) => !takenAt.has(v.p.id)).sort((a, b) => (a.p.adp ?? a.rank) - (b.p.adp ?? b.rank));
   const gone = starred.filter((v) => takenAt.has(v.p.id));
   const next = myNext[0], after = myNext[1];
   const n = league.teams;
+
+  // League mates picking before your next turn who have drafted this player before.
+  const threat = (v: Valued) => {
+    if (!scouting?.data || next == null) return null;
+    const before = new Set<string>();
+    for (let k = picks.length; k < next; k++) { const m = scouting.managerAtSlot(teamForPick(k, n)); if (m) before.add(m.ownerId); }
+    const h = scouting.historyOf(v.p.id).find((x) => before.has(x.manager.ownerId));
+    return h ? `${h.manager.name} picks before you and took him in round ${h.pick.round} in '${String(h.pick.season).slice(2)}` : null;
+  };
 
   const status = (v: Valued) => {
     const adp = v.p.adp ?? v.rank + 20;
@@ -55,7 +66,10 @@ export default function Targets({ byId, picks, league, me, myNext, canDraft, onD
                 <div className="shrink-0 text-right text-[11px] leading-tight text-muted tabular-nums">#{v.rank}<br />ADP {v.p.adp ? fmt(v.p.adp, 0) : "–"}</div>
               </div>
               <div className="mt-1 flex items-center gap-2">
-                <span className={`min-w-0 flex-1 text-[11px] ${s.cls}`}>{s.text}</span>
+                <span className={`min-w-0 flex-1 text-[11px] ${s.cls}`}>
+                  {s.text}
+                  {threat(v) && <span className="block text-red-700">{threat(v)}</span>}
+                </span>
                 {canDraft && <button onClick={() => onDraft(v.p.id)} className="btn-accent shrink-0">Draft</button>}
               </div>
             </li>

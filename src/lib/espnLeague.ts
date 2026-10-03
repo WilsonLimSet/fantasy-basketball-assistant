@@ -190,3 +190,84 @@ export function parseSettings(json: any, leagueId: string, season: number): Espn
     notes,
   };
 }
+
+/* ---------------- League scouting ---------------- */
+
+export interface ScoutPick { season: number; round: number; overall: number; playerId: number; auto: boolean; keeper: boolean }
+export interface ScoutManager {
+  ownerId: string;
+  name: string;
+  /** This season's team, when the league has been renewed. */
+  teamName: string | null;
+  /** 1-based draft slot this season, when ESPN has set the order. */
+  slot: number | null;
+  picks: ScoutPick[];
+}
+export interface Scouting {
+  leagueId: string;
+  season: number;
+  seasonsLoaded: number[];
+  managers: ScoutManager[];
+  notes: string[];
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type Json = any;
+
+const memberName = (m: Json) => {
+  const full = [m?.firstName, m?.lastName].filter(Boolean).join(" ").trim();
+  return full || m?.displayName || "Unknown manager";
+};
+const teamName = (t: Json) => String(t?.name ?? [t?.location, t?.nickname].filter(Boolean).join(" ") ?? `Team ${t?.id}`).trim();
+
+/**
+ * Past drafts for every manager in a league, matched across seasons by ESPN owner id (team ids
+ * and names change; owners don't). Used to anticipate who will take whom.
+ */
+export async function fetchScouting(leagueId: string, season: number, back = 2): Promise<Scouting> {
+  const notes: string[] = [];
+  const managers = new Map<string, ScoutManager>();
+  const get = (ownerId: string, name: string) =>
+    managers.get(ownerId) ?? managers.set(ownerId, { ownerId, name, teamName: null, slot: null, picks: [] }).get(ownerId)!;
+
+  // This season: who is in the league and the draft order.
+  try {
+    const cur: Json = await fetchLeague(leagueId, season, ["mTeam", "mSettings"]);
+    const names = new Map<string, string>((cur.members ?? []).map((m: Json) => [m.id, memberName(m)]));
+    const order: number[] = cur.settings?.draftSettings?.pickOrder ?? [];
+    for (const t of cur.teams ?? []) {
+      const owner = t.primaryOwner ?? t.owners?.[0];
+      if (!owner) continue;
+      const m = get(owner, names.get(owner) ?? teamName(t));
+      m.teamName = teamName(t);
+      const idx = order.indexOf(t.id);
+      m.slot = idx >= 0 ? idx + 1 : null;
+    }
+    if (!order.length) notes.push("ESPN hasn't set this season's draft order yet, so picks can't be matched to managers until it does.");
+  } catch (e) {
+    notes.push(`This season's league isn't available yet (${e instanceof Error ? e.message : e}). Showing past drafts only.`);
+  }
+
+  const seasonsLoaded: number[] = [];
+  for (let s = season - 1; s >= season - back; s--) {
+    try {
+      const j: Json = await fetchLeague(leagueId, s, ["mDraftDetail", "mTeam"]);
+      const names = new Map<string, string>((j.members ?? []).map((m: Json) => [m.id, memberName(m)]));
+      const ownerOf = new Map<number, string>();
+      for (const t of j.teams ?? []) { const o = t.primaryOwner ?? t.owners?.[0]; if (o) ownerOf.set(t.id, o); }
+      const picks: Json[] = j.draftDetail?.picks ?? [];
+      if (!picks.length) continue;
+      seasonsLoaded.push(s);
+      for (const p of picks) {
+        const owner = ownerOf.get(p.teamId);
+        if (!owner || !(p.playerId > 0)) continue;
+        get(owner, names.get(owner) ?? `Team ${p.teamId}`).picks.push({
+          season: s, round: Number(p.roundId), overall: Number(p.overallPickNumber), playerId: Number(p.playerId),
+          auto: Number(p.autoDraftTypeId ?? 0) > 0, keeper: !!p.keeper,
+        });
+      }
+    } catch { /* that season isn't available; keep going */ }
+  }
+  if (!seasonsLoaded.length) notes.push("No past drafts found for this league.");
+  return { leagueId, season, seasonsLoaded, managers: [...managers.values()].filter((m) => m.picks.length || m.slot), notes };
+}
