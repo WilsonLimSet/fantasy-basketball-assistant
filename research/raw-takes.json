@@ -1540,5 +1540,23 @@
 "source": "https://www.rotowire.com/basketball/headlines/brandin-podziemski-news-wants-to-shoot-more-threes-533028",
 "date": "2026-10-01",
 "confidence": "med"
+},
+{
+"name": "Alex Sarr",
+"team": "WAS",
+"kind": "fade",
+"mult": {
+"pts": 0.92,
+"fga": 0.92,
+"fgm": 0.92,
+"fta": 0.92,
+"tpm": 0.9,
+"ast": 0.95
+},
+"headline": "Shares the ball with Trae, a healthy AD and the No. 1 pick; still limited after foot surgery",
+"note": "Keefe named Young, Dybantsa, Davis and Sarr as four of the five starters, with Sarr splitting PF and C by matchup. Last season's 16.3 points on 13.7 shots came with Davis playing only 20 games and no Dybantsa. Expect his shots and points to dip; his rebounds and blocks should hold. He was still skipping live drills after June foot surgery, though the team expects him for the opener.",
+"source": "https://sports.yahoo.com/articles/wizards-media-day-2026-one-162216590.html",
+"date": "2026-09-28",
+"confidence": "med"
 }
 ]

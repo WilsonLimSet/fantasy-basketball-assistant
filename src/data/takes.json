@@ -834,6 +834,40 @@
    "updated": "2026-09-28"
   },
   {
+   "key": "alex sarr",
+   "name": "Alex Sarr",
+   "team": "WAS",
+   "kind": "fade",
+   "games": 68,
+   "mult": {
+    "pts": 0.92,
+    "fga": 0.92,
+    "fgm": 0.92,
+    "fta": 0.92,
+    "tpm": 0.9,
+    "ast": 0.95
+   },
+   "line": null,
+   "headline": "Shares the ball with Trae, a healthy AD and the No. 1 pick; still limited after foot surgery",
+   "notes": [
+    {
+     "headline": "Shares the ball with Trae, a healthy AD and the No. 1 pick; still limited after foot surgery",
+     "text": "Keefe named Young, Dybantsa, Davis and Sarr as four of the five starters, with Sarr splitting PF and C by matchup. Last season's 16.3 points on 13.7 shots came with Davis playing only 20 games and no Dybantsa. Expect his shots and points to dip; his rebounds and blocks should hold. He was still skipping live drills after June foot surgery, though the team expects him for the opener.",
+     "source": "https://sports.yahoo.com/articles/wizards-media-day-2026-one-162216590.html",
+     "date": "2026-09-28",
+     "confidence": "med"
+    },
+    {
+     "headline": "Partial participant after June broken-foot surgery; expected for opener",
+     "text": "Had surgery on a broken right foot in June. The GM expects him to be available on opening night, but he's limited in camp.",
+     "source": "https://www.nbcsports.com/fantasy/basketball/player-news/2026-09-24/wizards-gm-alex-sarr-foot-to-be-limited-in-camp",
+     "date": "2026-09-24",
+     "confidence": "med"
+    }
+   ],
+   "updated": "2026-09-28"
+  },
+  {
    "key": "jayson tatum",
    "name": "Jayson Tatum",
    "team": "BOS",
@@ -1133,26 +1167,6 @@
     }
    ],
    "updated": "2026-09-25"
-  },
-  {
-   "key": "alex sarr",
-   "name": "Alex Sarr",
-   "team": "WAS",
-   "kind": "note",
-   "games": 68,
-   "mult": {},
-   "line": null,
-   "headline": "Partial participant after June broken-foot surgery; expected for opener",
-   "notes": [
-    {
-     "headline": "Partial participant after June broken-foot surgery; expected for opener",
-     "text": "Had surgery on a broken right foot in June. The GM expects him to be available on opening night, but he's limited in camp.",
-     "source": "https://www.nbcsports.com/fantasy/basketball/player-news/2026-09-24/wizards-gm-alex-sarr-foot-to-be-limited-in-camp",
-     "date": "2026-09-24",
-     "confidence": "med"
-    }
-   ],
-   "updated": "2026-09-24"
   },
   {
    "key": "cedric coward",
