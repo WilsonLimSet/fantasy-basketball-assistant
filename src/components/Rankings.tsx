@@ -1,7 +1,8 @@
 "use client";
 
 import { Fragment, useState } from "react";
-import { League, Valued, tierLabel } from "@/lib/engine";
+import { League, Valued, rosterSize, tierLabel } from "@/lib/engine";
+import { LATE_ROUND_SHARE } from "@/lib/draft";
 import { Card, PlayerCell, ValueCell, VsEspn, ZChip, espnRankFor, fmt } from "./ui";
 import { Paywall } from "./Paywall";
 import type { Board } from "./App";
@@ -44,6 +45,52 @@ function Calls({ board, league }: { board: Board; league: League }) {
   );
 }
 
+/**
+ * Late-round swings: players going late whose good-case season is far better than their
+ * expected one. Early you draft value; late you draft upside, because a bust is a free cut.
+ */
+function Swings({ board, league }: { board: Board; league: League }) {
+  const pool = league.teams * rosterSize(league);
+  const lateFrom = Math.round(pool * LATE_ROUND_SHARE * 0.85);
+  const fromRound = Math.ceil(lateFrom / league.teams);
+  const items = board.valued
+    .filter((v) => v.rank >= lateFrom && v.ceiling.rank <= pool && v.ceiling.rank < v.rank - 10)
+    .sort((a, b) => a.ceiling.rank - b.ceiling.rank)
+    .slice(0, 10);
+  if (!items.length) return null;
+  const round = (r: number) => Math.max(1, Math.ceil(r / league.teams));
+  return (
+    <Card
+      title="Late-round swings"
+      right={<span className="text-xs text-muted">from round {fromRound} on, draft ceilings, not floors</span>}
+    >
+      <p className="mb-2 px-1 text-xs text-muted">
+        Early on you want the safest value. Late, a miss costs you nothing (you cut him for a waiver pickup) and a hit can
+        win your league. These players go late but could finish far higher if things break right.
+      </p>
+      <ul className="grid gap-x-6 sm:grid-cols-2">
+        {items.map((v) => (
+          <li key={v.p.id} className="flex items-center gap-3 border-t border-line/60 py-2">
+            <div className="min-w-0 flex-1">
+              <PlayerCell v={v} />
+              <div className="mt-0.5 truncate pl-[42px] text-[11px] text-muted">{v.ceiling.reasons.slice(0, 2).join(" · ")}</div>
+            </div>
+            <div className="shrink-0 text-right text-sm tabular-nums">
+              <div><span className="text-muted">Round {round(v.rank)} pick</span></div>
+              <div className="text-[11px]">
+                if it hits: <b className="font-medium text-emerald-700">top {v.ceiling.rank}</b>
+              </div>
+              <div className={`mt-0.5 inline-block rounded-full border px-1.5 text-[10px] ${v.ceiling.label === "Boom or bust" ? "border-amber-500/30 bg-amber-500/10 text-amber-800" : "border-line text-muted"}`}>
+                {v.ceiling.label}
+              </div>
+            </div>
+          </li>
+        ))}
+      </ul>
+    </Card>
+  );
+}
+
 export default function Rankings({ board, league, draftedIds }: { board: Board; league: League; draftedIds: Set<number> }) {
   const [pos, setPos] = useState("ALL");
   const [hideDrafted, setHideDrafted] = useState(false);
@@ -77,6 +124,7 @@ export default function Rankings({ board, league, draftedIds }: { board: Board; 
   return (
     <div className="space-y-4">
       <Calls board={board} league={league} />
+      <Swings board={board} league={league} />
       <Card
         title={`Rankings · ${league.format === "points" ? "points" : "categories"} · ${league.teams} teams`}
         right={

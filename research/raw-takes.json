@@ -1522,5 +1522,23 @@
 "source": "https://www.rotowire.com/basketball/headlines/neemias-queta-news-continuing-offensive-development-533049",
 "date": "2026-10-01",
 "confidence": "med"
+},
+{
+"name": "Brandin Podziemski",
+"team": "GSW",
+"kind": "boost",
+"mult": {
+"min": 1.04,
+"pts": 1.1,
+"tpm": 1.2,
+"fga": 1.08,
+"reb": 1.03,
+"stl": 1.02
+},
+"headline": "Wants to shoot more threes, with Kerr's blessing; averaged 17.5/6.2/4.1 as a starter",
+"note": "At media day Podziemski said he wants more three-point volume and Kerr backed it. After moving into the starting lineup full time last season he averaged 17.5 points, 6.2 rebounds, 4.1 assists and 1.0 steals over 27 games. With Jimmy Butler (ACL) out until early 2027, the starting role and the shots are his. A classic late-round upside pick.",
+"source": "https://www.rotowire.com/basketball/headlines/brandin-podziemski-news-wants-to-shoot-more-threes-533028",
+"date": "2026-10-01",
+"confidence": "med"
 }
 ]

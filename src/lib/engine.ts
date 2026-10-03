@@ -212,6 +212,20 @@ export interface Valued {
   /** core = worth a pick in this league; flier = last-round dart; waiver = leave on the wire. */
   bucket: "core" | "flier" | "waiver";
   take: Take | null;
+  /** What his season looks like if things break right. */
+  ceiling: Ceiling;
+}
+
+export interface Ceiling {
+  /** Value over replacement in the good scenario, on the same scale as vorp. */
+  vorp: number;
+  /** Where that would rank on today's board. */
+  rank: number;
+  /** Projected season fantasy points in the good scenario (points leagues). */
+  total: number;
+  /** How wide the range of outcomes is. */
+  label: "Boom or bust" | "Some upside" | "Steady";
+  reasons: string[];
 }
 
 const catRaw = (l: StatLine, c: Cat): number => {
@@ -318,9 +332,14 @@ export function valuePlayers(players: Player[], league: League, useTakes = true)
     const missed = league.format === "points" && r > 0 && !x.proj.basis.includes("unsigned")
       ? STREAM_FILL_RATE * (r / FULL_SEASON_GAMES) * Math.max(0, FULL_SEASON_GAMES - x.proj.games)
       : 0;
-    return { ...x, vorp: x.total - r + missed, rank: 0, posRank: {}, tier: 0, bucket: "core", take: takeOf.get(x.p.id) ?? null };
+    const vorp = x.total - r + missed;
+    const take = takeOf.get(x.p.id) ?? null;
+    return { ...x, vorp, rank: 0, posRank: {}, tier: 0, bucket: "core", take, ceiling: ceilingFor(x, take, league, vorp) } as Valued;
   });
   valued.sort((a, b) => b.vorp - a.vorp);
+  // Rank each ceiling against today's board.
+  const vorps = valued.map((v) => v.vorp);
+  for (const v of valued) v.ceiling.rank = vorps.filter((x) => x > v.ceiling.vorp).length + 1;
   const posCount: Record<string, number> = {};
   valued.forEach((v, i) => {
     v.rank = i + 1;
@@ -328,6 +347,59 @@ export function valuePlayers(players: Player[], league: League, useTakes = true)
   });
   assignTiers(valued, draftable);
   return valued;
+}
+
+/**
+ * The good-case season: the higher of our line and ESPN's, lifted by the things that create
+ * upside (youth, a new or bigger role, a short or missing track record), over a full workload.
+ * Late in a draft that is what you are buying: a bust is cut for a waiver pickup, a hit wins leagues.
+ */
+function ceilingFor(
+  x: { p: Player; proj: Projection; fppg: number; total: number },
+  take: Take | null, league: League, vorp: number,
+): Ceiling {
+  const { p, proj } = x;
+  const reasons: string[] = [];
+  let lift = 0;
+  const age = p.age;
+  if (age != null && age <= 24) {
+    lift += age <= 20 ? 0.12 : age === 21 ? 0.09 : age === 22 ? 0.07 : age === 23 ? 0.05 : 0.03;
+    reasons.push(age <= 21 ? `${age} years old: still improving fast` : `${age} and still on the rise`);
+  }
+  if (take && (take.kind === "boost" || take.kind === "rookie")) {
+    lift += 0.05;
+    reasons.push(take.kind === "rookie" ? "Rookie with a real role" : "Role is growing");
+  }
+  const lastMin = p.last && p.last.gp >= MIN_SAMPLE_GP ? p.last.min : null;
+  if (p.proj && ((lastMin != null && p.proj.min - lastMin >= 3) || (lastMin == null && p.proj.min >= 24))) {
+    lift += 0.04;
+    reasons.push(lastMin != null ? `Minutes jump: ${lastMin.toFixed(0)} → ${p.proj.min.toFixed(0)}` : `Projected for ${p.proj.min.toFixed(0)} minutes`);
+  }
+  if (!p.last || p.last.gp < 40) {
+    lift += 0.04;
+    reasons.push(p.last ? `Only ${p.last.gp.toFixed(0)} games last season: wide range of outcomes` : "No NBA track record: wide range of outcomes");
+  }
+  lift = Math.min(lift, 0.25);
+
+  // Good-case games: halfway to a full workload. Veterans don't get this: rest days are the plan.
+  const fullGames = Math.min(76, Math.max(proj.games, p.proj?.gp ?? proj.games));
+  const games = age != null && age > AGE_RISK_FROM ? proj.games : proj.games + (fullGames - proj.games) * 0.5;
+  if (games - proj.games >= 6) reasons.push(`Plays ${games.toFixed(0)} games instead of ${proj.games.toFixed(0)}`);
+
+  let total: number, ceilVorp: number;
+  if (league.format === "points") {
+    const espnFp = p.proj ? fantasyPoints(p.proj, league.scoring) : 0;
+    const fp = Math.max(x.fppg, espnFp) * (1 + lift);
+    total = fp * games;
+    ceilVorp = vorp + (total - x.total);
+  } else {
+    // Category value scales with production and with games.
+    const scale = (1 + lift) * (games / Math.max(proj.games, 1));
+    total = x.total >= 0 ? x.total * scale : x.total / scale;
+    ceilVorp = vorp + (total - x.total) + Math.max(0, lift) * 2;
+  }
+  const label = lift >= 0.12 ? "Boom or bust" : lift >= 0.06 ? "Some upside" : "Steady";
+  return { vorp: ceilVorp, rank: 0, total, label, reasons };
 }
 
 /** Players past the draftable pool who are still worth a last-round dart, as a share of the pool. */

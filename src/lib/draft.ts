@@ -1,4 +1,4 @@
-import { League, Slot, Valued, Cat } from "./engine";
+import { League, Slot, Valued, Cat, rosterSize } from "./engine";
 import { Pos } from "./types";
 
 export interface DraftState {
@@ -51,6 +51,9 @@ export function teamCatProfile(roster: Valued[], cats: Cat[]) {
   return prof;
 }
 
+/** From this share of the rounds on, recommendations favor ceiling over expected value. */
+export const LATE_ROUND_SHARE = 0.65;
+
 export interface Rec {
   v: Valued;
   score: number;
@@ -70,10 +73,14 @@ export function recommend(
   const weakest = [...activeCats].sort((a, b) => (prof[a] ?? 0) - (prof[b] ?? 0)).slice(0, 3);
   const topV = avail[0]?.vorp || 1;
   const pickAfterNext = myNextPicks[1] ?? Infinity;
+  // Late in the draft, swing for upside: a bust gets cut for a waiver pickup, a hit wins your league.
+  const round = Math.floor(currentPick / league.teams) + 1;
+  const late = round > Math.round(rosterSize(league) * LATE_ROUND_SHARE);
 
   return avail.slice(0, 60).map((v) => {
     const reasons: string[] = [];
-    let score = v.vorp / Math.abs(topV);
+    let score = (late ? 0.4 * v.vorp + 0.6 * v.ceiling.vorp : v.vorp) / Math.abs(topV);
+    if (late && v.ceiling.rank < v.rank - 15) reasons.push(`Upside swing: a top-${v.ceiling.rank} player if it hits`);
     // A starting spot (not UTIL) in your lineup that is still empty and he can play.
     const fills = openSlots.find((s) => s !== "UT" && SLOT_ELIG[s].some((p) => v.p.pos.includes(p)));
     if (fills && myRoster.length >= 4) { score += 0.04; reasons.push(`Fills your empty ${fills} spot`); }

@@ -119,6 +119,21 @@ function PlayerSheet({ v, league, onClose }: { v: Valued; league: League; onClos
             )}
           </section>
 
+          {/* Range of outcomes */}
+          <section className="rounded-xl border border-line bg-panel p-4">
+            <div className="flex flex-wrap items-baseline justify-between gap-2">
+              <h3 className="text-sm font-medium tracking-tight">Range of outcomes</h3>
+              <span className={`rounded-full border px-2 py-0.5 text-[11px] ${v.ceiling.label === "Boom or bust" ? "border-amber-500/30 bg-amber-500/10 text-amber-800" : "border-line text-muted"}`}>
+                {v.ceiling.label}
+              </span>
+            </div>
+            <p className="mt-1 text-sm">
+              Expected: our #{v.rank}. If things break right: <b className="font-medium">a top-{v.ceiling.rank} player</b>
+              {points && <> ({Math.round(v.ceiling.total).toLocaleString()} points)</>}.
+            </p>
+            {v.ceiling.reasons.length > 0 && <p className="mt-1 text-xs text-muted">{v.ceiling.reasons.join(" · ")}</p>}
+          </section>
+
           {/* Why */}
           {insights.length > 0 && (
             <Section title="Why he ranks here">
