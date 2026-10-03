@@ -10,9 +10,13 @@ import type { Board } from "./App";
 
 interface Cfg { teams: number; slot: number; rounds: number; speed: number; randomSlot: boolean }
 
-/** CPU drafter: picks by ESPN ADP with noise, avoiding absurd roster builds. */
-function cpuPick(avail: Valued[], roster: Valued[], rnd: () => number): Valued {
-  const key = (v: Valued) => v.p.adp ?? v.rank + 20;
+/** About a third of CPU teams are "sharp": they draft mostly off our board instead of ESPN ADP. */
+const isSharp = (t: number, me: number) => t !== me && t % 3 === 2;
+
+/** CPU drafter: picks by ESPN ADP (or our board, if sharp) with noise, avoiding absurd roster builds. */
+function cpuPick(avail: Valued[], roster: Valued[], rnd: () => number, sharp: boolean): Valued {
+  const adp = (v: Valued) => v.p.adp ?? v.rank + 20;
+  const key = sharp ? (v: Valued) => 0.9 * v.rank + 0.1 * adp(v) : adp;
   const cands = [...avail].sort((a, b) => key(a) - key(b)).slice(0, 8);
   const centers = roster.filter((v) => v.p.pos.length === 1 && v.p.pos[0] === "C").length;
   const ok = cands.filter((v) => !(centers >= 3 && v.p.pos.length === 1 && v.p.pos[0] === "C"));
@@ -52,7 +56,7 @@ export default function MockDraft({ board, league }: { board: Board; league: Lea
   useEffect(() => {
     if (!picks || done || onClock === me || !avail.length) return;
     const t = setTimeout(() => {
-      const choice = cpuPick(avail, rosterOf(onClock), rnd);
+      const choice = cpuPick(avail, rosterOf(onClock), rnd, isSharp(onClock, me));
       setPicks((p) => (p ? [...p, choice.p.id] : p));
     }, cfg.speed);
     return () => clearTimeout(t);
@@ -96,7 +100,8 @@ export default function MockDraft({ board, league }: { board: Board; league: Lea
             <input type="checkbox" checked={cfg.randomSlot} onChange={(e) => setCfg({ ...cfg, randomSlot: e.target.checked })} /> Random draft slot
           </label>
           <p className="mt-3 text-xs text-muted">
-            Snake draft. CPU teams draft like real ESPN users, following ESPN ADP with some randomness. You draft with
+            Snake draft. Most CPU teams draft like real ESPN users, following ESPN ADP with some randomness; about
+            a third are sharp drafters working from our rankings, so your grade has real competition. You draft with
             CourtVision rankings for your {league.format === "points" ? "points" : "category"} settings.
             {!board.paid && ` Free mocks run ${maxRounds} rounds.`}
           </p>
@@ -314,7 +319,10 @@ function Review({ picks, byId, league, me, onAgain, onSettings }: {
               <li key={t.t} className={`flex items-center gap-2 rounded-lg px-2 py-1.5 ${t.t === me ? "bg-accent/10" : ""}`}>
                 <span className="w-5 tabular-nums text-muted">{t.place}</span>
                 <span className="w-8 font-medium tabular-nums">{t.grade}</span>
-                <span className={`w-16 shrink-0 whitespace-nowrap ${t.t === me ? "font-medium text-accent" : ""}`}>{t.t === me ? "You" : `Team ${t.t + 1}`}</span>
+                <span className={`w-24 shrink-0 whitespace-nowrap ${t.t === me ? "font-medium text-accent" : ""}`}>
+                  {t.t === me ? "You" : `Team ${t.t + 1}`}
+                  {isSharp(t.t, me) && <span className="ml-1 rounded-full border border-line px-1.5 text-[10px] text-muted" title="Drafts from our rankings">sharp</span>}
+                </span>
                 <span className="min-w-0 flex-1 truncate text-xs text-muted">{t.best ? t.best.p.name : ""}</span>
                 <span className="whitespace-nowrap text-right text-xs tabular-nums text-muted" title="Season value over replacement · starters' fantasy points per night · average projected games per starter">
                   <b className="font-medium text-fg">{t.score >= 0 ? "+" : ""}{fmt(t.score, points ? 0 : 1)}</b>
@@ -324,8 +332,8 @@ function Review({ picks, byId, league, me, onAgain, onSettings }: {
             ))}
           </ol>
           <p className="mt-3 border-t border-line pt-3 text-xs text-muted">
-            Ranked by the bold number: season value over replacement. The other teams draft by ESPN ADP, and the grade
-            uses our projections, so drafting from our board will usually grade well.
+            Ranked by the bold number: season value over replacement, using our projections. Sharp teams draft from
+            the same board, so beating them is the real test.
           </p>
           {r.leagueSteal && r.leagueSteal.delta > 0 && (
             <p className="mt-2 text-xs text-muted">
@@ -356,7 +364,7 @@ function DraftGrid({ picks, cfg, rounds, me, byId }: { picks: number[]; cfg: Cfg
           <tr>
             <th />
             {Array.from({ length: cfg.teams }, (_, t) => (
-              <th key={t} className={`px-1 text-center ${t === me ? "text-accent" : "text-muted"}`}>{t === me ? "YOU" : `T${t + 1}`}</th>
+              <th key={t} className={`px-1 text-center ${t === me ? "text-accent" : "text-muted"}`}>{t === me ? "YOU" : `T${t + 1}`}{isSharp(t, me) && <span className="block text-[9px] font-normal">sharp</span>}</th>
             ))}
           </tr>
         </thead>
