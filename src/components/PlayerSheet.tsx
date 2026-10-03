@@ -5,6 +5,7 @@ import { createPortal } from "react-dom";
 import { League, Valued, fantasyPoints, tierLabel } from "@/lib/engine";
 import { playerInsights, playerNotes } from "@/lib/insights";
 import { useScouting } from "@/lib/scouting";
+import { setMyRank } from "@/lib/myRanks";
 import type { NewsItem } from "@/lib/playerNews";
 import type { StatLine } from "@/lib/types";
 import { KIND_STYLE } from "./Take";
@@ -94,7 +95,12 @@ function PlayerSheet({ v, league, onClose }: { v: Valued; league: League; onClos
                 {p.team} · {p.pos.join("/")}{posRank && ` · ${posRank}`}
               </div>
               <div className="mt-2 flex flex-wrap gap-1.5 text-xs">
-                <Chip label="Our rank" value={`#${v.rank}`} strong />
+                {v.cvRank != null ? (
+                  <>
+                    <Chip label="Your rank" value={`#${v.rank}`} strong />
+                    <Chip label="Ours" value={`#${v.cvRank}`} />
+                  </>
+                ) : <Chip label="Our rank" value={`#${v.rank}`} strong />}
                 <Chip label="ESPN" value={er != null ? `#${er}` : "–"} />
                 <Chip label="ADP" value={p.adp ? fmt(p.adp, 1) : "–"} />
                 <Chip label="Tier" value={tierLabel(v)} />
@@ -105,6 +111,9 @@ function PlayerSheet({ v, league, onClose }: { v: Valued; league: League; onClos
         </div>
 
         <div className="space-y-5 px-5 py-5">
+          {/* Your rank */}
+          <MyRank v={v} />
+
           {/* Headline projection */}
           <section className="grid grid-cols-3 gap-3">
             {points ? (
@@ -255,6 +264,32 @@ function PlayerSheet({ v, league, onClose }: { v: Valued; league: League; onClos
         </div>
       </aside>
     </div>
+  );
+}
+
+/** Set your own rank for a player; the whole board follows it. */
+function MyRank({ v }: { v: Valued }) {
+  const [val, setVal] = useState(v.cvRank != null ? String(v.rank) : "");
+  useEffect(() => { setVal(v.cvRank != null ? String(v.rank) : ""); }, [v.p.id, v.rank, v.cvRank]);
+  const save = () => { const n = Number(val); setMyRank(v.p.id, val.trim() && n >= 1 ? n : null); };
+  return (
+    <section className="flex flex-wrap items-center gap-2 rounded-xl border border-line bg-panel px-4 py-3 text-sm">
+      <span className="font-medium">Your rank</span>
+      <input
+        value={val}
+        onChange={(e) => setVal(e.target.value.replace(/\D/g, ""))}
+        onKeyDown={(e) => e.key === "Enter" && save()}
+        inputMode="numeric"
+        placeholder={`#${v.cvRank ?? v.rank}`}
+        aria-label="Your rank for this player"
+        className="input w-20"
+      />
+      <button onClick={save} className="btn-accent">Set</button>
+      {v.cvRank != null && <button onClick={() => { setMyRank(v.p.id, null); setVal(""); }} className="btn-ghost">Use ours (#{v.cvRank})</button>}
+      <span className="basis-full text-xs text-muted">
+        Disagree with us? Put him where you&apos;d take him. Your rankings, mocks and draft recommendations all follow it.
+      </span>
+    </section>
   );
 }
 

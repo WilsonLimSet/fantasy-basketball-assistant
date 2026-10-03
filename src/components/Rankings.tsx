@@ -6,6 +6,7 @@ import type { DraftState } from "@/lib/draft";
 import { LATE_ROUND_SHARE } from "@/lib/draft";
 import { noteLine } from "@/lib/insights";
 import { useStars } from "@/lib/stars";
+import { clearMyRanks, useMyRanks } from "@/lib/myRanks";
 import { Card, PlayerCell, ValueCell, VsEspn, ZChip, espnRankFor, fmt } from "./ui";
 import { Paywall } from "./Paywall";
 import type { Board } from "./App";
@@ -156,6 +157,8 @@ export default function Rankings({ board, league, draftedIds, setLeague, draft, 
   const [showWaiver, setShowWaiver] = useState(false);
   const [starsOnly, setStarsOnly] = useState(false);
   const stars = useStars();
+  const myRanks = useMyRanks();
+  const myCount = Object.keys(myRanks).length;
   const [q, setQ] = useState("");
   const valued = board.valued;
   const cats = league.cats.filter((c) => !league.punts.includes(c));
@@ -198,6 +201,11 @@ export default function Rankings({ board, league, draftedIds, setLeague, draft, 
             <button onClick={() => setStarsOnly((s) => !s)} aria-pressed={starsOnly} className={starsOnly ? "btn-accent" : "btn-ghost"}>
               ★ Targets{stars.size ? ` (${stars.size})` : ""}
             </button>
+            {myCount > 0 && (
+              <button onClick={clearMyRanks} className="btn-ghost" title="Go back to our rankings for every player">
+                Your ranks ({myCount}) · reset
+              </button>
+            )}
             <label className="flex items-center gap-1 text-xs text-muted">
               <input type="checkbox" checked={hideDrafted} onChange={(e) => setHideDrafted(e.target.checked)} /> hide drafted
             </label>
@@ -245,7 +253,13 @@ export default function Rankings({ board, league, draftedIds, setLeague, draft, 
                     </tr>
                   )}
                   <tr className={`border-t border-line/60 hover:bg-fg/[.02] ${draftedIds.has(v.p.id) ? "opacity-35" : ""}`}>
-                    <td className="py-1.5 pr-2 tabular-nums text-muted">{v.rank}</td>
+                    <td className="py-1.5 pr-2 tabular-nums text-muted">
+                      {v.cvRank != null ? (
+                        <span title={`Your rank. Ours: #${v.cvRank}`} className="font-medium text-fg">
+                          {v.rank}<span className="ml-0.5 align-top text-[9px] font-normal text-muted">you</span>
+                        </span>
+                      ) : v.rank}
+                    </td>
                     <td className="pr-2 text-muted">{tierLabel(v)}</td>
                     <td className="max-w-[260px] pr-2"><PlayerCell v={v} /><div className="truncate pl-[42px] text-[11px] text-muted" title={noteLine(v)}>{noteLine(v)}</div></td>
                     <td className="whitespace-nowrap pr-2 tabular-nums"><ValueCell v={v} league={league} /></td>

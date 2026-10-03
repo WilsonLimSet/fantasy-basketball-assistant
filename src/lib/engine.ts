@@ -310,6 +310,8 @@ export interface Valued {
   take: Take | null;
   /** What his season looks like if things break right. */
   ceiling: Ceiling;
+  /** Our rank, when you've set your own rank for him (rank then holds yours). */
+  cvRank?: number;
   /** His share of his team's minutes and shots, after the team-level fit. Null for free agents. */
   role: TeamRole | null;
 }

@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { applyMyRanks, useMyRanks } from "@/lib/myRanks";
 import Link from "next/link";
 import { LogoMark } from "./Logo";
 import { League, leagueFromPreset, Valued } from "@/lib/engine";
@@ -37,7 +38,10 @@ function save(key: string, v: unknown) {
 }
 
 export default function App() {
-  const [board, setBoard] = useState<Board | null>(null);
+  const [rawBoard, setBoard] = useState<Board | null>(null);
+  const myRanks = useMyRanks();
+  // Your own ranks re-order the board everywhere: rankings, mocks, live draft.
+  const board = useMemo(() => (rawBoard ? { ...rawBoard, valued: applyMyRanks(rawBoard.valued, myRanks) } : null), [rawBoard, myRanks]);
   const [err, setErr] = useState<string | null>(null);
   const [tab, setTab] = useState<Tab>("kit");
   const [league, setLeague] = useState<League>(() => leagueFromPreset("espn-points", 10));
