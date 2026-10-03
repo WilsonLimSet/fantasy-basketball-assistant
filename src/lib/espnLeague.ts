@@ -30,6 +30,15 @@ export class EspnLeagueError extends Error {
   constructor(message: string, public status: number) { super(message); }
 }
 
+/**
+ * Leagues the server's ESPN cookies may be used for: your league, plus any older leagues listed in
+ * ESPN_HISTORY_LEAGUE_IDS (e.g. last season's league if your league was recreated this year).
+ */
+export function ownLeagueIds(): string[] {
+  return [process.env.ESPN_LEAGUE_ID, ...(process.env.ESPN_HISTORY_LEAGUE_IDS ?? "").split(",")]
+    .map((x) => (x ?? "").trim()).filter((x) => /^\d+$/.test(x));
+}
+
 /** League id and season from a request, falling back to the owner's env league and the draft season. */
 export function leagueParams(req: Request) {
   const q = new URL(req.url).searchParams;
@@ -51,8 +60,8 @@ export async function fetchLeague(leagueId: string, season: number, views: strin
     Accept: "application/json",
     "User-Agent": "Mozilla/5.0 (compatible; CourtVision/0.1)",
   };
-  const { ESPN_S2: s2, ESPN_SWID: swid, ESPN_LEAGUE_ID: own } = process.env;
-  const authed = !!(s2 && swid && own && own.trim() === leagueId);
+  const { ESPN_S2: s2, ESPN_SWID: swid } = process.env;
+  const authed = !!(s2 && swid && ownLeagueIds().includes(leagueId));
   if (authed) headers.Cookie = `espn_s2=${s2}; SWID=${swid}`;
   const r = await fetch(url, { headers, cache: "no-store", redirect: "manual" });
   if (r.status === 401 || r.status === 403 || (r.status >= 300 && r.status < 400)) {
@@ -193,6 +202,8 @@ export function parseSettings(json: any, leagueId: string, season: number): Espn
 
 /* ---------------- League scouting ---------------- */
 
+const seasonLabel = (s: number) => `${s - 1}-${String(s).slice(2)}`;
+
 export interface ScoutPick { season: number; round: number; overall: number; playerId: number; auto: boolean; keeper: boolean }
 export interface ScoutManager {
   ownerId: string;
@@ -224,7 +235,7 @@ const teamName = (t: Json) => String(t?.name ?? [t?.location, t?.nickname].filte
  * Past drafts for every manager in a league, matched across seasons by ESPN owner id (team ids
  * and names change; owners don't). Used to anticipate who will take whom.
  */
-export async function fetchScouting(leagueId: string, season: number, back = 2): Promise<Scouting> {
+export async function fetchScouting(leagueId: string, season: number, back = 2, historyLeagueIds: string[] = []): Promise<Scouting> {
   const notes: string[] = [];
   const managers = new Map<string, ScoutManager>();
   const get = (ownerId: string, name: string) =>
@@ -249,15 +260,18 @@ export async function fetchScouting(leagueId: string, season: number, back = 2):
   }
 
   const seasonsLoaded: number[] = [];
-  for (let s = season - 1; s >= season - back; s--) {
+  // Past drafts can live in this league or in an older league the same people played in.
+  const sources = [leagueId, ...historyLeagueIds.filter((x) => x !== leagueId)];
+  for (let s = season - 1; s >= season - back; s--) for (const src of sources) {
     try {
-      const j: Json = await fetchLeague(leagueId, s, ["mDraftDetail", "mTeam"]);
+      const j: Json = await fetchLeague(src, s, ["mDraftDetail", "mTeam", "mSettings"]);
       const names = new Map<string, string>((j.members ?? []).map((m: Json) => [m.id, memberName(m)]));
       const ownerOf = new Map<number, string>();
       for (const t of j.teams ?? []) { const o = t.primaryOwner ?? t.owners?.[0]; if (o) ownerOf.set(t.id, o); }
       const picks: Json[] = j.draftDetail?.picks ?? [];
       if (!picks.length) continue;
-      seasonsLoaded.push(s);
+      if (!seasonsLoaded.includes(s)) seasonsLoaded.push(s);
+      if (src !== leagueId) notes.push(`${seasonLabel(s)} draft comes from your older league ${String(j.settings?.name ?? src).trim()} (${(j.teams ?? []).length} teams).`);
       for (const p of picks) {
         const owner = ownerOf.get(p.teamId);
         if (!owner || !(p.playerId > 0)) continue;
@@ -268,6 +282,6 @@ export async function fetchScouting(leagueId: string, season: number, back = 2):
       }
     } catch { /* that season isn't available; keep going */ }
   }
-  if (!seasonsLoaded.length) notes.push("No past drafts found for this league.");
+  if (!seasonsLoaded.length) notes.push("No past drafts found. If your league was recreated this season, set ESPN_HISTORY_LEAGUE_IDS to last season's league ID.");
   return { leagueId, season, seasonsLoaded, managers: [...managers.values()].filter((m) => m.picks.length || m.slot), notes };
 }
