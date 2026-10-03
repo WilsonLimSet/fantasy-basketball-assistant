@@ -52,7 +52,10 @@ League Settings → "League scouting" reads the last two seasons of drafts for y
 - Player profiles say who in your league drafted him before.
 - Mock draft CPU teams lean toward their real managers' past picks.
 
-Private leagues need `ESPN_LEAGUE_ID`, `ESPN_S2` and `ESPN_SWID`, same as draft sync.
+- **Any user's private league:** League Settings → Import from ESPN → "Add your ESPN cookies". The cookies are kept in that browser and sent as `x-espn-s2` / `x-espn-swid` headers, used for that one request to ESPN and never stored. Your own team is found from your ESPN account.
+- **Recreated leagues:** enter last season's league ID next to the scouting button (or set `ESPN_HISTORY_LEAGUE_IDS` for the owner's league).
+- **Draft order:** ESPN's order can be a placeholder. Set the real order under League scouting, or it updates itself from round 1 once Sync from ESPN is on.
+- The server's own cookies (`ESPN_S2`, `ESPN_SWID`) only ever apply to `ESPN_LEAGUE_ID` and `ESPN_HISTORY_LEAGUE_IDS`.
 
 ## In-season module (Adam)
 

@@ -6,6 +6,7 @@ import type { StatKey } from "@/lib/types";
 import { useState } from "react";
 import type { EspnLeagueSettings } from "@/lib/espnLeague";
 import { useStored } from "@/lib/useStored";
+import { espnHeaders, getEspnAuth, setEspnAuth } from "@/lib/espnAuth";
 import { Card } from "./ui";
 import ScoutingCard from "./ScoutingCard";
 import type { Valued } from "@/lib/engine";
@@ -133,7 +134,7 @@ function EspnImport({ league, setLeague, draft, setDraft }: Props) {
   const load = async () => {
     setBusy(true); setErr(null); setFound(null); setApplied(false);
     try {
-      const r = await fetch(`/api/league-settings?leagueId=${encodeURIComponent(leagueId.trim())}`, { cache: "no-store" });
+      const r = await fetch(`/api/league-settings?leagueId=${encodeURIComponent(leagueId.trim())}`, { cache: "no-store", headers: espnHeaders() });
       const j = await r.json();
       if (!r.ok) throw new Error(j.error ?? r.statusText);
       setFound(j as EspnLeagueSettings);
@@ -189,6 +190,7 @@ function EspnImport({ league, setLeague, draft, setDraft }: Props) {
             The number after leagueId= in your league&apos;s URL. Leave blank to use the server&apos;s league.
           </span>
         </div>
+        <PrivateLeague />
         {err && <p className="mt-3 text-sm text-red-700">{err}</p>}
         {found && (
           <div className="mt-3 rounded-lg border border-line bg-bg p-3 text-sm">
@@ -220,6 +222,53 @@ function EspnImport({ league, setLeague, draft, setDraft }: Props) {
           </div>
         )}
       </Card>
+    </div>
+  );
+}
+
+/** Cookies for a private ESPN league, kept in this browser only. */
+function PrivateLeague() {
+  const [open, setOpen] = useState(false);
+  const [s2, setS2] = useState("");
+  const [swid, setSwid] = useState("");
+  const [saved, setSaved] = useState<boolean | null>(null);
+  const has = saved ?? !!getEspnAuth();
+  const save = () => {
+    if (!s2.trim() || !swid.trim()) return;
+    setEspnAuth({ s2: s2.trim(), swid: swid.trim() });
+    setS2(""); setSwid(""); setSaved(true); setOpen(false);
+  };
+  return (
+    <div className="mt-3 rounded-lg border border-line bg-bg p-3 text-sm">
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="font-medium">Private league?</span>
+        {has ? (
+          <>
+            <span className="text-xs text-emerald-700">Your ESPN cookies are saved in this browser.</span>
+            <button onClick={() => { setEspnAuth(null); setSaved(false); }} className="btn-ghost">Remove</button>
+          </>
+        ) : (
+          <button onClick={() => setOpen((o) => !o)} className="btn-ghost">{open ? "Hide" : "Add your ESPN cookies"}</button>
+        )}
+      </div>
+      {open && !has && (
+        <div className="mt-2 space-y-2">
+          <ol className="list-decimal space-y-0.5 pl-5 text-xs text-muted">
+            <li>On a computer, open fantasy.espn.com in Chrome and make sure you&apos;re logged in.</li>
+            <li>Press Cmd+Option+I (Mac) or F12 (Windows) → Application → Cookies → https://fantasy.espn.com.</li>
+            <li>Copy the values of <b className="text-fg">espn_s2</b> (very long) and <b className="text-fg">SWID</b> (looks like {"{XXXXXXXX-XXXX-...}"}).</li>
+          </ol>
+          <div className="flex flex-wrap items-center gap-2">
+            <input value={s2} onChange={(e) => setS2(e.target.value)} placeholder="espn_s2" aria-label="espn_s2" className="input w-64" autoComplete="off" spellCheck={false} />
+            <input value={swid} onChange={(e) => setSwid(e.target.value)} placeholder="SWID {…}" aria-label="SWID" className="input w-64" autoComplete="off" spellCheck={false} />
+            <button onClick={save} disabled={!s2.trim() || !swid.trim()} className="btn-accent disabled:opacity-60">Save</button>
+          </div>
+          <p className="text-xs text-muted">
+            Saved only in this browser. They&apos;re sent to ESPN through our server when you read your league and are
+            never stored. They act as your ESPN login for reading leagues, so only add them on your own device.
+          </p>
+        </div>
+      )}
     </div>
   );
 }

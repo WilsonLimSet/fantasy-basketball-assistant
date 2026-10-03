@@ -7,9 +7,11 @@ import { Card, PlayerCell, ValueCell, VsEspn, ZChip, fmt } from "./ui";
 import { Paywall } from "./Paywall";
 import type { Board } from "./App";
 import { useStored } from "@/lib/useStored";
+import { espnHeaders } from "@/lib/espnAuth";
 import { useStars } from "@/lib/stars";
 import Targets from "./Targets";
 import PickingBefore from "./PickingBefore";
+import { useScouting } from "@/lib/scouting";
 
 const SYNC_MS = 5000;
 
@@ -27,6 +29,9 @@ export default function DraftBoard({ board, league, draft, setDraft }: Props) {
   const [starsOnly, setStarsOnly] = useState(false);
   const [limit, setLimit] = useState(80);
   const stars = useStars();
+  const scouting = useScouting();
+  const scoutingRef = useRef(scouting);
+  scoutingRef.current = scouting;
   const [armed, setArmed] = useState(false);
   const teams = league.teams;
   const total = teams * draft.rounds;
@@ -60,11 +65,15 @@ export default function DraftBoard({ board, league, draft, setDraft }: Props) {
       if (busy) return;
       busy = true;
       try {
-        const r = await fetch(`/api/draft-sync?leagueId=${encodeURIComponent(leagueId.trim())}`, { cache: "no-store" });
+        const r = await fetch(`/api/draft-sync?leagueId=${encodeURIComponent(leagueId.trim())}`, { cache: "no-store", headers: espnHeaders() });
         const j = await r.json();
         if (stop) return;
         if (!r.ok) throw new Error(j.error ?? r.statusText);
         const picks: number[] = j.picks ?? [];
+        // Once round 1 is done, the real draft order is known: line scouting up with it.
+        const r1 = ((j.detail ?? []) as { round: number; overall: number; teamId: number }[])
+          .filter((d) => d.round === 1).sort((a, b) => a.overall - b.overall).map((d) => d.teamId);
+        if (r1.length === teams) scoutingRef.current?.setOrderFromTeams(r1);
         const cur = draftRef.current;
         if (picks.length !== cur.picks.length || picks.some((id, i) => id !== cur.picks[i])) setDraft({ ...cur, picks });
         const state = j.inProgress ? "draft in progress" : j.drafted ? "draft complete" : "draft not started";
@@ -78,7 +87,7 @@ export default function DraftBoard({ board, league, draft, setDraft }: Props) {
     tick();
     const t = setInterval(tick, SYNC_MS);
     return () => { stop = true; clearInterval(t); };
-  }, [sync, leagueId, setDraft]);
+  }, [sync, leagueId, setDraft, teams]);
 
   const pick = (id: number) => {
     if (sync || pickNo >= total) return;

@@ -3,8 +3,10 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import type { Valued } from "./engine";
 import type { Scouting, ScoutManager, ScoutPick } from "./espnLeague";
+import { espnHeaders } from "./espnAuth";
 
 const KEY = "cv.scouting";
+const ORDER_KEY = "cv.draftOrder";
 
 export interface PlayerHistory { manager: ScoutManager; pick: ScoutPick }
 
@@ -23,7 +25,12 @@ interface Ctx {
   data: Scouting | null;
   loading: boolean;
   error: string | null;
-  load: (leagueId: string) => Promise<void>;
+  load: (leagueId: string, historyLeagueIds?: string) => Promise<void>;
+  /** Your own draft order (slot -> ESPN owner id), overriding ESPN's until it's final. */
+  order: Record<number, string> | null;
+  setOrder: (o: Record<number, string> | null) => void;
+  /** Set the order from the first round of a live ESPN draft (team ids in pick order). */
+  setOrderFromTeams: (teamIds: number[]) => void;
   clear: () => void;
   /** Who drafted this player in past seasons (manual picks only). */
   historyOf: (playerId: number) => PlayerHistory[];
@@ -38,15 +45,37 @@ export function ScoutingProvider({ children }: { children: React.ReactNode }) {
   const [data, setData] = useState<Scouting | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [order, setOrderState] = useState<Record<number, string> | null>(null);
 
   useEffect(() => {
-    try { const s = localStorage.getItem(KEY); if (s) setData(JSON.parse(s)); } catch { /* ignore */ }
+    try {
+      const s = localStorage.getItem(KEY); if (s) setData(JSON.parse(s));
+      const o = localStorage.getItem(ORDER_KEY); if (o) setOrderState(JSON.parse(o));
+    } catch { /* ignore */ }
   }, []);
 
-  const load = useCallback(async (leagueId: string) => {
+  const setOrder = useCallback((o: Record<number, string> | null) => {
+    setOrderState(o);
+    try { if (o) localStorage.setItem(ORDER_KEY, JSON.stringify(o)); else localStorage.removeItem(ORDER_KEY); } catch { /* ignore */ }
+  }, []);
+
+  const setOrderFromTeams = useCallback((teamIds: number[]) => {
+    if (!data) return;
+    const next: Record<number, string> = {};
+    teamIds.forEach((tid, i) => { const m = data.managers.find((x) => x.teamId === tid); if (m) next[i + 1] = m.ownerId; });
+    if (Object.keys(next).length !== teamIds.length) return;
+    if (order && Object.entries(next).every(([k, v]) => order[Number(k)] === v)) return;
+    setOrder(next);
+  }, [data, order, setOrder]);
+
+  const load = useCallback(async (leagueId: string, historyLeagueIds?: string) => {
     setLoading(true); setError(null);
     try {
-      const r = await fetch(`/api/scouting?leagueId=${encodeURIComponent(leagueId.trim())}`, { cache: "no-store" });
+      const hist = (historyLeagueIds ?? "").split(",").map((x) => x.trim()).filter((x) => /^\d+$/.test(x)).join(",");
+      const r = await fetch(
+        `/api/scouting?leagueId=${encodeURIComponent(leagueId.trim())}${hist ? `&history=${hist}` : ""}`,
+        { cache: "no-store", headers: espnHeaders() },
+      );
       const j = await r.json();
       if (!r.ok) throw new Error(j.error ?? r.statusText);
       setData(j);
@@ -58,7 +87,7 @@ export function ScoutingProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
-  const clear = useCallback(() => { setData(null); try { localStorage.removeItem(KEY); } catch { /* ignore */ } }, []);
+  const clear = useCallback(() => { setData(null); setOrder(null); try { localStorage.removeItem(KEY); } catch { /* ignore */ } }, [setOrder]);
 
   const index = useMemo(() => {
     const m = new Map<number, PlayerHistory[]>();
@@ -73,10 +102,14 @@ export function ScoutingProvider({ children }: { children: React.ReactNode }) {
   }, [data]);
 
   const value = useMemo<Ctx>(() => ({
-    data, loading, error, load, clear,
+    data, loading, error, load, clear, order, setOrder, setOrderFromTeams,
     historyOf: (id) => index.get(id) ?? [],
-    managerAtSlot: (slot) => data?.managers.find((m) => m.slot === slot + 1) ?? null,
-  }), [data, loading, error, load, clear, index]);
+    managerAtSlot: (slot) => {
+      const owner = order?.[slot + 1];
+      if (owner) return data?.managers.find((m) => m.ownerId === owner) ?? null;
+      return data?.managers.find((m) => m.slot === slot + 1) ?? null;
+    },
+  }), [data, loading, error, load, clear, order, setOrder, setOrderFromTeams, index]);
 
   return <C.Provider value={value}>{children}</C.Provider>;
 }

@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { EspnLeagueError, fetchLeague, leagueParams, parseDraft } from "@/lib/espnLeague";
+import { EspnLeagueError, fetchLeague, leagueParams, parseDraft, requestAuth } from "@/lib/espnLeague";
 
 export const dynamic = "force-dynamic";
 
@@ -10,7 +10,7 @@ export const dynamic = "force-dynamic";
 export async function GET(req: Request) {
   try {
     const { leagueId, season } = leagueParams(req);
-    const json = await fetchLeague(leagueId, season, ["mDraftDetail"]);
+    const json = await fetchLeague(leagueId, season, ["mDraftDetail"], requestAuth(req));
     return NextResponse.json(parseDraft(json, leagueId, season), { headers: { "Cache-Control": "no-store" } });
   } catch (e) {
     const status = e instanceof EspnLeagueError ? e.status : 502;

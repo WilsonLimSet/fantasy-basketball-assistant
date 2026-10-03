@@ -30,6 +30,22 @@ export class EspnLeagueError extends Error {
   constructor(message: string, public status: number) { super(message); }
 }
 
+export interface EspnAuth { s2: string; swid: string }
+
+/**
+ * A visitor's ESPN login cookies, sent by our own client as headers for a private league. They are
+ * used for this one request to ESPN and never stored or logged.
+ */
+export function requestAuth(req: Request): EspnAuth | null {
+  const s2 = req.headers.get("x-espn-s2")?.trim() ?? "";
+  const swid = req.headers.get("x-espn-swid")?.trim() ?? "";
+  if (!s2 || !swid) return null;
+  const s2ok = /^[A-Za-z0-9%+/=]{40,1000}$/.test(s2);
+  const swidOk = /^\{?[0-9A-Fa-f-]{36}\}?$/.test(swid);
+  if (!s2ok || !swidOk) throw new EspnLeagueError("Those don't look like ESPN cookies. espn_s2 is a long string; SWID looks like {XXXXXXXX-XXXX-...}.", 400);
+  return { s2, swid: swid.startsWith("{") ? swid : `{${swid}}` };
+}
+
 /**
  * Leagues the server's ESPN cookies may be used for: your league, plus any older leagues listed in
  * ESPN_HISTORY_LEAGUE_IDS (e.g. last season's league if your league was recreated this year).
@@ -54,21 +70,27 @@ export function leagueParams(req: Request) {
  * owner's own league (ESPN_LEAGUE_ID), so this endpoint can't be used to read other private leagues.
  */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-export async function fetchLeague(leagueId: string, season: number, views: string[]): Promise<any> {
+export async function fetchLeague(leagueId: string, season: number, views: string[], auth: EspnAuth | null = null): Promise<any> {
   const url = `${BASE}/${season}/segments/0/leagues/${leagueId}?${views.map((v) => `view=${v}`).join("&")}`;
   const headers: Record<string, string> = {
     Accept: "application/json",
     "User-Agent": "Mozilla/5.0 (compatible; CourtVision/0.1)",
   };
+  // A visitor's own cookies (sent with this request) work for any league they can see; the
+  // server's cookies only for the owner's leagues.
   const { ESPN_S2: s2, ESPN_SWID: swid } = process.env;
-  const authed = !!(s2 && swid && ownLeagueIds().includes(leagueId));
-  if (authed) headers.Cookie = `espn_s2=${s2}; SWID=${swid}`;
+  const own = !!(s2 && swid && ownLeagueIds().includes(leagueId));
+  const authed = !!auth || own;
+  if (auth) headers.Cookie = `espn_s2=${auth.s2}; SWID=${auth.swid}`;
+  else if (own) headers.Cookie = `espn_s2=${s2}; SWID=${swid}`;
   const r = await fetch(url, { headers, cache: "no-store", redirect: "manual" });
   if (r.status === 401 || r.status === 403 || (r.status >= 300 && r.status < 400)) {
     throw new EspnLeagueError(
-      authed
-        ? "ESPN rejected the saved cookies. Refresh ESPN_S2 and ESPN_SWID."
-        : "This league is private. Set ESPN_LEAGUE_ID, ESPN_S2 and ESPN_SWID on the server, or make the league viewable to the public.",
+      auth
+        ? "ESPN rejected your cookies. Copy fresh espn_s2 and SWID values (they change when you log out of ESPN)."
+        : authed
+          ? "ESPN rejected the server's cookies. Refresh ESPN_S2 and ESPN_SWID."
+          : "This league is private. Add your ESPN cookies (espn_s2 and SWID) under League Settings → Import from ESPN.",
       401,
     );
   }
@@ -131,7 +153,7 @@ export interface EspnLeagueSettings {
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-export function parseSettings(json: any, leagueId: string, season: number): EspnLeagueSettings {
+export function parseSettings(json: any, leagueId: string, season: number, swid?: string): EspnLeagueSettings {
   const s = json?.settings;
   if (!s) throw new EspnLeagueError("ESPN's response had no league settings.", 502);
   const notes: string[] = [];
@@ -182,9 +204,12 @@ export function parseSettings(json: any, leagueId: string, season: number): Espn
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const teams = Number(s.size) || ((json?.teams as any[] | undefined)?.length ?? 10);
   const order: number[] = s.draftSettings?.pickOrder ?? [];
-  const myTeam = Number(process.env.ESPN_MY_TEAM_ID);
-  const own = process.env.ESPN_LEAGUE_ID?.trim() === leagueId;
-  const idx = own && myTeam ? order.indexOf(myTeam) : -1;
+  // Your team: the one your ESPN account owns, or ESPN_MY_TEAM_ID for the server owner's league.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const owned = swid ? ((json?.teams ?? []) as any[]).find((t) => (t.owners ?? []).includes(swid) || t.primaryOwner === swid) : null;
+  const envTeam = process.env.ESPN_LEAGUE_ID?.trim() === leagueId ? Number(process.env.ESPN_MY_TEAM_ID) : NaN;
+  const myTeam = owned ? Number(owned.id) : envTeam;
+  const idx = myTeam ? order.indexOf(myTeam) : -1;
   if (s.draftSettings?.type && s.draftSettings.type !== "SNAKE") {
     notes.push(`Draft type is ${String(s.draftSettings.type).toLowerCase()}; the draft board assumes a snake draft.`);
   }
@@ -207,11 +232,15 @@ const seasonLabel = (s: number) => `${s - 1}-${String(s).slice(2)}`;
 export interface ScoutPick { season: number; round: number; overall: number; playerId: number; auto: boolean; keeper: boolean }
 export interface ScoutManager {
   ownerId: string;
+  /** This is you (matched by your ESPN account). */
+  isMe?: boolean;
   name: string;
   /** This season's team, when the league has been renewed. */
   teamName: string | null;
   /** 1-based draft slot this season, when ESPN has set the order. */
   slot: number | null;
+  /** This season's ESPN team id, used to match live draft picks to managers. */
+  teamId: number | null;
   picks: ScoutPick[];
 }
 export interface Scouting {
@@ -235,15 +264,17 @@ const teamName = (t: Json) => String(t?.name ?? [t?.location, t?.nickname].filte
  * Past drafts for every manager in a league, matched across seasons by ESPN owner id (team ids
  * and names change; owners don't). Used to anticipate who will take whom.
  */
-export async function fetchScouting(leagueId: string, season: number, back = 2, historyLeagueIds: string[] = []): Promise<Scouting> {
+export async function fetchScouting(
+  leagueId: string, season: number, back = 2, historyLeagueIds: string[] = [], auth: EspnAuth | null = null,
+): Promise<Scouting> {
   const notes: string[] = [];
   const managers = new Map<string, ScoutManager>();
   const get = (ownerId: string, name: string) =>
-    managers.get(ownerId) ?? managers.set(ownerId, { ownerId, name, teamName: null, slot: null, picks: [] }).get(ownerId)!;
+    managers.get(ownerId) ?? managers.set(ownerId, { ownerId, name, teamName: null, slot: null, teamId: null, picks: [] }).get(ownerId)!;
 
   // This season: who is in the league and the draft order.
   try {
-    const cur: Json = await fetchLeague(leagueId, season, ["mTeam", "mSettings"]);
+    const cur: Json = await fetchLeague(leagueId, season, ["mTeam", "mSettings"], auth);
     const names = new Map<string, string>((cur.members ?? []).map((m: Json) => [m.id, memberName(m)]));
     const order: number[] = cur.settings?.draftSettings?.pickOrder ?? [];
     for (const t of cur.teams ?? []) {
@@ -251,6 +282,7 @@ export async function fetchScouting(leagueId: string, season: number, back = 2, 
       if (!owner) continue;
       const m = get(owner, names.get(owner) ?? teamName(t));
       m.teamName = teamName(t);
+      m.teamId = Number(t.id);
       const idx = order.indexOf(t.id);
       m.slot = idx >= 0 ? idx + 1 : null;
     }
@@ -264,7 +296,7 @@ export async function fetchScouting(leagueId: string, season: number, back = 2, 
   const sources = [leagueId, ...historyLeagueIds.filter((x) => x !== leagueId)];
   for (let s = season - 1; s >= season - back; s--) for (const src of sources) {
     try {
-      const j: Json = await fetchLeague(src, s, ["mDraftDetail", "mTeam", "mSettings"]);
+      const j: Json = await fetchLeague(src, s, ["mDraftDetail", "mTeam", "mSettings"], auth);
       const names = new Map<string, string>((j.members ?? []).map((m: Json) => [m.id, memberName(m)]));
       const ownerOf = new Map<number, string>();
       for (const t of j.teams ?? []) { const o = t.primaryOwner ?? t.owners?.[0]; if (o) ownerOf.set(t.id, o); }
@@ -283,5 +315,7 @@ export async function fetchScouting(leagueId: string, season: number, back = 2, 
     } catch { /* that season isn't available; keep going */ }
   }
   if (!seasonsLoaded.length) notes.push("No past drafts found. If your league was recreated this season, set ESPN_HISTORY_LEAGUE_IDS to last season's league ID.");
+  const me = auth?.swid ?? (ownLeagueIds().includes(leagueId) ? process.env.ESPN_SWID?.trim() : undefined);
+  for (const m of managers.values()) if (me && m.ownerId === me) m.isMe = true;
   return { leagueId, season, seasonsLoaded, managers: [...managers.values()].filter((m) => m.picks.length || m.slot), notes };
 }
