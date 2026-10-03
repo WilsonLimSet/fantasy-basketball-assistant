@@ -65,6 +65,7 @@ export interface Rec {
 /** Rank available players for *my* next pick. */
 export function recommend(
   avail: Valued[], myRoster: Valued[], league: League, currentPick: number, myNextPicks: number[],
+  stars: ReadonlySet<number> = new Set(),
 ): Rec[] {
   const { filled } = fillLineup(myRoster, league);
   const openSlots = filled.filter((f) => !f.v).map((f) => f.slot);
@@ -77,7 +78,9 @@ export function recommend(
   const round = Math.floor(currentPick / league.teams) + 1;
   const late = round > Math.round(rosterSize(league) * LATE_ROUND_SHARE);
 
-  return avail.slice(0, 60).map((v) => {
+  // Your starred targets are always considered, however far down the board.
+  const pool = [...avail.slice(0, 60), ...avail.slice(60).filter((v) => stars.has(v.p.id))];
+  return pool.map((v) => {
     const reasons: string[] = [];
     let score = (late ? 0.4 * v.vorp + 0.6 * v.ceiling.vorp : v.vorp) / Math.abs(topV);
     if (late && v.ceiling.rank < v.rank - 15) reasons.push(`Upside swing: a top-${v.ceiling.rank} player if it hits`);
@@ -98,6 +101,11 @@ export function recommend(
     if (canWait) { score -= 0.06; reasons.push(`Can wait: usually goes around pick ${adp.toFixed(0)}`); }
     if (goingSoon && !myTurn) { score -= 0.05; reasons.push("Probably gone before your pick"); }
     else if (goingSoon) reasons.push(`Won't last: usually goes around pick ${adp.toFixed(0)}`);
+    if (stars.has(v.p.id)) {
+      // A target you won't see again gets a nudge; one who will last can wait.
+      if (!canWait) { score += 0.05; reasons.unshift("Your target"); }
+      else reasons.unshift("Your target (can wait)");
+    }
     if (v.p.injury !== "ACTIVE") { score -= 0.03; reasons.push(v.p.injury.replace(/_/g, " ").toLowerCase()); }
     return { v, score, reasons, canWait, goingSoon };
   }).sort((a, b) => b.score - a.score);

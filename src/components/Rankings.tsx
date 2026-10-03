@@ -4,6 +4,7 @@ import { Fragment, useState } from "react";
 import { League, Valued, rosterSize, tierLabel } from "@/lib/engine";
 import { LATE_ROUND_SHARE } from "@/lib/draft";
 import { noteLine } from "@/lib/insights";
+import { useStars } from "@/lib/stars";
 import { Card, PlayerCell, ValueCell, VsEspn, ZChip, espnRankFor, fmt } from "./ui";
 import { Paywall } from "./Paywall";
 import type { Board } from "./App";
@@ -21,8 +22,8 @@ function Calls({ board, league }: { board: Board; league: League }) {
   const List = ({ items, up }: { items: typeof rows; up: boolean }) => (
     <ul className="divide-y divide-line/60">
       {items.map(({ v, er }) => (
-        <li key={v.p.id} className="flex items-center gap-3 py-2">
-          <div className="min-w-0 flex-1">
+        <li key={v.p.id} className="flex flex-wrap items-center gap-x-3 gap-y-1 py-2">
+          <div className="min-w-0 flex-1 basis-56">
             <PlayerCell v={v} />
             {v.take && <div className="mt-0.5 truncate text-[11px] text-muted">{v.take.headline}</div>}
           </div>
@@ -55,7 +56,7 @@ function Swings({ board, league }: { board: Board; league: League }) {
   const lateFrom = Math.round(pool * LATE_ROUND_SHARE * 0.85);
   const fromRound = Math.ceil(lateFrom / league.teams);
   const items = board.valued
-    .filter((v) => v.rank >= lateFrom && v.ceiling.rank <= pool && v.ceiling.rank < v.rank - 10)
+    .filter((v) => v.rank >= lateFrom && v.ceiling.label !== "Steady" && v.ceiling.rank <= pool && v.ceiling.rank < v.rank - 10)
     .sort((a, b) => a.ceiling.rank - b.ceiling.rank)
     .slice(0, 10);
   if (!items.length) return null;
@@ -69,9 +70,9 @@ function Swings({ board, league }: { board: Board; league: League }) {
         Early on you want the safest value. Late, a miss costs you nothing (you cut him for a waiver pickup) and a hit can
         win your league. These players go late but could finish far higher if things break right.
       </p>
-      <ul className="grid gap-x-6 sm:grid-cols-2">
+      <ul className="grid grid-cols-1 gap-x-6 sm:grid-cols-2">
         {items.map((v) => (
-          <li key={v.p.id} className="flex items-center gap-3 border-t border-line/60 py-2">
+          <li key={v.p.id} className="flex min-w-0 items-center gap-3 border-t border-line/60 py-2">
             <div className="min-w-0 flex-1">
               <PlayerCell v={v} />
               <div className="mt-0.5 truncate pl-[42px] text-[11px] text-muted">{v.ceiling.reasons.slice(0, 2).join(" · ")}</div>
@@ -96,6 +97,8 @@ export default function Rankings({ board, league, draftedIds }: { board: Board; 
   const [pos, setPos] = useState("ALL");
   const [hideDrafted, setHideDrafted] = useState(false);
   const [showWaiver, setShowWaiver] = useState(false);
+  const [starsOnly, setStarsOnly] = useState(false);
+  const stars = useStars();
   const [q, setQ] = useState("");
   const valued = board.valued;
   const cats = league.cats.filter((c) => !league.punts.includes(c));
@@ -105,7 +108,8 @@ export default function Rankings({ board, league, draftedIds }: { board: Board; 
       (!hideDrafted || !draftedIds.has(v.p.id)) &&
       (!q || v.p.name.toLowerCase().includes(q.toLowerCase())) &&
       // Waiver-wire players stay out of the way unless asked for or searched by name.
-      (showWaiver || !!q || v.bucket !== "waiver"),
+      (!starsOnly || stars.has(v.p.id)) &&
+      (showWaiver || !!q || starsOnly || v.bucket !== "waiver"),
   );
   const waiverCount = valued.filter((v) => v.bucket === "waiver").length;
 
@@ -130,6 +134,9 @@ export default function Rankings({ board, league, draftedIds }: { board: Board; 
         title={`Rankings · ${league.format === "points" ? "points" : "categories"} · ${league.teams} teams`}
         right={
           <div className="flex flex-wrap items-center gap-2">
+            <button onClick={() => setStarsOnly((s) => !s)} aria-pressed={starsOnly} className={starsOnly ? "btn-accent" : "btn-ghost"}>
+              ★ Targets{stars.size ? ` (${stars.size})` : ""}
+            </button>
             <label className="flex items-center gap-1 text-xs text-muted">
               <input type="checkbox" checked={hideDrafted} onChange={(e) => setHideDrafted(e.target.checked)} /> hide drafted
             </label>

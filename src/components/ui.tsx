@@ -3,6 +3,7 @@
 import { Valued, League } from "@/lib/engine";
 import { TakeBadge } from "./Take";
 import { usePlayerSheet } from "./PlayerSheet";
+import { toggleStar, useStars } from "@/lib/stars";
 
 export const fmt = (n: number, d = 1) => (Number.isFinite(n) ? n.toFixed(d) : "–");
 
@@ -55,6 +56,26 @@ export function TeamLogo({ team, size = 14 }: { team: string; size?: number }) {
   );
 }
 
+/** Star a player to track him as a target. A span, because it often sits inside a button. */
+export function StarButton({ id, name, className = "" }: { id: number; name: string; className?: string }) {
+  const on = useStars().has(id);
+  const go = (e: React.SyntheticEvent) => { e.stopPropagation(); e.preventDefault(); toggleStar(id); };
+  return (
+    <span
+      role="button"
+      tabIndex={0}
+      aria-pressed={on}
+      aria-label={on ? `Unstar ${name}` : `Star ${name} as a target`}
+      title={on ? "Remove from your targets" : "Add to your targets"}
+      onClick={go}
+      onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") go(e); }}
+      className={`inline-block cursor-pointer select-none leading-none ${on ? "text-amber-500" : "text-muted/40 hover:text-amber-500"} ${className}`}
+    >
+      {on ? "★" : "☆"}
+    </span>
+  );
+}
+
 /** Player name that opens the profile panel. A span, because it often sits inside a button. */
 export function PlayerName({ v, className = "" }: { v: Valued; className?: string }) {
   const open = usePlayerSheet();
@@ -80,6 +101,7 @@ export function PlayerCell({ v }: { v: Valued }) {
       <Headshot id={v.p.id} name={v.p.name} />
       <div className="min-w-0">
         <div className="truncate font-medium">
+          <StarButton id={v.p.id} name={v.p.name} className="mr-1" />
           <PlayerName v={v} />
           <InjuryBadge s={v.p.injury} />
           {v.take && <TakeBadge take={v.take} />}
@@ -112,7 +134,7 @@ export function ZChip({ z }: { z: number | undefined }) {
 
 export function Card({ title, children, right }: { title: string; children: React.ReactNode; right?: React.ReactNode }) {
   return (
-    <section className="rounded-xl border border-line bg-panel shadow-[0_1px_2px_rgba(25,25,25,0.04)]">
+    <section className="min-w-0 rounded-xl border border-line bg-panel shadow-[0_1px_2px_rgba(25,25,25,0.04)]">
       <div className="flex items-center justify-between gap-3 border-b border-line px-4 py-2.5">
         <h2 className="text-sm font-medium tracking-tight text-fg">{title}</h2>
         {right}

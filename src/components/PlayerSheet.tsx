@@ -7,7 +7,7 @@ import { playerInsights, playerNotes } from "@/lib/insights";
 import type { NewsItem } from "@/lib/playerNews";
 import type { StatLine } from "@/lib/types";
 import { KIND_STYLE } from "./Take";
-import { Headshot, InjuryBadge, TeamLogo, espnRankFor, fmt } from "./ui";
+import { Headshot, InjuryBadge, StarButton, TeamLogo, espnRankFor, fmt } from "./ui";
 
 const Ctx = createContext<((v: Valued) => void) | null>(null);
 
@@ -83,6 +83,7 @@ function PlayerSheet({ v, league, onClose }: { v: Valued; league: League; onClos
             <Headshot id={p.id} name={p.name} size={72} />
             <div className="min-w-0 flex-1">
               <div className="flex flex-wrap items-center gap-x-1">
+                <StarButton id={p.id} name={p.name} className="mr-1 text-xl" />
                 <h2 className="text-xl font-medium tracking-tight">{p.name}</h2>
                 <InjuryBadge s={p.injury} />
               </div>

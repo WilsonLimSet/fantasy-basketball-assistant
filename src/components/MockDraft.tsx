@@ -5,6 +5,8 @@ import { League, Valued } from "@/lib/engine";
 import { fillLineup, nextPicksFor, recommend, teamForPick } from "@/lib/draft";
 import { Card, Headshot, PlayerCell, PlayerName, ValueCell, VsEspn, fmt } from "./ui";
 import { reviewDraft } from "@/lib/insights";
+import { useStars } from "@/lib/stars";
+import Targets from "./Targets";
 import { Paywall } from "./Paywall";
 import type { Board } from "./App";
 
@@ -33,6 +35,10 @@ export default function MockDraft({ board, league }: { board: Board; league: Lea
   const [picks, setPicks] = useState<number[] | null>(null); // null = not started
   const [mySlot, setMySlot] = useState(1);
   const [q, setQ] = useState("");
+  const [pos, setPos] = useState("ALL");
+  const [starsOnly, setStarsOnly] = useState(false);
+  const [limit, setLimit] = useState(40);
+  const stars = useStars();
   const valued = board.valued;
   const byId = useMemo(() => new Map(valued.map((v) => [v.p.id, v])), [valued]);
 
@@ -114,8 +120,13 @@ export default function MockDraft({ board, league }: { board: Board; league: Lea
 
   const myRoster = rosterOf(me);
   const myNext = nextPicksFor(me, cfg.teams, maxRounds, pickNo, 3);
-  const recs = !done ? recommend(avail, myRoster, lg, pickNo, myNext).slice(0, 5) : [];
-  const shown = avail.filter((v) => !q || v.p.name.toLowerCase().includes(q.toLowerCase())).slice(0, 40);
+  const recs = !done ? recommend(avail, myRoster, lg, pickNo, myNext, stars).slice(0, 5) : [];
+  const matches = avail.filter((v) =>
+    (pos === "ALL" || v.p.pos.includes(pos as never)) &&
+    (!starsOnly || stars.has(v.p.id)) &&
+    (!q || v.p.name.toLowerCase().includes(q.toLowerCase())));
+  const shown = matches.slice(0, limit);
+  const picksUntilMe = myNext.length ? myNext[0] - pickNo : null;
 
   if (done) {
     return (
@@ -135,7 +146,10 @@ export default function MockDraft({ board, league }: { board: Board; league: Lea
           <div className="text-2xl font-medium tracking-tight tabular-nums">{Math.floor(pickNo / cfg.teams) + 1}.{(pickNo % cfg.teams) + 1}</div>
         </div>
         <div className="text-lg font-semibold">{onClock === me ? "You're on the clock" : `Team ${onClock + 1} picking…`}</div>
-        <div className="text-sm text-muted">You pick {mySlot} of {cfg.teams}</div>
+        <div className="text-sm text-muted">
+          You pick {mySlot} of {cfg.teams}
+          {onClock !== me && picksUntilMe != null && <> · your turn in <b className="text-fg">{picksUntilMe}</b></>}
+        </div>
         <button onClick={() => setPicks(null)} className="btn-ghost ml-auto">Quit</button>
       </div>
 
@@ -158,7 +172,19 @@ export default function MockDraft({ board, league }: { board: Board; league: Lea
               ))}
             </div>
           </Card>
-          <Card title="Available" right={<input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search" className="input w-40" />}>
+          <Card
+            title="Available"
+            right={
+              <div className="flex flex-wrap items-center gap-2">
+                <button onClick={() => setStarsOnly((s) => !s)} aria-pressed={starsOnly} className={starsOnly ? "btn-accent" : "btn-ghost"}>★ Targets</button>
+                <select value={pos} onChange={(e) => setPos(e.target.value)} className="input w-20" aria-label="Position">
+                  {["ALL", "PG", "SG", "SF", "PF", "C"].map((p) => <option key={p}>{p}</option>)}
+                </select>
+                <input value={q} onChange={(e) => setQ(e.target.value)} onKeyDown={(e) => e.key === "Enter" && shown[0] && myPick(shown[0].p.id)} placeholder="Search & Enter to draft" className="input w-44" />
+              </div>
+            }
+          >
+            <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead className="text-[11px] uppercase text-muted">
                 <tr className="text-left"><th className="py-1 pr-2">Rk</th><th className="pr-2">Player</th><th className="pr-2">Value</th><th className="pr-2">ESPN</th><th className="pr-2">ADP</th><th /></tr>
@@ -178,9 +204,16 @@ export default function MockDraft({ board, league }: { board: Board; league: Lea
                 ))}
               </tbody>
             </table>
+            </div>
+            {matches.length > limit && (
+              <div className="mt-2 text-center">
+                <button onClick={() => setLimit((l) => l + 40)} className="btn-ghost">Show more ({matches.length - limit} left)</button>
+              </div>
+            )}
           </Card>
         </div>
         <div className="space-y-4">
+          <Targets byId={byId} picks={picks} league={lg} me={me} myNext={myNext} canDraft={onClock === me} onDraft={myPick} />
           <Card title="Your team">
             <ul className="space-y-1 text-sm">
               {fillLineup(myRoster, lg).filled.map((f, i) => (

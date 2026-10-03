@@ -96,7 +96,7 @@ export default function App() {
             <span className="inline-block h-4 w-4 rounded-full border-[3px] border-ink" />
             <span className="text-base font-semibold tracking-tight">CourtVision</span>
           </div>
-          <nav className="-mx-1 flex max-w-full gap-1 overflow-x-auto px-1">
+          <nav className="no-scrollbar -mx-1 flex max-w-full gap-1 overflow-x-auto px-1">
             {tabs.map((t) => (
               <button
                 key={t.id}

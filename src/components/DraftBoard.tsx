@@ -7,6 +7,8 @@ import { Card, PlayerCell, ValueCell, VsEspn, ZChip, fmt } from "./ui";
 import { Paywall } from "./Paywall";
 import type { Board } from "./App";
 import { useStored } from "@/lib/useStored";
+import { useStars } from "@/lib/stars";
+import Targets from "./Targets";
 
 const SYNC_MS = 5000;
 
@@ -21,6 +23,9 @@ export default function DraftBoard({ board, league, draft, setDraft }: Props) {
   const valued = board.valued;
   const [q, setQ] = useState("");
   const [posFilter, setPosFilter] = useState("ALL");
+  const [starsOnly, setStarsOnly] = useState(false);
+  const [limit, setLimit] = useState(80);
+  const stars = useStars();
   const [armed, setArmed] = useState(false);
   const teams = league.teams;
   const total = teams * draft.rounds;
@@ -37,7 +42,7 @@ export default function DraftBoard({ board, league, draft, setDraft }: Props) {
     [draft.picks, teams, me, byId],
   );
   const myNext = nextPicksFor(me, teams, draft.rounds, pickNo, 3);
-  const recs = useMemo(() => recommend(avail, myRoster, league, pickNo, myNext), [avail, myRoster, league, pickNo, myNext]);
+  const recs = useMemo(() => recommend(avail, myRoster, league, pickNo, myNext, stars), [avail, myRoster, league, pickNo, myNext, stars]);
   const picksUntilMe = myNext.length ? myNext[0] - pickNo : null;
 
   // Live sync: poll ESPN's draft and replace our picks with theirs.
@@ -84,6 +89,7 @@ export default function DraftBoard({ board, league, draft, setDraft }: Props) {
   const shown = avail.filter(
     (v) =>
       (posFilter === "ALL" || v.p.pos.includes(posFilter as never)) &&
+      (!starsOnly || stars.has(v.p.id)) &&
       (!q || v.p.name.toLowerCase().includes(q.toLowerCase())),
   );
 
@@ -194,7 +200,8 @@ export default function DraftBoard({ board, league, draft, setDraft }: Props) {
         <Card
           title="Best available"
           right={
-            <div className="flex gap-2">
+            <div className="flex flex-wrap items-center gap-2">
+              <button onClick={() => setStarsOnly((s) => !s)} aria-pressed={starsOnly} className={starsOnly ? "btn-accent" : "btn-ghost"}>★ Targets</button>
               <select value={posFilter} onChange={(e) => setPosFilter(e.target.value)} className="input w-20">
                 {["ALL", "PG", "SG", "SF", "PF", "C"].map((p) => <option key={p}>{p}</option>)}
               </select>
@@ -223,7 +230,7 @@ export default function DraftBoard({ board, league, draft, setDraft }: Props) {
                 </tr>
               </thead>
               <tbody>
-                {shown.slice(0, 80).map((v) => {
+                {shown.slice(0, limit).map((v) => {
                   return (
                     <tr key={v.p.id} className="border-t border-line/60 hover:bg-fg/[.03]">
                       <td className="py-1.5 pr-2 tabular-nums text-muted">{v.rank}</td>
@@ -244,6 +251,11 @@ export default function DraftBoard({ board, league, draft, setDraft }: Props) {
               </tbody>
             </table>
           </div>
+          {shown.length > limit && (
+            <div className="mt-2 text-center">
+              <button onClick={() => setLimit((l) => l + 80)} className="btn-ghost">Show more ({shown.length - limit} left)</button>
+            </div>
+          )}
         </Card>
         {!board.paid && <Paywall info={board} what="the full player pool for your draft" />}
       </div>
@@ -285,6 +297,8 @@ export default function DraftBoard({ board, league, draft, setDraft }: Props) {
             </div>
           )}
         </Card>
+
+        <Targets byId={byId} picks={draft.picks} league={league} me={me} myNext={myNext} canDraft={!sync && pickNo < total} onDraft={pick} />
 
         <Card title="Recent picks">
           <ol className="space-y-1 text-sm max-h-80 overflow-y-auto">
