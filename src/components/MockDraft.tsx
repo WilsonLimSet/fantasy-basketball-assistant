@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { League, Valued } from "@/lib/engine";
+import { League, Valued, rosterSize } from "@/lib/engine";
 import { fillLineup, nextPicksFor, recommend, teamForPick } from "@/lib/draft";
 import { Card, Headshot, PlayerCell, PlayerName, ValueCell, VsEspn, fmt } from "./ui";
 import { reviewDraft } from "@/lib/insights";
@@ -31,7 +31,7 @@ function cpuPick(avail: Valued[], roster: Valued[], rnd: () => number, sharp: bo
 }
 
 export default function MockDraft({ board, league }: { board: Board; league: League }) {
-  const [cfg, setCfg] = useState<Cfg>({ teams: league.teams, slot: 1, rounds: 13, speed: 350, randomSlot: false });
+  const [cfg, setCfg] = useState<Cfg>({ teams: league.teams, slot: 1, rounds: rosterSize(league), speed: 350, randomSlot: false });
   const [picks, setPicks] = useState<number[] | null>(null); // null = not started
   const [mySlot, setMySlot] = useState(1);
   const [q, setQ] = useState("");
@@ -83,7 +83,7 @@ export default function MockDraft({ board, league }: { board: Board; league: Lea
           <div className="grid grid-cols-2 gap-3 text-sm sm:grid-cols-4">
             <Field label="Teams">
               <select className="input w-full" value={cfg.teams} onChange={(e) => setCfg({ ...cfg, teams: Number(e.target.value) })}>
-                {[8, 10, 12, 14].map((n) => <option key={n}>{n}</option>)}
+                {Array.from({ length: 13 }, (_, i) => i + 8).map((n) => <option key={n}>{n}</option>)}
               </select>
             </Field>
             <Field label="Your pick">
@@ -93,7 +93,7 @@ export default function MockDraft({ board, league }: { board: Board; league: Lea
             </Field>
             <Field label="Rounds">
               <select className="input w-full" value={cfg.rounds} onChange={(e) => setCfg({ ...cfg, rounds: Number(e.target.value) })}>
-                {[10, 12, 13, 14, 15, 16].map((n) => <option key={n}>{n}</option>)}
+                {Array.from({ length: 13 }, (_, i) => i + 8).map((n) => <option key={n}>{n}</option>)}
               </select>
             </Field>
             <Field label="CPU speed">
@@ -111,6 +111,12 @@ export default function MockDraft({ board, league }: { board: Board; league: Lea
             CourtVision rankings for your {league.format === "points" ? "points" : "category"} settings.
             {!board.paid && ` Free mocks run ${maxRounds} rounds.`}
           </p>
+          {cfg.teams !== league.teams && (
+            <p className="mt-2 text-xs text-amber-800">
+              Rankings are tuned for your {league.teams}-team league. To mock a {cfg.teams}-team draft with rankings to
+              match, change Teams on the Draft Kit first.
+            </p>
+          )}
           <button onClick={start} className="mt-4 w-full rounded-full bg-ink py-2 text-sm font-medium text-white hover:bg-ink/85">Start mock draft</button>
         </Card>
         {!board.paid && <Paywall info={board} what="full-length mock drafts" />}

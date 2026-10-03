@@ -1,7 +1,8 @@
 "use client";
 
 import { Fragment, useState } from "react";
-import { League, Valued, rosterSize, tierLabel } from "@/lib/engine";
+import { League, PRESETS, Valued, leagueFromPreset, rosterSize, tierLabel } from "@/lib/engine";
+import type { DraftState } from "@/lib/draft";
 import { LATE_ROUND_SHARE } from "@/lib/draft";
 import { noteLine } from "@/lib/insights";
 import { useStars } from "@/lib/stars";
@@ -93,7 +94,63 @@ function Swings({ board, league }: { board: Board; league: League }) {
   );
 }
 
-export default function Rankings({ board, league, draftedIds }: { board: Board; league: League; draftedIds: Set<number> }) {
+/**
+ * Your league's size and format, right on the Draft Kit. Tiers, fliers and sleepers are sized to
+ * teams x roster spots, so a 14-team league gets a deeper board than a 10-team one.
+ */
+function LeagueBar({ league, setLeague, draft, setDraft, onEditSettings }: {
+  league: League; setLeague: (l: League) => void; draft: DraftState; setDraft: (d: DraftState) => void; onEditSettings: () => void;
+}) {
+  const starters = Object.values(league.slots).reduce((a, b) => a + b, 0);
+  const roster = rosterSize(league);
+  const setRoster = (n: number) => {
+    const bench = Math.max(0, n - starters);
+    setLeague({ ...league, bench });
+    setDraft({ ...draft, rounds: starters + bench });
+  };
+  const setTeams = (teams: number) => {
+    setLeague({ ...league, teams });
+    if (draft.mySlot > teams) setDraft({ ...draft, mySlot: teams });
+  };
+  const preset = PRESETS.some((p) => p.id === league.presetId) ? league.presetId : "custom";
+  return (
+    <div className="flex flex-wrap items-center gap-x-4 gap-y-2 rounded-xl border border-line bg-panel px-4 py-3 text-sm shadow-[0_1px_2px_rgba(25,25,25,0.04)]">
+      <span className="font-medium">Your league</span>
+      <label className="flex items-center gap-1.5 text-muted">
+        Teams
+        <select value={league.teams} onChange={(e) => setTeams(Number(e.target.value))} className="input w-16 text-fg">
+          {Array.from({ length: 13 }, (_, i) => i + 8).map((n) => <option key={n}>{n}</option>)}
+        </select>
+      </label>
+      <label className="flex items-center gap-1.5 text-muted">
+        Rounds
+        <select value={roster} onChange={(e) => setRoster(Number(e.target.value))} className="input w-16 text-fg">
+          {Array.from({ length: 13 }, (_, i) => i + Math.max(starters, 8)).map((n) => <option key={n}>{n}</option>)}
+        </select>
+      </label>
+      <label className="flex items-center gap-1.5 text-muted">
+        Scoring
+        <select
+          value={preset}
+          onChange={(e) => { if (e.target.value !== "custom") setLeague({ ...leagueFromPreset(e.target.value, league.teams), bench: league.bench }); }}
+          className="input text-fg"
+        >
+          {preset === "custom" && <option value="custom">Custom (yours)</option>}
+          {PRESETS.map((p) => <option key={p.id} value={p.id}>{p.label}</option>)}
+        </select>
+      </label>
+      <span className="text-xs text-muted">
+        {league.teams} × {roster} = <b className="font-medium text-fg">{league.teams * roster}</b> players get drafted; tiers are sized to that.
+      </span>
+      <button onClick={onEditSettings} className="btn-ghost ml-auto">Exact scoring & slots</button>
+    </div>
+  );
+}
+
+export default function Rankings({ board, league, draftedIds, setLeague, draft, setDraft, onEditSettings }: {
+  board: Board; league: League; draftedIds: Set<number>;
+  setLeague: (l: League) => void; draft: DraftState; setDraft: (d: DraftState) => void; onEditSettings: () => void;
+}) {
   const [pos, setPos] = useState("ALL");
   const [hideDrafted, setHideDrafted] = useState(false);
   const [showWaiver, setShowWaiver] = useState(false);
@@ -131,6 +188,7 @@ export default function Rankings({ board, league, draftedIds }: { board: Board; 
 
   return (
     <div className="space-y-4">
+      <LeagueBar league={league} setLeague={setLeague} draft={draft} setDraft={setDraft} onEditSettings={onEditSettings} />
       <Calls board={board} league={league} />
       <Swings board={board} league={league} />
       <Card

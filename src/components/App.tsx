@@ -184,7 +184,7 @@ export default function App() {
         )}
         {board && (
           <>
-            {tab === "kit" && <Rankings board={board} league={league} draftedIds={new Set(draft.picks)} />}
+            {tab === "kit" && <Rankings board={board} league={league} draftedIds={new Set(draft.picks)} setLeague={setLeague} draft={draft} setDraft={setDraft} onEditSettings={() => setTab("settings")} />}
             {tab === "mock" && <MockDraft board={board} league={league} />}
             {tab === "edges" && <FormatEdges board={board} league={league} />}
             {tab === "draft" && <DraftBoard board={board} league={league} draft={draft} setDraft={setDraft} />}
