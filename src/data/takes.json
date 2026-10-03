@@ -645,6 +645,110 @@
    "updated": "2026-09-30"
   },
   {
+   "key": "jared mccain",
+   "name": "Jared McCain",
+   "team": "OKC",
+   "kind": "boost",
+   "games": null,
+   "mult": {
+    "min": 1.08,
+    "pts": 1.08,
+    "fga": 1.08,
+    "tpm": 1.08,
+    "ast": 1.05
+   },
+   "line": null,
+   "headline": "Thunder's sixth man and top shooter off the bench; Presti says there's 'a lot more' to his game",
+   "notes": [
+    {
+     "headline": "Thunder's sixth man and top shooter off the bench; Presti says there's 'a lot more' to his game",
+     "text": "McCain shot 41% from three in the playoffs (10.4 points on 46% shooting) and arrived at camp in great shape, per Daigneault. With OKC's other wing depth gone he projects as the first guard off the bench, and Presti hinted at a bigger role than spot-up shooter. A good late-round bet in points leagues if his minutes climb into the mid-20s.",
+     "source": "https://clutchpoints.com/nba/oklahoma-city-thunder/thunder-news-mark-daigneault-toasts-driven-jared-mccain-being-ready-training-camp",
+     "date": "2026-09-30",
+     "confidence": "med"
+    }
+   ],
+   "updated": "2026-09-30"
+  },
+  {
+   "key": "gui santos",
+   "name": "Gui Santos",
+   "team": "GSW",
+   "kind": "boost",
+   "games": null,
+   "mult": {
+    "min": 1.05,
+    "pts": 1.05,
+    "reb": 1.04,
+    "ast": 1.04
+   },
+   "line": null,
+   "headline": "'In the mix' to start; started 26 of the last 29 games last season",
+   "notes": [
+    {
+     "headline": "'In the mix' to start; started 26 of the last 29 games last season",
+     "text": "Kerr says only Curry and Green are locked in and Santos is part of an open competition. He posted career highs (9.2 points, 3.9 rebounds, 2.3 assists in 20.5 minutes) and finished last season as a starter, but rookie Yaxel Lendeborg got the first preseason start at small forward. A deep sleeper: if he wins the job his minutes jump toward 28.",
+     "source": "https://www.cbssports.com/fantasy/basketball/news/warriors-gui-santos-in-the-mix-for-spot-in-starting-lineup/",
+     "date": "2026-09-30",
+     "confidence": "low"
+    }
+   ],
+   "updated": "2026-09-30"
+  },
+  {
+   "key": "isaiah jackson",
+   "name": "Isaiah Jackson",
+   "team": "LAC",
+   "kind": "boost",
+   "games": null,
+   "mult": {
+    "min": 1.2,
+    "pts": 1.15,
+    "reb": 1.15,
+    "blk": 1.15,
+    "fga": 1.12
+   },
+   "line": null,
+   "headline": "Starting at center in the first days of Clippers camp, ahead of 38-year-old Brook Lopez",
+   "notes": [
+    {
+     "headline": "Starting at center in the first days of Clippers camp, ahead of 38-year-old Brook Lopez",
+     "text": "Lue opened camp with Garland, Strus, Jones Jr., Hachimura and Jackson, and said the lineup is not set: Lopez could still start against certain matchups. Jackson is the more mobile, athletic option and a strong shot-blocker per minute. If he holds the job he's a big upside swing at center in the last rounds.",
+     "source": "https://www.si.com/nba/clippers/onsi/what-starting-lineup-ty-lue-just-revealed-says-2026-27-clippers-01m3yexyh3a8",
+     "date": "2026-09-30",
+     "confidence": "med"
+    }
+   ],
+   "updated": "2026-09-30"
+  },
+  {
+   "key": "brook lopez",
+   "name": "Brook Lopez",
+   "team": "LAC",
+   "kind": "fade",
+   "games": null,
+   "mult": {
+    "min": 0.9,
+    "pts": 0.9,
+    "reb": 0.9,
+    "blk": 0.9,
+    "fga": 0.9,
+    "tpm": 0.9
+   },
+   "line": null,
+   "headline": "Not starting in early camp; Isaiah Jackson opened at center",
+   "notes": [
+    {
+     "headline": "Not starting in early camp; Isaiah Jackson opened at center",
+     "text": "Lue started Isaiah Jackson at center in the first two days of camp, though he said Lopez could still start some games depending on matchups. At 38, a smaller or matchup-based role is the likelier outcome.",
+     "source": "https://www.si.com/nba/clippers/onsi/what-starting-lineup-ty-lue-just-revealed-says-2026-27-clippers-01m3yexyh3a8",
+     "date": "2026-09-30",
+     "confidence": "med"
+    }
+   ],
+   "updated": "2026-09-30"
+  },
+  {
    "key": "joel embiid",
    "name": "Joel Embiid",
    "team": "PHI",
@@ -1727,6 +1831,31 @@
     }
    ],
    "updated": "2026-08-21"
+  },
+  {
+   "key": "cameron johnson",
+   "name": "Cameron Johnson",
+   "team": "DEN",
+   "kind": "boost",
+   "games": null,
+   "mult": {
+    "min": 1.03,
+    "pts": 1.06,
+    "fga": 1.05,
+    "tpm": 1.06
+   },
+   "line": null,
+   "headline": "Starting forward job is his after Peyton Watson was traded to Cleveland",
+   "notes": [
+    {
+     "headline": "Starting forward job is his after Peyton Watson was traded to Cleveland",
+     "text": "Johnson started all 54 of his games in his first Denver season but averaged just 12.2 points, his lowest since Phoenix, while shooting a career-best 43% from three. With Watson gone, nobody threatens his minutes, and open looks next to Jokic and Murray should push his scoring back up a little.",
+     "source": "https://www.cbssports.com/fantasy/basketball/news/nuggets-cameron-johnson-role-solidified-for-2026-27/",
+     "date": "2026-08-20",
+     "confidence": "med"
+    }
+   ],
+   "updated": "2026-08-20"
   },
   {
    "key": "andrew wiggins",

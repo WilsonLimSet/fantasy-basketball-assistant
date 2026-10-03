@@ -111,6 +111,9 @@ export default function Rankings({ board, league, draftedIds }: { board: Board; 
       (!starsOnly || stars.has(v.p.id)) &&
       (showWaiver || !!q || starsOnly || v.bucket !== "waiver"),
   );
+  // Sleepers stay grouped ahead of the waiver wire even though their ranks interleave.
+  const bucketOrder = { core: 0, flier: 1, sleeper: 2, waiver: 3 } as const;
+  rows.sort((a, b) => bucketOrder[a.bucket] - bucketOrder[b.bucket] || a.rank - b.rank);
   const waiverCount = valued.filter((v) => v.bucket === "waiver").length;
 
   const exportCsv = () => {
@@ -174,10 +177,12 @@ export default function Rankings({ board, league, draftedIds }: { board: Board; 
                     <tr className="bg-sunken/60">
                       <td colSpan={7 + (league.format === "cats" ? cats.length : 8)} className="px-2 py-1 text-[11px] font-medium uppercase tracking-wide text-muted">
                         {v.bucket === "flier"
-                          ? "Late-round fliers · only with your last pick"
-                          : v.bucket === "waiver"
-                            ? "Waiver wire · not worth a draft pick in this league"
-                            : `Tier ${v.tier}`}
+                          ? "Late-round fliers · your last few picks: take upside"
+                          : v.bucket === "sleeper"
+                            ? "Deep sleepers · outside the draftable pool, but one role change from mattering"
+                            : v.bucket === "waiver"
+                              ? "Waiver wire · watch, don't draft"
+                              : `Tier ${v.tier}`}
                       </td>
                     </tr>
                   )}

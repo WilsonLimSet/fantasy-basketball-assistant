@@ -140,8 +140,8 @@ export function project(p: Player, take?: Take | null): Projection | null {
   const last = rawLast && curve !== 1 ? scaleLine(rawLast, curve) : rawLast;
   const rookieLine = take ? takeLine(take) : null;
   if (!proj && !last && !cur && !rookieLine) return null;
-  // Unsigned, no ESPN projection, no current stats and no take: retired or out of the league. Not draftable.
-  if (p.team === "FA" && !proj && !cur && !take) return null;
+  // Unsigned with no take of ours: retired, overseas, or out of the league. Not draftable.
+  if (p.team === "FA" && !cur && !take) return null;
   const roleChange = !!take && !rookieLine && hasRoleChange(take);
 
   let line = {} as StatLine;
@@ -302,8 +302,11 @@ export interface Valued {
   rank: number;
   posRank: Record<string, number>;
   tier: number;
-  /** core = worth a pick in this league; flier = last-round dart; waiver = leave on the wire. */
-  bucket: "core" | "flier" | "waiver";
+  /**
+   * core = worth a pick in this league; flier = last-round upside pick; sleeper = past the draftable
+   * pool but one role change from mattering; waiver = leave on the wire.
+   */
+  bucket: "core" | "flier" | "sleeper" | "waiver";
   take: Take | null;
   /** What his season looks like if things break right. */
   ceiling: Ceiling;
@@ -541,8 +544,10 @@ function assignTiers(v: Valued[], draftable: number) {
   v.forEach((x, i) => {
     if (i >= n) {
       const flier = i < n + fliers;
-      x.tier = breaks.length + (flier ? 2 : 3);
-      x.bucket = flier ? "flier" : "waiver";
+      // Past the fliers, anyone with a real path to a bigger role stays on the radar.
+      const sleeper = !flier && (x.ceiling.label !== "Steady" || x.take?.kind === "boost" || x.take?.kind === "rookie");
+      x.tier = breaks.length + (flier ? 2 : sleeper ? 3 : 4);
+      x.bucket = flier ? "flier" : sleeper ? "sleeper" : "waiver";
       return;
     }
     if (next < breaks.length && i === breaks[next]) { tier++; next++; }
@@ -551,7 +556,7 @@ function assignTiers(v: Valued[], draftable: number) {
 }
 
 export const tierLabel = (v: Pick<Valued, "tier" | "bucket">) =>
-  v.bucket === "flier" ? "Flier" : v.bucket === "waiver" ? "Waiver" : String(v.tier);
+  v.bucket === "flier" ? "Flier" : v.bucket === "sleeper" ? "Sleeper" : v.bucket === "waiver" ? "Waiver" : String(v.tier);
 
 /* ---------------- Explanations ---------------- */
 
