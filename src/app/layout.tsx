@@ -6,6 +6,8 @@ const inter = Inter({ subsets: ["latin"], variable: "--font-inter", display: "sw
 const plexMono = IBM_Plex_Mono({ subsets: ["latin"], weight: ["400", "500"], variable: "--font-plex-mono", display: "swap" });
 
 export const metadata: Metadata = {
+  metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL ?? (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "http://localhost:3000")),
+  applicationName: "CourtVision",
   title: "CourtVision · Fantasy Basketball Draft Assistant",
   description: "Draft rankings and a live draft board tuned to your exact ESPN or Yahoo league scoring.",
 };

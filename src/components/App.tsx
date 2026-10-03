@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { LogoMark } from "./Logo";
 import { League, leagueFromPreset, Valued } from "@/lib/engine";
 import { DraftState } from "@/lib/draft";
 import Rankings from "./Rankings";
@@ -95,7 +96,7 @@ export default function App() {
       <header className="sticky top-0 z-20 border-b border-line bg-bg/90 backdrop-blur">
         <div className="mx-auto flex max-w-7xl flex-wrap items-center gap-x-6 gap-y-2 px-4 py-3">
           <div className="flex items-center gap-2">
-            <span className="inline-block h-4 w-4 rounded-full border-[3px] border-ink" />
+            <LogoMark size={22} />
             <span className="text-base font-semibold tracking-tight">CourtVision</span>
           </div>
           <nav className="no-scrollbar -mx-1 flex max-w-full gap-1 overflow-x-auto px-1">

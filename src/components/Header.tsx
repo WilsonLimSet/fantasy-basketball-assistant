@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { LogoMark } from './Logo';
 
 export function Header() {
   const pathname = usePathname();
@@ -10,8 +11,8 @@ export function Header() {
     <header className="header">
       <div className="header-content">
         <Link href="/inseason" className="logo">
-          <span>🏀</span>
-          <span>Adam</span>
+          <LogoMark size={22} />
+          <span>CourtVision <span style={{ color: 'var(--muted)', fontWeight: 400 }}>In-Season</span></span>
         </Link>
         <nav className="nav">
           <Link

@@ -1,10 +1,11 @@
 import Link from "next/link";
+import { LogoMark } from "@/components/Logo";
 
 export default async function Unlocked({ searchParams }: { searchParams: Promise<{ email?: string; key?: string }> }) {
   const { email, key } = await searchParams;
   return (
     <main className="mx-auto max-w-lg px-4 py-16 text-center">
-      <div className="mx-auto mb-4 h-10 w-10 rounded-full bg-ink" />
+      <LogoMark size={44} className="mx-auto mb-4" />
       <h1 className="text-2xl font-medium tracking-tight">You&apos;re in. Season pass unlocked.</h1>
       <p className="mt-2 text-muted">This browser is unlocked for the 2026-27 season.</p>
       {key && (
