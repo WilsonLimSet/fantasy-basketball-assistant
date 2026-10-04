@@ -66,6 +66,7 @@ export interface Rec {
 export function recommend(
   avail: Valued[], myRoster: Valued[], league: League, currentPick: number, myNextPicks: number[],
   stars: ReadonlySet<number> = new Set(),
+  avoid: ReadonlySet<number> = new Set(),
 ): Rec[] {
   const { filled } = fillLineup(myRoster, league);
   const openSlots = filled.filter((f) => !f.v).map((f) => f.slot);
@@ -79,7 +80,9 @@ export function recommend(
   const late = round > Math.round(rosterSize(league) * LATE_ROUND_SHARE);
 
   // Your starred targets are always considered, however far down the board.
-  const pool = [...avail.slice(0, 60), ...avail.slice(60).filter((v) => stars.has(v.p.id))];
+  // Your do-not-draft list is never recommended.
+  const ok = avoid.size ? avail.filter((v) => !avoid.has(v.p.id)) : avail;
+  const pool = [...ok.slice(0, 60), ...ok.slice(60).filter((v) => stars.has(v.p.id))];
   return pool.map((v) => {
     const reasons: string[] = [];
     let score = (late ? 0.4 * v.vorp + 0.6 * v.ceiling.vorp : v.vorp) / Math.abs(topV);

@@ -9,7 +9,7 @@ import { setMyRank } from "@/lib/myRanks";
 import type { NewsItem } from "@/lib/playerNews";
 import type { StatLine } from "@/lib/types";
 import { KIND_STYLE } from "./Take";
-import { Headshot, InjuryBadge, StarButton, TeamLogo, espnRankFor, fmt } from "./ui";
+import { AvoidButton, Headshot, InjuryBadge, StarButton, TeamLogo, espnRankFor, fmt } from "./ui";
 
 const Ctx = createContext<((v: Valued) => void) | null>(null);
 
@@ -111,8 +111,9 @@ function PlayerSheet({ v, league, onClose }: { v: Valued; league: League; onClos
         </div>
 
         <div className="space-y-5 px-5 py-5">
-          {/* Your rank */}
+          {/* Your rank and do-not-draft */}
           <MyRank v={v} />
+          <div className="-mt-2 flex justify-end"><AvoidButton id={p.id} name={p.name} /></div>
 
           {/* Headline projection */}
           <section className="grid grid-cols-3 gap-3">

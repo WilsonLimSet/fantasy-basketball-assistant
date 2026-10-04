@@ -5,7 +5,7 @@ import { League, Valued, rosterSize } from "@/lib/engine";
 import { fillLineup, nextPicksFor, recommend, teamForPick } from "@/lib/draft";
 import { Card, Headshot, PlayerCell, PlayerName, ValueCell, VsEspn, fmt } from "./ui";
 import { reviewDraft } from "@/lib/insights";
-import { useStars } from "@/lib/stars";
+import { useAvoid, useStars } from "@/lib/stars";
 import { useScouting } from "@/lib/scouting";
 import Targets from "./Targets";
 import { Paywall } from "./Paywall";
@@ -42,6 +42,7 @@ export default function MockDraft({ board, league }: { board: Board; league: Lea
   const [starsOnly, setStarsOnly] = useState(false);
   const [limit, setLimit] = useState(40);
   const stars = useStars();
+  const avoid = useAvoid();
   const scouting = useScouting();
   const valued = board.valued;
   const byId = useMemo(() => new Map(valued.map((v) => [v.p.id, v])), [valued]);
@@ -138,7 +139,7 @@ export default function MockDraft({ board, league }: { board: Board; league: Lea
 
   const myRoster = rosterOf(me);
   const myNext = nextPicksFor(me, cfg.teams, maxRounds, pickNo, 3);
-  const recs = !done ? recommend(avail, myRoster, lg, pickNo, myNext, stars).slice(0, 5) : [];
+  const recs = !done ? recommend(avail, myRoster, lg, pickNo, myNext, stars, avoid).slice(0, 5) : [];
   const matches = avail.filter((v) =>
     (pos === "ALL" || v.p.pos.includes(pos as never)) &&
     (!starsOnly || stars.has(v.p.id)) &&

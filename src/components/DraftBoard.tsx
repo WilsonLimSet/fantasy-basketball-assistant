@@ -8,7 +8,7 @@ import { Paywall } from "./Paywall";
 import type { Board } from "./App";
 import { useStored } from "@/lib/useStored";
 import { espnHeaders } from "@/lib/espnAuth";
-import { useStars } from "@/lib/stars";
+import { useAvoid, useStars } from "@/lib/stars";
 import Targets from "./Targets";
 import PickingBefore from "./PickingBefore";
 import { useScouting } from "@/lib/scouting";
@@ -29,6 +29,7 @@ export default function DraftBoard({ board, league, draft, setDraft }: Props) {
   const [starsOnly, setStarsOnly] = useState(false);
   const [limit, setLimit] = useState(80);
   const stars = useStars();
+  const avoid = useAvoid();
   const scouting = useScouting();
   const scoutingRef = useRef(scouting);
   scoutingRef.current = scouting;
@@ -48,7 +49,7 @@ export default function DraftBoard({ board, league, draft, setDraft }: Props) {
     [draft.picks, teams, me, byId],
   );
   const myNext = nextPicksFor(me, teams, draft.rounds, pickNo, 3);
-  const recs = useMemo(() => recommend(avail, myRoster, league, pickNo, myNext, stars), [avail, myRoster, league, pickNo, myNext, stars]);
+  const recs = useMemo(() => recommend(avail, myRoster, league, pickNo, myNext, stars, avoid), [avail, myRoster, league, pickNo, myNext, stars, avoid]);
   const picksUntilMe = myNext.length ? myNext[0] - pickNo : null;
 
   // Live sync: poll ESPN's draft and replace our picks with theirs.

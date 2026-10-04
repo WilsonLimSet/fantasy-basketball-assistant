@@ -3,7 +3,7 @@
 import { Valued, League } from "@/lib/engine";
 import { TakeBadge } from "./Take";
 import { usePlayerSheet } from "./PlayerSheet";
-import { toggleStar, useStars } from "@/lib/stars";
+import { toggleAvoid, toggleStar, useAvoid, useStars } from "@/lib/stars";
 
 export const fmt = (n: number, d = 1) => (Number.isFinite(n) ? n.toFixed(d) : "–");
 
@@ -95,14 +95,31 @@ export function PlayerName({ v, className = "" }: { v: Valued; className?: strin
   );
 }
 
-export function PlayerCell({ v }: { v: Valued }) {
+/** Toggle a player onto your do-not-draft list. */
+export function AvoidButton({ id, name }: { id: number; name: string }) {
+  const on = useAvoid().has(id);
   return (
-    <div className="flex min-w-0 items-center gap-2.5">
+    <button
+      onClick={(e) => { e.stopPropagation(); toggleAvoid(id); }}
+      aria-pressed={on}
+      className={on ? "rounded-full border border-red-500/30 bg-red-500/10 px-3 py-1 text-xs font-medium text-red-700" : "btn-ghost"}
+      title={on ? `Take ${name} off your do-not-draft list` : `Never recommend ${name}`}
+    >
+      {on ? "⊘ On your do-not-draft list" : "⊘ Do not draft"}
+    </button>
+  );
+}
+
+export function PlayerCell({ v }: { v: Valued }) {
+  const avoided = useAvoid().has(v.p.id);
+  return (
+    <div className={`flex min-w-0 items-center gap-2.5 ${avoided ? "opacity-45" : ""}`} title={avoided ? "On your do-not-draft list" : undefined}>
       <Headshot id={v.p.id} name={v.p.name} />
       <div className="min-w-0">
         <div className="truncate font-medium">
           <StarButton id={v.p.id} name={v.p.name} className="mr-1" />
           <PlayerName v={v} />
+          {avoided && <span className="ml-1.5 rounded border border-red-500/30 bg-red-500/10 px-1 text-[10px] font-semibold text-red-700">⊘ Avoid</span>}
           <InjuryBadge s={v.p.injury} />
           {v.take && <TakeBadge take={v.take} />}
         </div>

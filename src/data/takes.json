@@ -1862,6 +1862,32 @@
    "updated": "2026-08-20"
   },
   {
+   "key": "donovan mitchell",
+   "name": "Donovan Mitchell",
+   "team": "CLE",
+   "kind": "fade",
+   "games": null,
+   "mult": {
+    "pts": 0.93,
+    "fga": 0.94,
+    "ast": 0.91,
+    "reb": 0.93,
+    "stl": 0.93
+   },
+   "line": null,
+   "headline": "Dipped alongside Harden: 26.0/5.2/4.2 in 22 games together vs 27.9/5.7/4.5 for the season",
+   "notes": [
+    {
+     "headline": "Dipped alongside Harden: 26.0/5.2/4.2 in 22 games together vs 27.9/5.7/4.5 for the season",
+     "text": "After the Garland-for-Harden deadline trade, Mitchell's scoring, assists, rebounds and steals all came down a little in their 22 games together. Now he gets a full season next to a ball-dominant Harden. CBS still calls him a top-tier fantasy guard, so this is a small trim, not a fall-off.",
+     "source": "https://www.cbssports.com/nba/players/2842760/donovan-mitchell/fantasy/",
+     "date": "2026-08-20",
+     "confidence": "med"
+    }
+   ],
+   "updated": "2026-08-20"
+  },
+  {
    "key": "andrew wiggins",
    "name": "Andrew Wiggins",
    "team": "MIA",

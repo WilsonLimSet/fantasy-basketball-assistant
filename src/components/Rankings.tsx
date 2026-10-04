@@ -5,7 +5,7 @@ import { League, PRESETS, Valued, leagueFromPreset, rosterSize, tierLabel } from
 import type { DraftState } from "@/lib/draft";
 import { LATE_ROUND_SHARE } from "@/lib/draft";
 import { noteLine } from "@/lib/insights";
-import { useStars } from "@/lib/stars";
+import { useAvoid, useStars } from "@/lib/stars";
 import { clearMyRanks, useMyRanks } from "@/lib/myRanks";
 import { Card, PlayerCell, ValueCell, VsEspn, ZChip, espnRankFor, fmt } from "./ui";
 import { Paywall } from "./Paywall";
@@ -157,6 +157,8 @@ export default function Rankings({ board, league, draftedIds, setLeague, draft, 
   const [showWaiver, setShowWaiver] = useState(false);
   const [starsOnly, setStarsOnly] = useState(false);
   const stars = useStars();
+  const avoid = useAvoid();
+  const [hideAvoid, setHideAvoid] = useState(false);
   const myRanks = useMyRanks();
   const myCount = Object.keys(myRanks).length;
   const [q, setQ] = useState("");
@@ -169,6 +171,7 @@ export default function Rankings({ board, league, draftedIds, setLeague, draft, 
       (!q || v.p.name.toLowerCase().includes(q.toLowerCase())) &&
       // Waiver-wire players stay out of the way unless asked for or searched by name.
       (!starsOnly || stars.has(v.p.id)) &&
+      (!hideAvoid || !avoid.has(v.p.id)) &&
       (showWaiver || !!q || starsOnly || v.bucket !== "waiver"),
   );
   // Sleepers stay grouped ahead of the waiver wire even though their ranks interleave.
@@ -201,6 +204,11 @@ export default function Rankings({ board, league, draftedIds, setLeague, draft, 
             <button onClick={() => setStarsOnly((s) => !s)} aria-pressed={starsOnly} className={starsOnly ? "btn-accent" : "btn-ghost"}>
               ★ Targets{stars.size ? ` (${stars.size})` : ""}
             </button>
+            {avoid.size > 0 && (
+              <button onClick={() => setHideAvoid((h) => !h)} aria-pressed={hideAvoid} className={hideAvoid ? "btn-accent" : "btn-ghost"}>
+                {hideAvoid ? "Show" : "Hide"} do-not-draft ({avoid.size})
+              </button>
+            )}
             {myCount > 0 && (
               <button onClick={clearMyRanks} className="btn-ghost" title="Go back to our rankings for every player">
                 Your ranks ({myCount}) · reset
