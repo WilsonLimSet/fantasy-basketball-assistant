@@ -2,8 +2,10 @@
 # Vercel's "Ignored Build Step": exit 1 builds, exit 0 skips (a skipped build costs no build minutes).
 # Build only production (main) and pull requests. Plain pushes to other branches are tested locally.
 
-# Nothing that affects the app changed (docs and planning notes only): skip.
-if git rev-parse --verify --quiet HEAD^ >/dev/null && git diff --quiet HEAD^ HEAD -- . ':(exclude)README*.md' ':(exclude).planning' ':(exclude)research'; then
+# The commit only touches docs, planning notes or research: skip. (An empty commit still builds,
+# so `git commit --allow-empty` is a way to force a preview.)
+changed=$(git diff --name-only HEAD^ HEAD 2>/dev/null)
+if [ -n "$changed" ] && ! echo "$changed" | grep -qvE '^(README[^/]*\.md|\.planning/|research/)'; then
   echo "Only docs or research changed: skipping build"
   exit 0
 fi
