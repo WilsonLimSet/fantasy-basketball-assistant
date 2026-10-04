@@ -5,6 +5,7 @@ import { League, Valued, rosterSize } from "@/lib/engine";
 import { fillLineup, nextPicksFor, recommend, teamForPick } from "@/lib/draft";
 import { Card, Headshot, PlayerCell, PlayerName, ValueCell, VsEspn, fmt } from "./ui";
 import { reviewDraft } from "@/lib/insights";
+import { mockShareQuery } from "@/lib/shareCard";
 import { useAvoid, useStars } from "@/lib/stars";
 import { useScouting } from "@/lib/scouting";
 import Targets from "./Targets";
@@ -291,6 +292,12 @@ function Review({ picks, byId, league, me, onAgain, onSettings }: {
           </div>
         </div>
         <div className="ml-auto flex gap-2">
+          <ShareButton query={mockShareQuery({
+            grade: r.mine.grade, place: r.mine.place, teams: n,
+            scoring: league.format === "points" ? "points" : "category",
+            steal: r.bestPick?.v.p.name ?? null, stealBy: r.bestPick?.delta ?? null,
+            picks: [...r.myPicks].sort((a, b) => a.v.rank - b.v.rank).slice(0, 4).map((x) => x.v.p.name),
+          })} grade={r.mine.grade} />
           <button onClick={onAgain} className="btn-accent">Mock again</button>
           <button onClick={onSettings} className="btn-ghost">Change settings</button>
         </div>
@@ -397,6 +404,19 @@ function Review({ picks, byId, league, me, onAgain, onSettings }: {
       </div>
     </>
   );
+}
+
+/** Share the result: native share sheet on phones, copy the link elsewhere. The link previews as an image. */
+function ShareButton({ query, grade }: { query: string; grade: string }) {
+  const [done, setDone] = useState(false);
+  const share = async () => {
+    const url = `${location.origin}/s/mock?${query}`;
+    try {
+      if (navigator.share) await navigator.share({ title: `I got a ${grade} in my mock draft`, url });
+      else { await navigator.clipboard.writeText(url); setDone(true); setTimeout(() => setDone(false), 2500); }
+    } catch { /* cancelled */ }
+  };
+  return <button onClick={share} className="btn-ghost">{done ? "Link copied" : "Share result"}</button>;
 }
 
 function Tile({ title, children }: { title: string; children: React.ReactNode }) {
