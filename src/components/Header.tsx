@@ -39,7 +39,7 @@ export function Header() {
           >
             Connect
           </Link>
-          <Link href="/">Draft Kit</Link>
+          <Link href="/draft">Draft Kit</Link>
         </nav>
       </div>
     </header>

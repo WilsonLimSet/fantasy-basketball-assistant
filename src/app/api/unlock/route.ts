@@ -11,14 +11,14 @@ export async function GET(req: Request) {
   const u = new URL(req.url);
   const sid = u.searchParams.get("session_id");
   const sk = process.env.STRIPE_SECRET_KEY;
-  if (!sid || !sk) return NextResponse.redirect(new URL("/?unlock=error", u));
+  if (!sid || !sk) return NextResponse.redirect(new URL("/draft?unlock=error", u));
   const r = await fetch(`https://api.stripe.com/v1/checkout/sessions/${encodeURIComponent(sid)}`, {
     headers: { Authorization: `Bearer ${sk}` },
     cache: "no-store",
   });
   const s = await r.json();
   const email: string | undefined = s?.customer_details?.email ?? s?.customer_email;
-  if (!r.ok || s.payment_status !== "paid" || !email) return NextResponse.redirect(new URL("/?unlock=unpaid", u));
+  if (!r.ok || s.payment_status !== "paid" || !email) return NextResponse.redirect(new URL("/draft?unlock=unpaid", u));
   const res = NextResponse.redirect(new URL(`/unlocked?email=${encodeURIComponent(email)}&key=${licenseKey(email)}`, u));
   res.cookies.set(PASS_COOKIE, makePass(email), passCookieOptions);
   return res;

@@ -16,7 +16,7 @@ export default async function Unlocked({ searchParams }: { searchParams: Promise
           <p className="mt-2 text-xs text-muted">On another device, choose &quot;Already paid? Restore access&quot; and enter both.</p>
         </div>
       )}
-      <Link href="/" className="mt-8 inline-block rounded-full bg-ink px-5 py-2 text-sm font-medium text-white hover:bg-ink/85">Go to my draft kit →</Link>
+      <Link href="/draft" className="mt-8 inline-block rounded-full bg-ink px-5 py-2 text-sm font-medium text-white hover:bg-ink/85">Go to my draft kit →</Link>
     </main>
   );
 }
