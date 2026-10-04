@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { LogoMark } from './Logo';
 
 export function Header() {
   const pathname = usePathname();
@@ -9,35 +10,36 @@ export function Header() {
   return (
     <header className="header">
       <div className="header-content">
-        <Link href="/" className="logo">
-          <span>🏀</span>
-          <span>Adam</span>
+        <Link href="/inseason" className="logo">
+          <LogoMark size={22} />
+          <span>Takeover Fantasy <span style={{ color: 'var(--muted)', fontWeight: 400 }}>In-Season</span></span>
         </Link>
         <nav className="nav">
           <Link
-            href="/"
-            className={pathname === '/' ? 'active' : ''}
+            href="/inseason"
+            className={pathname === '/inseason' ? 'active' : ''}
           >
             Dashboard
           </Link>
           <Link
-            href="/waivers"
-            className={pathname === '/waivers' ? 'active' : ''}
+            href="/inseason/waivers"
+            className={pathname === '/inseason/waivers' ? 'active' : ''}
           >
             Waivers
           </Link>
           <Link
-            href="/weekly"
-            className={pathname === '/weekly' ? 'active' : ''}
+            href="/inseason/weekly"
+            className={pathname === '/inseason/weekly' ? 'active' : ''}
           >
             Weekly Plan
           </Link>
           <Link
-            href="/connect"
-            className={pathname === '/connect' ? 'active' : ''}
+            href="/inseason/connect"
+            className={pathname === '/inseason/connect' ? 'active' : ''}
           >
             Connect
           </Link>
+          <Link href="/draft">Draft Kit</Link>
         </nav>
       </div>
     </header>

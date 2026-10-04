@@ -1,0 +1,1667 @@
+[
+{
+"name": "Brandon Ingram",
+"team": "LAC",
+"kind": "injury",
+"games": 50,
+"mult": {
+"min": 0.95
+},
+"headline": "Partially torn Achilles found during May heel surgery; out for start of season",
+"note": "Clippers say he won't be ready for opening night and will be re-evaluated then; CBS lists him out until at least Nov 1. Given the tear was repaired in May, a ~December return with eased-in minutes is a reasonable estimate. Draft at a discount.",
+"source": "https://sports.yahoo.com/nba/live/nba-media-day-2026-live-updates-news-injuries-kawhi-leonard-lebron-james-jalen-duren-143418524.html",
+"date": "2026-09-28",
+"confidence": "high"
+},
+{
+"name": "Jimmy Butler",
+"team": "GSW",
+"kind": "injury",
+"games": 35,
+"mult": {
+"min": 0.85
+},
+"headline": "Torn ACL (Jan 2026); only light on-court work, out until at least Dec 1",
+"note": "Tore his ACL on Jan 19, 2026 and is still 'months away'. Return estimates run from December to February 2027. At age 37, expect limited minutes after he's back. Late-round stash at best.",
+"source": "https://bleacherreport.com/articles/25504121-kristaps-porzingis-out-indefinitely-jimmy-butler-injury-update-announced-warriors",
+"date": "2026-09-28",
+"confidence": "high"
+},
+{
+"name": "Shaedon Sharpe",
+"team": "POR",
+"kind": "injury",
+"games": 20,
+"mult": {},
+"headline": "Torn lateral meniscus, surgery Aug 25; out at least 6 months",
+"note": "Had right knee meniscus surgery on Aug 25, 2026, with a 6-month-plus timeline. That points to a return around the All-Star break or March (CBS: out until at least Mar 2). Minimal fantasy value until late in the season.",
+"source": "https://www.opb.org/article/2026/08/28/portland-trail-blazers-sharpe-out-at-least-6-months-after-knee-surgery/",
+"date": "2026-08-28",
+"confidence": "high"
+},
+{
+"name": "Mark Williams",
+"team": "PHX",
+"kind": "injury",
+"games": 25,
+"mult": {
+"min": 0.9
+},
+"headline": "Left shoulder labrum surgery Sept 11; extended absence",
+"note": "Underwent surgery on a torn left labrum Sept 11 with no timetable set; CBS lists him out until at least Feb 3. Expect him to miss 4-5 months, with Ighodaro or Maluach starting at center meanwhile.",
+"source": "https://www.azfamily.com/2026/09/11/suns-center-mark-williams-undergoes-shoulder-surgery-could-miss-extended-time/",
+"date": "2026-09-11",
+"confidence": "high"
+},
+{
+"name": "Kristaps Porzingis",
+"team": "GSW",
+"kind": "injury",
+"games": 50,
+"mult": {},
+"headline": "Out indefinitely with undisclosed health issue; didn't travel to camp",
+"note": "The GM says he's out indefinitely but is 'not marking him down as being out to start the season.' He also missed time with a mysterious illness in 2025-26, so his risk is high either way.",
+"source": "https://bleacherreport.com/articles/25504121-kristaps-porzingis-out-indefinitely-jimmy-butler-injury-update-announced-warriors",
+"date": "2026-09-28",
+"confidence": "med"
+},
+{
+"name": "Joel Embiid",
+"team": "PHI",
+"kind": "injury",
+"games": 55,
+"mult": {
+"min": 0.95
+},
+"headline": "No restrictions at camp, but workload to be closely managed",
+"note": "Fully participated in the first practice with no restrictions. Nurse says his workload will be closely managed in 2026-27, with a plan for back-to-backs alongside LeBron. Expect rest days and missed games.",
+"source": "https://www.rotowire.com/basketball/headlines/joel-embiid-news-will-have-maintenance-plan-532972",
+"date": "2026-09-29",
+"confidence": "med"
+},
+{
+"name": "Kyrie Irving",
+"team": "DAL",
+"kind": "injury",
+"games": 64,
+"mult": {
+"min": 0.95
+},
+"headline": "Cleared with no restrictions after 19 months out (ACL)",
+"note": "Says he has 'no restrictions' but expects daily talks with the medical staff about back-to-backs. Expect some back-to-back rest and possibly slightly lower minutes early in the season.",
+"source": "https://bleacherreport.com/articles/25502968-kyrie-irving-gives-injury-update-latest-mavericks-stars-status-2026-27-nba-season",
+"date": "2026-09-25",
+"confidence": "high"
+},
+{
+"name": "Tyrese Haliburton",
+"team": "IND",
+"kind": "injury",
+"games": 62,
+"mult": {
+"min": 0.97,
+"pts": 0.97,
+"ast": 0.97
+},
+"headline": "Says he's '100%' with no restrictions after Achilles tear",
+"note": "Missed all of 2025-26 after tearing his Achilles in Game 7 of the 2025 Finals; says he is fully cleared. Some rust and load-management risk in his first year back. First season back from an Achilles tear: we budget about 62 games (ESPN projects 64) and a little rust early.",
+"source": "https://lindyssports.com/nba/nba-media-day-2026-tyrese-haliburton-stephen-curry-and-karl-anthony-towns",
+"date": "2026-09-28",
+"confidence": "high"
+},
+{
+"name": "Damian Lillard",
+"team": "POR",
+"kind": "injury",
+"games": 62,
+"mult": {
+"min": 0.95
+},
+"headline": "Fully cleared after Achilles; expected ready for Oct 21 opener",
+"note": "Passed physicals with no limitations, and coaches rave about his movement. He's 36, coming off a full missed season, and now shares the backcourt with Morant, so expect some rest days.",
+"source": "https://bleacherreport.com/articles/25503026-damian-lillard-hyped-blazers-return-achilles-injury-he-looks-phenomenal",
+"date": "2026-09-25",
+"confidence": "high"
+},
+{
+"name": "Fred VanVleet",
+"team": "HOU",
+"kind": "injury",
+"games": 64,
+"mult": {
+"min": 0.95
+},
+"headline": "Cleared for full practice after ACL; likely to sit one game of back-to-backs",
+"note": "Missed all of 2025-26 with a torn ACL and is now doing 5-on-5 work. He admits the knee 'isn't back to where it was,' and Udoka expects him to miss one game of back-to-backs early on.",
+"source": "https://www.cbssports.com/fantasy/basketball/news/rockets-fred-vanvleet-fully-cleared-to-practice/",
+"date": "2026-09-23",
+"confidence": "high"
+},
+{
+"name": "Kon Knueppel",
+"team": "CHA",
+"kind": "injury",
+"games": 72,
+"mult": {},
+"headline": "Strained left hamstring; likely to miss start of season",
+"note": "Strained the hamstring Sept 9 and will miss camp and preseason; the team will re-evaluate him in the first week of the regular season. Expect a handful of missed early games, then his full role.",
+"source": "https://sports.yahoo.com/nba/article/hornets-kon-knueppel-will-likely-miss-start-of-2026-27-nba-season-with-strained-left-hamstring-232237354.html",
+"date": "2026-09-26",
+"confidence": "high"
+},
+{
+"name": "Dereck Lively II",
+"team": "DAL",
+"kind": "injury",
+"games": 45,
+"mult": {
+"min": 0.9
+},
+"headline": "Not cleared for camp after Dec 2025 foot surgery; opener status TBD",
+"note": "Slowly ramping up to basketball activity, with no setback reported. He has played only 43 games over the last two seasons, so expect a delayed start and managed minutes.",
+"source": "https://bleacherreport.com/articles/25502461-dereck-lively-ii-injury-update-reveals-status-mavs-camp-amid-foot-issue-ahead-nba-season",
+"date": "2026-09-23",
+"confidence": "med"
+},
+{
+"name": "Bradley Beal",
+"team": "LAC",
+"kind": "injury",
+"games": 58,
+"mult": {},
+"headline": "Right knee inflammation; will miss start of training camp",
+"note": "Out for the start of camp with knee inflammation, after season-ending hip surgery in 2025-26. CBS lists him as a game-time decision. Both his health and his role are risks.",
+"source": "https://www.si.com/nba/2026-nba-media-day-live-updates",
+"date": "2026-09-28",
+"confidence": "med"
+},
+{
+"name": "Donte DiVincenzo",
+"team": "MIN",
+"kind": "injury",
+"games": 5,
+"mult": {},
+"headline": "Ruptured Achilles (Apr 2026); optimism for late-season return",
+"note": "Ruptured his right Achilles April 25, 2026. Connelly hopes he can contribute 'later this year,' with an estimated return around April 2027. Don't draft him.",
+"source": "https://rotowire.com//basketball/player/donte-divincenzo-4439",
+"date": "2026-09-28",
+"confidence": "high"
+},
+{
+"name": "Ja Morant",
+"team": "POR",
+"kind": "injury",
+"games": 58,
+"mult": {
+"min": 0.9
+},
+"headline": "Left elbow UCL sprain ended 2025-26; traded to POR",
+"note": "Shut down in March 2026 with a left elbow UCL sprain (treated with a PRP injection) after playing only 20 games. A full recovery is expected, but his durability is the concern.",
+"source": "https://www.rotowire.com/basketball/headlines/ja-morant-injury-traded-to-portland-531234",
+"date": "2026-06-29",
+"confidence": "med"
+},
+{
+"name": "Anthony Davis",
+"team": "WAS",
+"kind": "injury",
+"games": 55,
+"mult": {},
+"headline": "Healthy and practicing in Wizards camp after hand ligament injury",
+"note": "Played only 20 games in 2025-26 before being shut down, and is now a full participant in camp. His long injury history keeps his projected games low.",
+"source": "https://www.rotowire.com/basketball/headlines/anthony-davis-news-participating-in-training-camp-533009",
+"date": "2026-10-01",
+"confidence": "high"
+},
+{
+"name": "Trae Young",
+"team": "WAS",
+"kind": "injury",
+"games": 66,
+"mult": {},
+"headline": "Full go at camp after quad, knee and back issues",
+"note": "Cleared and doing on-court work in camp, apparently past last season's quad contusion and back irritation. Moderate health risk.",
+"source": "https://www.cbssports.com/fantasy/basketball/news/wizards-trae-young-full-go-at-training-camp/",
+"date": "2026-10-01",
+"confidence": "high"
+},
+{
+"name": "Zach Edey",
+"team": "MEM",
+"kind": "injury",
+"games": 62,
+"mult": {
+"min": 0.95
+},
+"headline": "Cleared after ankle and elbow surgeries; on pace for opener",
+"note": "Two ankle surgeries in nine months plus an elbow procedure, and only 11 games played last season. The GM says he's on pace for Oct 21. Expect a managed workload in a crowded frontcourt.",
+"source": "https://rotowire.com//basketball/player/zach-edey-6263",
+"date": "2026-09-28",
+"confidence": "med"
+},
+{
+"name": "Alex Sarr",
+"team": "WAS",
+"kind": "injury",
+"games": 68,
+"mult": {},
+"headline": "Partial participant after June broken-foot surgery; expected for opener",
+"note": "Had surgery on a broken right foot in June. The GM expects him to be available on opening night, but he's limited in camp.",
+"source": "https://www.nbcsports.com/fantasy/basketball/player-news/2026-09-24/wizards-gm-alex-sarr-foot-to-be-limited-in-camp",
+"date": "2026-09-24",
+"confidence": "med"
+},
+{
+"name": "Jaren Jackson Jr.",
+"team": "UTA",
+"kind": "injury",
+"games": 66,
+"mult": {},
+"headline": "Practicing at Jazz camp after season-ending knee surgery",
+"note": "Played only 3 games for Utah before knee surgery, and is now practicing with no reported limits. Modest risk; his role on a new team is the bigger question.",
+"source": "https://www.rotowire.com/basketball/headlines/jaren-jackson-news-building-chemistry-at-camp-533002",
+"date": "2026-10-01",
+"confidence": "med"
+},
+{
+"name": "Brandon Miller",
+"team": "CHA",
+"kind": "injury",
+"games": 70,
+"mult": {},
+"headline": "Cleared for contact after May shoulder surgery",
+"note": "Had shoulder stabilization surgery in May and was cleared for full contact about three weeks before media day. Expected to take full part in camp.",
+"source": "https://eudyreport.substack.com/p/hornets-2026-media-day-recap",
+"date": "2026-09-29",
+"confidence": "high"
+},
+{
+"name": "Jayson Tatum",
+"team": "BOS",
+"kind": "injury",
+"games": 68,
+"mult": {},
+"headline": "Achilles behind him; says he feels 'great' at media day",
+"note": "Returned in March 2026 and is now more than a year removed from Achilles surgery. No added risk beyond his normal workload. He played only 16 games after returning, so we stay a touch under ESPN's 70 games.",
+"source": "https://www.boston.com/sports/boston-celtics/2026/09/28/celtics-jayson-tatum-paul-george-media-day-takeaways/",
+"date": "2026-09-28",
+"confidence": "high"
+},
+{
+"name": "Dejounte Murray",
+"team": "NOP",
+"kind": "injury",
+"games": 66,
+"mult": {},
+"headline": "Returned late 2025-26 from Achilles tear; full offseason to build",
+"note": "Came back for a few games late last season after the January 2025 Achilles tear, with no camp setback found. Yahoo calls him a safe target in rounds 4-6.",
+"source": "https://sports.yahoo.com/articles/fantasy-basketball-2026-27-10-085300935.html",
+"date": "2026-09-17",
+"confidence": "low"
+},
+{
+"name": "Jalen Williams",
+"team": "OKC",
+"kind": "injury",
+"games": 68,
+"mult": {},
+"headline": "Wrist surgery and hamstring issues in 2025-26; not expected to linger",
+"note": "Had wrist surgery and recurring hamstring trouble last season, but the hamstring isn't expected to carry over. Bounce-back candidate.",
+"source": "https://sports.yahoo.com/articles/fantasy-basketball-2026-27-10-085300935.html",
+"date": "2026-09-17",
+"confidence": "med"
+},
+{
+"name": "Josh Giddey",
+"team": "CHI",
+"kind": "injury",
+"games": 72,
+"mult": {},
+"headline": "Cleared for 5-on-5 after May ankle surgery",
+"note": "Had right ankle surgery in May and was cleared for full 5-on-5 work in early September. Minimal risk.",
+"source": "https://www.fantasypros.com/nba/injury-news.php",
+"date": "2026-09-06",
+"confidence": "med"
+},
+{
+"name": "Jalen Brunson",
+"team": "NYK",
+"kind": "injury",
+"games": 74,
+"mult": {},
+"headline": "'Fully cleared' for camp after offseason wrist surgery",
+"note": "Had surgery on his shooting wrist after playing through it in the title run, and is now fully cleared. Minimal risk.",
+"source": "https://sports.yahoo.com/nba/article/jalen-brunson-says-hes-fully-cleared-for-knicks-training-camp-after-offseason-wrist-surgery-164430661.html",
+"date": "2026-09-25",
+"confidence": "high"
+},
+{
+"name": "Giannis Antetokounmpo",
+"team": "MIA",
+"kind": "new-team",
+"mult": {
+"pts": 0.95,
+"fga": 0.95,
+"ast": 0.95,
+"fta": 0.97
+},
+"headline": "Traded MIL to MIA in a deal for Herro, Ware and Jaquez",
+"note": "Still the main option, but Bam and a deeper veteran group take a little of his on-ball volume. Expect a small dip in counting stats, not a tier change.",
+"source": "https://www.nba.com/news/2026-offseason-trade-tracker",
+"date": "2026-07-06",
+"confidence": "high"
+},
+{
+"name": "Bam Adebayo",
+"team": "MIA",
+"kind": "fade",
+"mult": {
+"pts": 0.92,
+"fga": 0.92,
+"tpm": 0.75,
+"reb": 0.97
+},
+"headline": "Giannis's arrival pushes Bam back to a complementary big",
+"note": "With Giannis owning the paint, his career-high three-point volume should come back down: fewer points and threes, better FG%.",
+"source": "https://www.rotowire.com/basketball/article/fantasy-basketball-2026-27-nba-offseason-trades-rookies-you-need-to-know-134652",
+"date": "2026-09-16",
+"confidence": "med"
+},
+{
+"name": "Andrew Wiggins",
+"team": "MIA",
+"kind": "fade",
+"mult": {
+"pts": 0.92,
+"fga": 0.92,
+"min": 0.97
+},
+"headline": "Re-signs with MIA; now third option behind Giannis and Bam",
+"note": "Keeps his starting job, but Giannis takes shots that used to go to him.",
+"source": "https://www.cbssports.com/nba/news/2026-nba-free-agency-rankings-tracker/",
+"date": "2026-08-05",
+"confidence": "med"
+},
+{
+"name": "Davion Mitchell",
+"team": "MIA",
+"kind": "boost",
+"mult": {
+"min": 1.05,
+"ast": 1.05,
+"pts": 1.03
+},
+"headline": "Projected starting PG in Miami after the Herro trade",
+"note": "With Herro gone, he's projected for 30+ minutes as the starting PG. A late-round source of assists and steals.",
+"source": "https://sports.yahoo.com/articles/fantasy-basketball-2026-27-nba-085900091.html",
+"date": "2026-09-16",
+"confidence": "low"
+},
+{
+"name": "Tyler Herro",
+"team": "MIL",
+"kind": "new-team",
+"mult": {
+"pts": 1.05,
+"fga": 1.06,
+"ast": 1.08,
+"fta": 1.05
+},
+"headline": "Traded to MIL in the Giannis deal; becomes a primary scorer",
+"note": "NBA.com says Herro takes on primary scoring in the post-Giannis Bucks rebuild. Health and efficiency are the risks.",
+"source": "https://www.nba.com/news/central-division-offseason-recap-look-ahead",
+"date": "2026-07-06",
+"confidence": "med"
+},
+{
+"name": "Tyler Herro",
+"team": "MIL",
+"kind": "fade",
+"mult": {
+"pts": 0.96,
+"fga": 0.97
+},
+"headline": "Shares creation duties with Rollins on a worse team",
+"note": "Athlon lists him as a possible bust because he splits on-ball creation with Rollins.",
+"source": "https://sports.yahoo.com/articles/2026-27-fantasy-basketball-sleepers-113000129.html",
+"date": "2026-09-25",
+"confidence": "low"
+},
+{
+"name": "Kel'el Ware",
+"team": "MIL",
+"kind": "boost",
+"mult": {
+"min": 1.15,
+"pts": 1.15,
+"reb": 1.12,
+"blk": 1.1,
+"fga": 1.15,
+"fta": 1.1
+},
+"headline": "Traded to MIL in the Giannis deal; slated for center duties",
+"note": "NBA.com's Central division recap has Ware taking over center duties (11.1 pts and 9.0 reb last season). Myles Turner is still on the roster, which caps the upside a bit.",
+"source": "https://www.nba.com/news/central-division-offseason-recap-look-ahead",
+"date": "2026-07-06",
+"confidence": "med"
+},
+{
+"name": "Kel'el Ware",
+"team": "MIL",
+"kind": "boost",
+"mult": {
+"min": 1.18,
+"pts": 1.15,
+"reb": 1.15,
+"blk": 1.15,
+"stl": 1.1,
+"tpm": 1.1,
+"fga": 1.15
+},
+"headline": "Path to 26+ minutes on rebuilding Milwaukee",
+"note": "Averaged 11.1/9.0 with 1.1 blk in 22.1 minutes. RotoWire projects at least 26 minutes even alongside Turner.",
+"source": "https://www.rotowire.com/basketball/article/2026-27-fantasy-basketball-breakout-players-131368",
+"date": "2026-09-02",
+"confidence": "med"
+},
+{
+"name": "Kevin Porter Jr.",
+"team": "MIL",
+"kind": "fade",
+"mult": {
+"min": 0.88,
+"pts": 0.88,
+"ast": 0.88,
+"fga": 0.88,
+"stl": 0.9
+},
+"headline": "Herro and rookie Burries crowd the Bucks backcourt",
+"note": "Yahoo lists him as an offseason loser, likely headed for a bench role.",
+"source": "https://sports.yahoo.com/fantasy/article/trae-young-vj-edgecombe-among-fantasy-basketball-winners-losers-in-the-2026-nba-offseason-144615841.html",
+"date": "2026-07-07",
+"confidence": "med"
+},
+{
+"name": "Jaylen Brown",
+"team": "PHI",
+"kind": "new-team",
+"mult": {
+"pts": 0.86,
+"fga": 0.86,
+"fta": 0.88,
+"ast": 0.9,
+"tov": 0.88
+},
+"headline": "Traded BOS to PHI for Paul George and two firsts",
+"note": "His 36.2% usage should drop sharply next to Maxey, Embiid and LeBron. Still a solid scorer, but no longer a volume monster.",
+"source": "https://www.nba.com/news/2026-offseason-trade-tracker",
+"date": "2026-07-06",
+"confidence": "high"
+},
+{
+"name": "Jaylen Brown",
+"team": "PHI",
+"kind": "fade",
+"mult": {
+"pts": 0.83,
+"fga": 0.85,
+"fta": 0.85,
+"ast": 0.85,
+"reb": 0.92,
+"tov": 0.88
+},
+"headline": "Goes from Boston's alpha to sharing the ball with Embiid, Maxey and LeBron",
+"note": "Coming off a 28.7/6.9/5.1 All-NBA season. PrizePicks projects 23.3 ppg.",
+"source": "https://www.prizepicks.com/playbook-article/philadelphia-76ers-lineup-deprth-chart-starters-lebron-james-signing",
+"date": "2026-07-24",
+"confidence": "high"
+},
+{
+"name": "LeBron James",
+"team": "PHI",
+"kind": "new-team",
+"mult": {
+"min": 0.95,
+"pts": 0.9,
+"ast": 0.88,
+"fga": 0.9
+},
+"headline": "Signs with 76ers at age 41",
+"note": "Goes from co-lead in LA to one of four options in Philly, with load management likely.",
+"source": "https://www.cbssports.com/nba/news/2026-nba-free-agency-rankings-tracker/",
+"date": "2026-08-05",
+"confidence": "high"
+},
+{
+"name": "LeBron James",
+"team": "PHI",
+"kind": "fade",
+"mult": {
+"min": 0.92,
+"pts": 0.84,
+"fga": 0.85,
+"ast": 0.95,
+"reb": 0.95,
+"tov": 0.9
+},
+"headline": "Projected for 17.5/6.4/6.7 in Philly",
+"note": "Projected to start at PF next to Brown, Maxey and Embiid. Lighter responsibility and staggered minutes cut his scoring.",
+"source": "https://www.prizepicks.com/playbook-article/philadelphia-76ers-lineup-deprth-chart-starters-lebron-james-signing",
+"date": "2026-07-24",
+"confidence": "med"
+},
+{
+"name": "Tyrese Maxey",
+"team": "PHI",
+"kind": "fade",
+"mult": {
+"pts": 0.92,
+"fga": 0.92,
+"ast": 0.95,
+"tpm": 0.95
+},
+"headline": "Brown and LeBron cut into Maxey's 29.4% usage",
+"note": "His usage should drop, but he stays fantasy-relevant. The fade grows whenever Embiid is healthy.",
+"source": "https://www.rotowire.com/basketball/article/fantasy-basketball-2026-27-nba-offseason-trades-rookies-you-need-to-know-134652",
+"date": "2026-09-16",
+"confidence": "med"
+},
+{
+"name": "VJ Edgecombe",
+"team": "PHI",
+"kind": "fade",
+"mult": {
+"min": 0.9,
+"pts": 0.86,
+"fga": 0.86,
+"ast": 0.89,
+"reb": 0.92,
+"tov": 0.88
+},
+"headline": "Now Philly's fifth scoring option",
+"note": "Still the projected starting SG, but the room for a second-year usage jump has mostly closed.",
+"source": "https://sports.yahoo.com/fantasy/article/trae-young-vj-edgecombe-among-fantasy-basketball-winners-losers-in-the-2026-nba-offseason-144615841.html",
+"date": "2026-07-07",
+"confidence": "med"
+},
+{
+"name": "Anfernee Simons",
+"team": "PHI",
+"kind": "new-team",
+"mult": {
+"min": 0.88,
+"pts": 0.86,
+"fga": 0.86,
+"tpm": 0.9
+},
+"headline": "Signs with PHI as a bench scorer",
+"note": "A bench role on a star-heavy roster limits his value.",
+"source": "https://sports.yahoo.com/fantasy/article/trae-young-vj-edgecombe-among-fantasy-basketball-winners-losers-in-the-2026-nba-offseason-144615841.html",
+"date": "2026-07-07",
+"confidence": "med"
+},
+{
+"name": "Paul George",
+"team": "BOS",
+"kind": "new-team",
+"mult": {
+"pts": 1.03,
+"fga": 1.03
+},
+"headline": "Traded to BOS in the Jaylen Brown deal; starts next to Tatum",
+"note": "Steps into Brown's starting forward spot as the No. 2 option. He's 36, so keep the bump small.",
+"source": "https://www.nbcsportsboston.com/nba/boston-celtics/updated-roster-depth-chart-contracts-jaylen-brown-trade/794057/",
+"date": "2026-07-02",
+"confidence": "low"
+},
+{
+"name": "Derrick White",
+"team": "BOS",
+"kind": "boost",
+"mult": {
+"pts": 1.08,
+"fga": 1.08,
+"ast": 1.06,
+"tpm": 1.05
+},
+"headline": "Brown's exit opens usage; he posted 18.1/5.5 without him",
+"note": "Saw a 4-point usage increase in games without Brown last season. Tatum's return and George's arrival limit how far it goes.",
+"source": "https://sports.yahoo.com/fantasy/article/trae-young-vj-edgecombe-among-fantasy-basketball-winners-losers-in-the-2026-nba-offseason-144615841.html",
+"date": "2026-07-07",
+"confidence": "med"
+},
+{
+"name": "Luka Doncic",
+"team": "LAL",
+"kind": "boost",
+"mult": {
+"pts": 1.04,
+"fga": 1.04,
+"ast": 1.04,
+"tov": 1.03
+},
+"headline": "LeBron leaves for PHI; Luka is the sole focal point",
+"note": "Massive usage with LeBron gone, and Kessler gives him a lob target. His line is already elite, so the bump is small.",
+"source": "https://www.rotowire.com/basketball/article/fantasy-basketball-2026-27-nba-offseason-trades-rookies-you-need-to-know-134652",
+"date": "2026-09-16",
+"confidence": "med"
+},
+{
+"name": "Austin Reaves",
+"team": "LAL",
+"kind": "boost",
+"mult": {
+"pts": 1.06,
+"fga": 1.06,
+"ast": 1.06,
+"fta": 1.04
+},
+"headline": "LeBron gone; Reaves is the clear No. 2 to Luka",
+"note": "Averaged 28.8/5.8/6.8 in the stretches LeBron missed early last season. Re-signed for 4 years at $185M.",
+"source": "https://sports.yahoo.com/articles/2026-27-fantasy-basketball-sleepers-113000129.html",
+"date": "2026-09-25",
+"confidence": "med"
+},
+{
+"name": "Walker Kessler",
+"team": "LAL",
+"kind": "new-team",
+"mult": {
+"min": 1.05,
+"reb": 1.03,
+"blk": 1.03
+},
+"headline": "Traded UTA to LAL; starting center on a 4yr/$130M deal",
+"note": "Projected as a lob, rebound and block specialist next to Luka. He played very little last season after shoulder surgery, so judge him on a full-season baseline.",
+"source": "https://www.nba.com/news/2026-offseason-trade-tracker",
+"date": "2026-07-08",
+"confidence": "med"
+},
+{
+"name": "Deandre Ayton",
+"team": "WAS",
+"kind": "fade",
+"mult": {
+"min": 0.85,
+"pts": 0.85,
+"reb": 0.87,
+"fga": 0.85,
+"blk": 0.9
+},
+"headline": "Traded LAL to WAS; stuck behind Anthony Davis and Alex Sarr",
+"note": "Playing behind Davis and Sarr in a contract year. Minutes could open up if Davis misses time.",
+"source": "https://sports.yahoo.com/fantasy/article/trae-young-vj-edgecombe-among-fantasy-basketball-winners-losers-in-the-2026-nba-offseason-144615841.html",
+"date": "2026-07-07",
+"confidence": "med"
+},
+{
+"name": "Trae Young",
+"team": "WAS",
+"kind": "boost",
+"mult": {
+"ast": 1.03
+},
+"headline": "Midseason trade to WAS; re-signed 4yr/$212M",
+"note": "Already priced in: he was traded on Jan 9, so last season's stats partly reflect Washington. Expected back to 20-and-10 as the unquestioned lead facilitator.",
+"source": "https://www.nba.com/news/2025-26-nba-trade-tracker",
+"date": "2026-01-09",
+"confidence": "high"
+},
+{
+"name": "CJ McCollum",
+"team": "ATL",
+"kind": "new-team",
+"mult": {},
+"headline": "Midseason trade to ATL; re-signed for 1 year",
+"note": "Already priced in: he arrived in the Jan 9 Trae Young trade, so his 2025-26 line partly reflects this role. No adjustment.",
+"source": "https://www.cbssports.com/nba/news/2026-nba-free-agency-rankings-tracker/",
+"date": "2026-08-05",
+"confidence": "high"
+},
+{
+"name": "Jalen Johnson",
+"team": "ATL",
+"kind": "boost",
+"mult": {
+"pts": 1.02,
+"fga": 1.02
+},
+"headline": "Still the Hawks' lead player; Kuminga and Risacher are gone",
+"note": "The McCollum effect is already in last season's numbers. Losing Kuminga and Risacher frees a few frontcourt shots, so the net change is tiny. Don't fade him for McCollum.",
+"source": "https://nba.com/news/southeast-division-offseason-recap-look-ahead",
+"date": "2026-09-14",
+"confidence": "med"
+},
+{
+"name": "Zaccharie Risacher",
+"team": "DAL",
+"kind": "fade",
+"mult": {
+"min": 0.85,
+"pts": 0.85,
+"fga": 0.85
+},
+"headline": "Traded ATL to DAL; crowded depth chart",
+"note": "A deep-league asset for now after scoring 9.6 PPG last season.",
+"source": "https://www.fantasysp.com/news/nba/3057208/fantasy-basketball-impact-of-thunderhawksmavericks-trade",
+"date": "2026-07-20",
+"confidence": "med"
+},
+{
+"name": "Cason Wallace",
+"team": "OKC",
+"kind": "boost",
+"mult": {
+"min": 1.12,
+"pts": 1.12,
+"stl": 1.1,
+"tpm": 1.12,
+"fga": 1.12
+},
+"headline": "Dort and other wings dealt; Wallace could start at SG",
+"note": "Averaged 1.9 steals in 27 minutes. Even a modest minutes bump is big for steals.",
+"source": "https://www.rotowire.com/basketball/article/fantasy-basketball-2026-27-nba-offseason-trades-rookies-you-need-to-know-134652",
+"date": "2026-09-16",
+"confidence": "med"
+},
+{
+"name": "Ajay Mitchell",
+"team": "OKC",
+"kind": "boost",
+"mult": {
+"min": 1.05,
+"pts": 1.05,
+"fga": 1.05
+},
+"headline": "Main second-unit scorer after OKC's wing departures",
+"note": "Projected for 25+ minutes after averaging 13.6/3.3/3.6 in 26 minutes.",
+"source": "https://www.rotowire.com/basketball/article/fantasy-basketball-2026-27-nba-offseason-trades-rookies-you-need-to-know-134652",
+"date": "2026-09-16",
+"confidence": "med"
+},
+{
+"name": "LaMelo Ball",
+"team": "MIN",
+"kind": "new-team",
+"mult": {
+"pts": 0.9,
+"fga": 0.9,
+"ast": 0.93,
+"tpm": 0.9,
+"tov": 0.92
+},
+"headline": "Traded CHA to MIN; pairs with Anthony Edwards",
+"note": "Edwards stays the lead scorer, so LaMelo's shot volume shrinks while his playmaking holds up. Injury history is the bigger risk.",
+"source": "https://www.nba.com/news/lamelo-ball-trade-timberwolves-2026",
+"date": "2026-06-25",
+"confidence": "high"
+},
+{
+"name": "Jaden McDaniels",
+"team": "MIN",
+"kind": "boost",
+"mult": {
+"pts": 1.04,
+"fga": 1.03
+},
+"headline": "Randle gone; Ball's passing should help him",
+"note": "Coming off a career-best 14.8 PPG with 1.1 steals and 1.0 blocks.",
+"source": "https://sports.yahoo.com/articles/fantasy-basketball-2026-27-nba-085900091.html",
+"date": "2026-09-16",
+"confidence": "med"
+},
+{
+"name": "Jonathan Kuminga",
+"team": "MIN",
+"kind": "new-team",
+"mult": {
+"min": 0.9,
+"pts": 0.88,
+"fga": 0.88
+},
+"headline": "Signs a 2-year deal with the Wolves as a depth forward",
+"note": "A depth forward behind the stars, so expect fewer shots.",
+"source": "https://www.nbcsports.com/fantasy/basketball/player-news/2026-08-26/jonathan-kuminga-inks-2-year-deal-with-wolves",
+"date": "2026-08-26",
+"confidence": "med"
+},
+{
+"name": "Naz Reid",
+"team": "CHA",
+"kind": "boost",
+"mult": {
+"min": 1.15,
+"pts": 1.12,
+"reb": 1.12,
+"fga": 1.12,
+"blk": 1.08,
+"tpm": 1.08
+},
+"headline": "Traded MIN to CHA; goes from sixth man to starter",
+"note": "Yahoo lists him as an offseason winner, with a starting role and a better shot diet.",
+"source": "https://sports.yahoo.com/fantasy/article/trae-young-vj-edgecombe-among-fantasy-basketball-winners-losers-in-the-2026-nba-offseason-144615841.html",
+"date": "2026-07-07",
+"confidence": "med"
+},
+{
+"name": "Coby White",
+"team": "CHA",
+"kind": "boost",
+"mult": {
+"ast": 1.12,
+"pts": 1.03,
+"fga": 1.03,
+"stl": 1.03,
+"tov": 1.08
+},
+"headline": "Takes over at PG with LaMelo gone",
+"note": "He was already in Charlotte late last season, so part of this is priced in. The main gain is assists.",
+"source": "https://nba.com/news/southeast-division-offseason-recap-look-ahead",
+"date": "2026-09-14",
+"confidence": "med"
+},
+{
+"name": "Brandon Miller",
+"team": "CHA",
+"kind": "boost",
+"mult": {
+"pts": 1.07,
+"fga": 1.07,
+"ast": 1.05,
+"fta": 1.03,
+"tov": 1.04
+},
+"headline": "LaMelo and Bridges both gone; Miller is the primary scorer",
+"note": "NBA.com names Miller Charlotte's primary scorer after the trades. At 23, he has a ceiling around 27/6/4.",
+"source": "https://nba.com/news/southeast-division-offseason-recap-look-ahead",
+"date": "2026-09-14",
+"confidence": "med"
+},
+{
+"name": "Julius Randle",
+"team": "BKN",
+"kind": "new-team",
+"mult": {
+"pts": 1.0,
+"fga": 1.02,
+"min": 0.97,
+"reb": 0.98
+},
+"headline": "Traded MIN to BKN; featured role, but a likely trade candidate",
+"note": "Moves from Edwards' sidekick to the featured scorer on a rebuilding Nets team. Brooklyn may cap his minutes, and he could be traded. Volume roughly holds.",
+"source": "https://www.cbssports.com/fantasy/basketball/news/fantasy-basketball-rankings-2026-27-sleepers-breakouts-busts/",
+"date": "2026-09-30",
+"confidence": "low"
+},
+{
+"name": "Day'Ron Sharpe",
+"team": "BKN",
+"kind": "boost",
+"mult": {
+"min": 1.2,
+"pts": 1.18,
+"reb": 1.18,
+"blk": 1.15,
+"stl": 1.1,
+"fga": 1.18
+},
+"headline": "Claxton traded to CHI; Sharpe is the Nets' starting center",
+"note": "Averaged 8.7/6.7 in only 18.7 minutes. A starting role points to 24+ minutes, and he's cleared after thumb surgery.",
+"source": "https://www.rotowire.com/basketball/headlines/dayron-sharpe-injury-primed-for-top-center-role-531028",
+"date": "2026-10-01",
+"confidence": "med"
+},
+{
+"name": "Kawhi Leonard",
+"team": "TOR",
+"kind": "new-team",
+"mult": {
+"pts": 0.93,
+"fga": 0.93,
+"fta": 0.95
+},
+"headline": "Traded LAC to TOR for Ingram, Gradey Dick and picks",
+"note": "Coming off 27.9 PPG. He'll share touches with Barnes, Quickley and Barrett, so a slight volume dip. Health is still the main risk.",
+"source": "https://www.nba.com/news/2026-offseason-trade-tracker",
+"date": "2026-09-14",
+"confidence": "high"
+},
+{
+"name": "Brandon Ingram",
+"team": "LAC",
+"kind": "new-team",
+"mult": {
+"pts": 1.04,
+"fga": 1.05,
+"fta": 1.04
+},
+"headline": "Steps into the Clippers' primary scoring role once healthy",
+"note": "Becomes the lead scorer next to Garland with Kawhi and Harden gone, but see the injury note.",
+"source": "https://sports.yahoo.com/fantasy/article/trae-young-vj-edgecombe-among-fantasy-basketball-winners-losers-in-the-2026-nba-offseason-144615841.html",
+"date": "2026-07-07",
+"confidence": "med"
+},
+{
+"name": "Darius Garland",
+"team": "LAC",
+"kind": "boost",
+"mult": {
+"pts": 1.04,
+"fga": 1.04,
+"ast": 1.02
+},
+"headline": "Kawhi gone; Garland's role grows",
+"note": "He arrived midseason, so his LAC role is partly priced in. Kawhi leaving adds a small usage bump.",
+"source": "https://www.nba.com/news/2025-26-nba-trade-tracker",
+"date": "2026-02-04",
+"confidence": "med"
+},
+{
+"name": "Ja Morant",
+"team": "POR",
+"kind": "new-team",
+"mult": {
+"pts": 0.92,
+"fga": 0.92,
+"ast": 0.9,
+"tov": 0.92
+},
+"headline": "Traded MEM to POR; crowded backcourt",
+"note": "Shares the ball with Lillard, Holiday and Henderson. High-risk pick.",
+"source": "https://www.nba.com/news/blazers-grizzlies-ja-morant-trade",
+"date": "2026-06-30",
+"confidence": "med"
+},
+{
+"name": "Keegan Murray",
+"team": "SAC",
+"kind": "boost",
+"mult": {
+"pts": 1.06,
+"fga": 1.06,
+"min": 1.03
+},
+"headline": "DeRozan waived by the Kings; more touches for Murray",
+"note": "A real bounce-back setup, though rookie Acuff and LaVine will still take shots.",
+"source": "https://sports.yahoo.com/fantasy/article/trae-young-vj-edgecombe-among-fantasy-basketball-winners-losers-in-the-2026-nba-offseason-144615841.html",
+"date": "2026-07-07",
+"confidence": "med"
+},
+{
+"name": "DeMar DeRozan",
+"team": "DEN",
+"kind": "fade",
+"mult": {
+"min": 0.8,
+"pts": 0.78,
+"fga": 0.78,
+"fta": 0.8,
+"ast": 0.8
+},
+"headline": "Waived by SAC; signs a minimum-type deal with Denver",
+"note": "Goes from an 18.4 PPG starter to a bench role behind Jokic and Murray.",
+"source": "https://api-hub.nba.com/news/demar-derozan-denver-nuggets-2026-free-agency",
+"date": "2026-08-21",
+"confidence": "med"
+},
+{
+"name": "Ben Simmons",
+"team": "SAC",
+"kind": "new-team",
+"mult": {},
+"headline": "Signs 1-year deal with the Kings after missing all of 2025-26",
+"note": "Low-risk bench role. Depth charts disagree on backup PF vs backup PG. Barely affects Sabonis, and undraftable outside deep leagues.",
+"source": "https://fantasynerds.com/news/story/2026/09/04/ben-simmons-signs-one-year-deal-with-sacramento-kings-1615179",
+"date": "2026-09-04",
+"confidence": "low"
+},
+{
+"name": "Tobias Harris",
+"team": "SAS",
+"kind": "fade",
+"mult": {
+"pts": 0.85,
+"fga": 0.85,
+"ast": 0.9
+},
+"headline": "Signs with the Spurs; low usage behind Wemby, Fox and Castle",
+"note": "Expect a smaller offensive role even if he starts.",
+"source": "https://sports.yahoo.com/fantasy/article/trae-young-vj-edgecombe-among-fantasy-basketball-winners-losers-in-the-2026-nba-offseason-144615841.html",
+"date": "2026-07-07",
+"confidence": "med"
+},
+{
+"name": "Cooper Flagg",
+"team": "DAL",
+"kind": "boost",
+"mult": {
+"pts": 1.08,
+"tpm": 1.2,
+"fga": 1.04,
+"reb": 1.03,
+"ast": 0.97,
+"tov": 0.95
+},
+"headline": "ROY sophomore; NBA.com ranks him #11 overall, above his ~#17 ADP",
+"note": "Averaged 21.0/6.7/4.5 with 1.2 stl and 0.9 blk last season but shot 29.5% from three. Measured 6-10 at media day. Kyrie's return takes a few assists, but his scoring and threes should keep rising. Draft him above ESPN's rank.",
+"source": "https://sports.yahoo.com/articles/cooper-flagg-got-taller-other-234457514.html",
+"date": "2026-09-25",
+"confidence": "high"
+},
+{
+"name": "Matas Buzelis",
+"team": "CHI",
+"kind": "boost",
+"mult": {
+"min": 1.08,
+"pts": 1.1,
+"reb": 1.08,
+"tpm": 1.12,
+"blk": 1.08,
+"fga": 1.08
+},
+"headline": "New Bulls staff projected to push him to 32+ minutes",
+"note": "Averaged 19.0/6.9 with 2.5 stl+blk in 31.5 minutes over his final 22 games. Possible 3rd-round value.",
+"source": "https://www.rotowire.com/basketball/article/2026-27-fantasy-basketball-breakout-players-131368",
+"date": "2026-09-02",
+"confidence": "med"
+},
+{
+"name": "Collin Murray-Boyles",
+"team": "TOR",
+"kind": "boost",
+"mult": {
+"min": 1.15,
+"pts": 1.15,
+"reb": 1.12,
+"ast": 1.1,
+"stl": 1.12,
+"blk": 1.12,
+"fga": 1.12
+},
+"headline": "Top-100 pace over his final 23 games",
+"note": "Averaged 10.0/5.1/1.9 with 2.0 stl+blk on 63% FG over that stretch. Mamukelashvili is gone, and 26+ minutes is plausible.",
+"source": "https://www.rotowire.com/basketball/article/2026-27-fantasy-basketball-sleepers-second-year-breakout-players-138006",
+"date": "2026-10-01",
+"confidence": "med"
+},
+{
+"name": "Cedric Coward",
+"team": "MEM",
+"kind": "boost",
+"mult": {
+"min": 1.12,
+"pts": 1.15,
+"ast": 1.08,
+"tpm": 1.12,
+"fga": 1.15,
+"tov": 1.08
+},
+"headline": "Projected starting SF after Morant and JJJ departures",
+"note": "Morant, Bane and Jaren Jackson are gone. He averaged 13.6/5.9/2.8 as a rookie and should get about 30 minutes.",
+"source": "https://www.fantasyalarm.com/articles/nba/nba-offseason/memphis-grizzlies-2026-27-season-preview/196011",
+"date": "2026-09-24",
+"confidence": "med"
+},
+{
+"name": "Khaman Maluach",
+"team": "PHX",
+"kind": "boost",
+"mult": {
+"min": 1.2,
+"pts": 1.2,
+"reb": 1.2,
+"blk": 1.2,
+"fga": 1.2
+},
+"headline": "Mark Williams' shoulder surgery opens the C job",
+"note": "Put up 17.8/12.8 in Summer League. Speculative, since Ighodaro is also in the mix. Real upside is bigger than this 1.2x.",
+"source": "https://www.rotowire.com/basketball/article/2026-27-fantasy-basketball-sleepers-second-year-breakout-players-138006",
+"date": "2026-10-01",
+"confidence": "low"
+},
+{
+"name": "Reed Sheppard",
+"team": "HOU",
+"kind": "boost",
+"mult": {
+"min": 1.03,
+"pts": 1.05,
+"ast": 1.05,
+"tpm": 1.05,
+"stl": 1.03
+},
+"headline": "Popular breakout pick, but Udoka confirms he's coming off the bench",
+"note": "Udoka named a starting five of VanVleet, Thompson, Durant, Smith and Sengun. Small bump only, unless VanVleet's knee flares up.",
+"source": "https://www.si.com/nba/rockets/onsi/head-coach-confirms-rockets-projected-starting-lineup-for-2026-2027-01m3r2p7pxxm",
+"date": "2026-09-30",
+"confidence": "med"
+},
+{
+"name": "Amen Thompson",
+"team": "HOU",
+"kind": "boost",
+"mult": {
+"pts": 1.06,
+"ast": 1.04,
+"reb": 1.02,
+"fga": 1.05
+},
+"headline": "Confirmed starter and All-Star candidate; NBA.com ranks him 20th",
+"note": "Confirmed in the starting five. His late-season scoring carries into a bigger offensive role, which is especially valuable in points leagues.",
+"source": "https://www.si.com/nba/rockets/onsi/head-coach-confirms-rockets-projected-starting-lineup-for-2026-2027-01m3r2p7pxxm",
+"date": "2026-09-30",
+"confidence": "med"
+},
+{
+"name": "Ryan Rollins",
+"team": "MIL",
+"kind": "boost",
+"mult": {
+"min": 1.03,
+"pts": 1.05,
+"ast": 1.05,
+"fga": 1.05
+},
+"headline": "Co-leads the post-Giannis Bucks backcourt",
+"note": "Averaged 17.3/5.6 with 1.5 stl in 32.1 minutes. Herro's arrival limits further gains.",
+"source": "https://sports.yahoo.com/articles/2026-27-fantasy-basketball-sleepers-113000129.html",
+"date": "2026-09-25",
+"confidence": "low"
+},
+{
+"name": "Dylan Harper",
+"team": "SAS",
+"kind": "boost",
+"mult": {
+"min": 1.12,
+"pts": 1.12,
+"ast": 1.1,
+"fga": 1.12,
+"tpm": 1.1
+},
+"headline": "Scored 18 ppg off the bench in the Finals",
+"note": "In line for a bigger sophomore role, possibly at Fox's expense.",
+"source": "https://sports.yahoo.com/articles/2026-27-fantasy-basketball-sleepers-113000129.html",
+"date": "2026-09-25",
+"confidence": "med"
+},
+{
+"name": "De'Aaron Fox",
+"team": "SAS",
+"kind": "fade",
+"mult": {
+"min": 0.95,
+"pts": 0.93,
+"fga": 0.94,
+"ast": 0.95
+},
+"headline": "Career-low 21 ppg; Harper pushing for touches",
+"note": "Scored a career-low 21 ppg on 24.9% usage, and Harper's growth cuts into his role.",
+"source": "https://sports.yahoo.com/articles/2026-27-fantasy-basketball-sleepers-113000129.html",
+"date": "2026-09-25",
+"confidence": "low"
+},
+{
+"name": "Nikola Vucevic",
+"team": "ORL",
+"kind": "fade",
+"mult": {
+"min": 0.85,
+"pts": 0.85,
+"reb": 0.85,
+"fga": 0.85,
+"ast": 0.88
+},
+"headline": "Declining big now in Orlando; possible bench role",
+"note": "His rebounding and post scoring are slipping, and an analyst expects a bench role. Not confirmed.",
+"source": "https://sports.yahoo.com/articles/2026-27-fantasy-basketball-sleepers-113000129.html",
+"date": "2026-09-25",
+"confidence": "low"
+},
+{
+"name": "AJ Dybantsa",
+"team": "WAS",
+"kind": "rookie",
+"games": 72,
+"line": {
+"min": 30,
+"pts": 17.7,
+"reb": 5.5,
+"ast": 2.8,
+"stl": 1.0,
+"blk": 0.5,
+"tpm": 1.0,
+"fgm": 6.5,
+"fga": 14.5,
+"ftm": 3.7,
+"fta": 4.9,
+"tov": 2.6
+},
+"headline": "No. 1 pick and confirmed starter; Trae and AD cap his usage",
+"note": "Keefe named Young, Dybantsa, Davis and Sarr as core starters. He averaged 25.5 ppg at BYU, but 33% from three and two high-usage stars cap him around 17-18 ppg.",
+"source": "https://sports.yahoo.com/articles/wizards-media-day-2026-one-162216590.html",
+"date": "2026-09-28",
+"confidence": "med"
+},
+{
+"name": "Cameron Boozer",
+"team": "MEM",
+"kind": "rookie",
+"games": 74,
+"line": {
+"min": 30,
+"pts": 15.5,
+"reb": 8.0,
+"ast": 3.3,
+"stl": 1.1,
+"blk": 0.6,
+"tpm": 1.1,
+"fgm": 5.9,
+"fga": 11.8,
+"ftm": 2.6,
+"fta": 3.4,
+"tov": 2.2
+},
+"headline": "No. 3 pick and projected starting PF on rebuilding Memphis",
+"note": "Averaged 22.5/10.2/4.1 at Duke and made the All-Summer League 1st Team. The most fantasy-friendly rookie: fills every counting stat in about 30 minutes.",
+"source": "https://www.fantasyalarm.com/articles/nba/nba-offseason/memphis-grizzlies-2026-27-season-preview/196011",
+"date": "2026-09-24",
+"confidence": "high"
+},
+{
+"name": "Darius Acuff Jr.",
+"team": "SAC",
+"kind": "rookie",
+"games": 72,
+"line": {
+"min": 30,
+"pts": 16.0,
+"reb": 3.0,
+"ast": 5.5,
+"stl": 0.9,
+"blk": 0.2,
+"tpm": 2.2,
+"fgm": 5.8,
+"fga": 13.5,
+"ftm": 2.2,
+"fta": 2.7,
+"tov": 2.6
+},
+"headline": "No. 7 pick expected to start at PG for Sacramento",
+"note": "Westbrook retired and DeRozan is gone. Averaged 23.5 pts and 6.4 ast on 44% from three at Arkansas. CBS calls him the Kings' offensive focal point.",
+"source": "https://www.cbssports.com/fantasy/basketball/news/fantasy-basketball-rankings-2026-27-sleepers-breakouts-busts/",
+"date": "2026-09-30",
+"confidence": "med"
+},
+{
+"name": "Darryn Peterson",
+"team": "UTA",
+"kind": "rookie",
+"games": 68,
+"line": {
+"min": 29,
+"pts": 15.5,
+"reb": 3.8,
+"ast": 3.0,
+"stl": 1.0,
+"blk": 0.3,
+"tpm": 1.8,
+"fgm": 5.7,
+"fga": 13.5,
+"ftm": 2.3,
+"fta": 2.9,
+"tov": 2.2
+},
+"headline": "No. 2 pick projected to start alongside Keyonte George",
+"note": "Points and threes come easily, but his efficiency may lag while he shares touches with George, Markkanen and JJJ.",
+"source": "https://fansided.com/nba/projecting-the-jazz-starting-lineup-and-rotation-after-taking-darryn-peterson-no-2-01kvv1b16egc",
+"date": "2026-06-23",
+"confidence": "med"
+},
+{
+"name": "Yaxel Lendeborg",
+"team": "GSW",
+"kind": "rookie",
+"games": 75,
+"line": {
+"min": 26,
+"pts": 10.0,
+"reb": 5.5,
+"ast": 2.3,
+"stl": 1.0,
+"blk": 0.8,
+"tpm": 1.3,
+"fgm": 3.8,
+"fga": 8.0,
+"ftm": 1.1,
+"fta": 1.5,
+"tov": 1.3
+},
+"headline": "Kerr starts the 24-year-old rookie in the preseason opener",
+"note": "Summer League MVP, starting next to Curry, Podziemski, Green and Horford. A 3-and-D profile with a 7-4 wingspan gives solid steals and blocks with few turnovers.",
+"source": "https://fadeawayworld.net/nba/golden-state-warriors/steve-kerr-names-warriors-starters-preseason-opener-clippers-has-yaxel-lendeborg-defied-odds",
+"date": "2026-10-02",
+"confidence": "med"
+},
+{
+"name": "Ausar Thompson",
+"team": "DET",
+"kind": "boost",
+"mult": {
+"min": 1.1,
+"pts": 1.1,
+"reb": 1.08,
+"ast": 1.08,
+"stl": 1.12,
+"blk": 1.12,
+"fga": 1.1
+},
+"headline": "Bickerstaff: Ausar's minutes going above 26 this season",
+"note": "He averaged a career-high 26.0 minutes last season. On Oct 1 Bickerstaff said the plan is for him to play more ('I definitely see his minutes going above 26'). An elite steals and blocks player getting about 28-29 minutes is a big win in ESPN points leagues, where STL and BLK are worth 4 each.",
+"source": "https://www.cbssports.com/fantasy/basketball/players/29005044/ausar-thompson",
+"date": "2026-10-01",
+"confidence": "high"
+},
+{
+"name": "Keaton Wagler",
+"team": "LAC",
+"kind": "rookie",
+"games": 70,
+"line": {
+"min": 30.5,
+"pts": 15.0,
+"reb": 3.3,
+"ast": 5.0,
+"stl": 1.0,
+"blk": 0.2,
+"tpm": 1.2,
+"fgm": 5.6,
+"fga": 12.6,
+"ftm": 2.8,
+"fta": 3.4,
+"tov": 2.7
+},
+"headline": "Lue: the No. 5 pick will get 'a lot of on-ball opportunities'",
+"note": "With Brandon Ingram out to start the season and Bradley Beal headed for a bench role, Ty Lue plans to put the ball in the rookie's hands and let him play through mistakes. That sets him up as the second scoring option next to Darius Garland for at least the first two months. Expect usage ahead of efficiency: his summer league shooting was rough.",
+"source": "https://www.rotowire.com/basketball/headlines/keaton-wagler-news-poised-to-handle-ball-often-533025",
+"date": "2026-10-01",
+"confidence": "med"
+},
+{
+"name": "Keaton Wagler",
+"team": "LAC",
+"kind": "rookie",
+"mult": {},
+"headline": "Battling Max Strus for the starting shooting guard spot",
+"note": "Lue says only Garland is a true lock to start; Brook Lopez is likely at center and three spots are open. Wagler and Strus are competing at shooting guard. Wagler was drafted to pair with Garland, but Strus has chemistry with him from Cleveland, so a bench role to open the year is possible.",
+"source": "https://sports.yahoo.com/articles/ty-lue-reveals-clippers-still-100038552.html",
+"date": "2026-10-01",
+"confidence": "med"
+},
+{
+"name": "Darius Garland",
+"team": "LAC",
+"kind": "boost",
+"mult": {
+"pts": 1.06,
+"fga": 1.06,
+"ast": 1.04,
+"tov": 1.04
+},
+"headline": "The only locked-in Clippers starter; the offense runs through him until Ingram returns",
+"note": "Lue called Garland the one true lock in the starting lineup. With Ingram sidelined and Beal coming off the bench, he is the lone proven creator to open the season. Health is the catch: he played 45 games last season.",
+"source": "https://sports.yahoo.com/articles/ty-lue-reveals-clippers-still-100038552.html",
+"date": "2026-10-01",
+"confidence": "high"
+},
+{
+"name": "Ja Morant",
+"team": "POR",
+"kind": "fade",
+"mult": {
+"min": 0.9,
+"pts": 0.9,
+"fga": 0.9,
+"ast": 0.9
+},
+"headline": "Could open the season coming off Portland's bench",
+"note": "Portland is weighing easing Morant in behind Damian Lillard, with Jrue Holiday the likeliest starter in his place. Morant has come off the bench twice in seven seasons. It may be temporary, but it is a real hit to his early-season minutes and usage.",
+"source": "https://www.rotowire.com/basketball/headlines/ja-morant-news-could-start-year-off-bench-533068",
+"date": "2026-10-02",
+"confidence": "med"
+},
+{
+"name": "Jrue Holiday",
+"team": "POR",
+"kind": "new-team",
+"mult": {
+"min": 0.97,
+"pts": 0.95,
+"ast": 0.9,
+"fga": 0.95
+},
+"headline": "Now the favorite to start, with Morant possibly coming off the bench",
+"note": "Earlier in the summer Morant's arrival looked like it would cost Holiday his role. Camp reports now have Holiday as the likely starter if Portland brings Morant off the bench, and playing more on the wing in three-guard lineups. His assists still take a hit next to Lillard and Morant.",
+"source": "https://www.rotowire.com/basketball/headlines/ja-morant-news-could-start-year-off-bench-533068",
+"date": "2026-10-02",
+"confidence": "med"
+},
+{
+"name": "Damian Lillard",
+"team": "POR",
+"kind": "injury",
+"mult": {},
+"headline": "Expected to open camp with Portland's starters",
+"note": "Back from his Achilles tear, Lillard may open camp with the first unit. Portland could use three-guard lineups with Morant and Holiday. The preseason opener against Golden State on Oct 7 is the first look at how they share the ball.",
+"source": "https://www.rotowire.com/basketball/headlines/damian-lillard-news-could-open-camp-with-starters-533070",
+"date": "2026-10-02",
+"confidence": "med"
+},
+{
+"name": "Jimmy Butler",
+"team": "GSW",
+"kind": "injury",
+"games": 28,
+"mult": {
+"min": 0.85
+},
+"headline": "Still months away; a December return 'might be too optimistic'",
+"note": "The Warriors now expect Butler back from his ACL surgery in early 2027, later than the Dec 1 target reported at media day. He is a late-round injury stash only. Podziemski, Lendeborg and Melton absorb the wing minutes until then.",
+"source": "https://www.rotowire.com/basketball/headlines/jimmy-butler-injury-still-months-away-from-returning-533069",
+"date": "2026-10-02",
+"confidence": "high"
+},
+{
+"name": "Kawhi Leonard",
+"team": "TOR",
+"kind": "injury",
+"games": 58,
+"mult": {},
+"headline": "Load management plan in place; no contact work yet in camp",
+"note": "Toronto is ramping him up in phases: no contact drills so far and he is unlikely to play the preseason opener. The team says it has a load management plan for the season, which means scheduled rest days on top of his injury history. Budget for roughly 55 to 60 games.",
+"source": "https://www.cbssports.com/fantasy/basketball/news/raptors-kawhi-leonard-easing-into-camp/",
+"date": "2026-10-01",
+"confidence": "med"
+},
+{
+"name": "Jalen Duren",
+"team": "DET",
+"kind": "boost",
+"mult": {},
+"headline": "Holdout over: signs five-year, $200M fully guaranteed extension",
+"note": "Duren skipped media day and the start of camp during the contract standoff. With the deal done on Oct 1 he rejoins the team with time to play in the preseason. No change to his role; the risk of a slow start is gone.",
+"source": "https://www.rotowire.com/basketball/headlines/jalen-duren-news-inks-five-year-extension-with-detroit-533052",
+"date": "2026-10-01",
+"confidence": "high"
+},
+{
+"name": "P.J. Washington",
+"team": "DAL",
+"kind": "fade",
+"mult": {
+"min": 0.95,
+"pts": 0.95,
+"reb": 0.95,
+"fga": 0.95
+},
+"headline": "Starting spot not guaranteed under Dusty May",
+"note": "May would not commit to Washington as a starter, and rookie Morez Johnson crowds the frontcourt. Washington has come off the bench only four times in 113 games over two seasons in Dallas, so even a small minutes cut would be new.",
+"source": "https://www.rotowire.com/basketball/headlines/pj-washington-news-in-conversation-for-starting-spot-533046",
+"date": "2026-10-01",
+"confidence": "low"
+},
+{
+"name": "Neemias Queta",
+"team": "BOS",
+"kind": "fade",
+"mult": {
+"min": 0.94,
+"pts": 0.94,
+"reb": 0.94,
+"blk": 0.94
+},
+"headline": "In a camp battle with Mitchell Robinson for the starting center job",
+"note": "Mazzulla praised Queta's offensive growth, but he is competing with Robinson to start. If Robinson wins the job or the two split time, Queta's minutes fall short of what last season's line assumes. Wait for a preseason starting lineup before reaching.",
+"source": "https://www.rotowire.com/basketball/headlines/neemias-queta-news-continuing-offensive-development-533049",
+"date": "2026-10-01",
+"confidence": "med"
+},
+{
+"name": "Brandin Podziemski",
+"team": "GSW",
+"kind": "boost",
+"mult": {
+"min": 1.04,
+"pts": 1.1,
+"tpm": 1.2,
+"fga": 1.08,
+"reb": 1.03,
+"stl": 1.02
+},
+"headline": "Wants to shoot more threes, with Kerr's blessing; averaged 17.5/6.2/4.1 as a starter",
+"note": "At media day Podziemski said he wants more three-point volume and Kerr backed it. After moving into the starting lineup full time last season he averaged 17.5 points, 6.2 rebounds, 4.1 assists and 1.0 steals over 27 games. With Jimmy Butler (ACL) out until early 2027, the starting role and the shots are his. A classic late-round upside pick.",
+"source": "https://www.rotowire.com/basketball/headlines/brandin-podziemski-news-wants-to-shoot-more-threes-533028",
+"date": "2026-10-01",
+"confidence": "med"
+},
+{
+"name": "Alex Sarr",
+"team": "WAS",
+"kind": "fade",
+"mult": {
+"pts": 0.92,
+"fga": 0.92,
+"fgm": 0.92,
+"fta": 0.92,
+"tpm": 0.9,
+"ast": 0.95
+},
+"headline": "Shares the ball with Trae, a healthy AD and the No. 1 pick; still limited after foot surgery",
+"note": "Keefe named Young, Dybantsa, Davis and Sarr as four of the five starters, with Sarr splitting PF and C by matchup. Last season's 16.3 points on 13.7 shots came with Davis playing only 20 games and no Dybantsa. Expect his shots and points to dip; his rebounds and blocks should hold. He was still skipping live drills after June foot surgery, though the team expects him for the opener.",
+"source": "https://sports.yahoo.com/articles/wizards-media-day-2026-one-162216590.html",
+"date": "2026-09-28",
+"confidence": "med"
+},
+{
+"name": "Cameron Johnson",
+"team": "DEN",
+"kind": "boost",
+"mult": {
+"min": 1.03,
+"pts": 1.06,
+"fga": 1.05,
+"tpm": 1.06
+},
+"headline": "Starting forward job is his after Peyton Watson was traded to Cleveland",
+"note": "Johnson started all 54 of his games in his first Denver season but averaged just 12.2 points, his lowest since Phoenix, while shooting a career-best 43% from three. With Watson gone, nobody threatens his minutes, and open looks next to Jokic and Murray should push his scoring back up a little.",
+"source": "https://www.cbssports.com/fantasy/basketball/news/nuggets-cameron-johnson-role-solidified-for-2026-27/",
+"date": "2026-08-20",
+"confidence": "med"
+},
+{
+"name": "Jared McCain",
+"team": "OKC",
+"kind": "boost",
+"mult": {
+"min": 1.08,
+"pts": 1.08,
+"fga": 1.08,
+"tpm": 1.08,
+"ast": 1.05
+},
+"headline": "Thunder's sixth man and top shooter off the bench; Presti says there's 'a lot more' to his game",
+"note": "McCain shot 41% from three in the playoffs (10.4 points on 46% shooting) and arrived at camp in great shape, per Daigneault. With OKC's other wing depth gone he projects as the first guard off the bench, and Presti hinted at a bigger role than spot-up shooter. A good late-round bet in points leagues if his minutes climb into the mid-20s.",
+"source": "https://clutchpoints.com/nba/oklahoma-city-thunder/thunder-news-mark-daigneault-toasts-driven-jared-mccain-being-ready-training-camp",
+"date": "2026-09-30",
+"confidence": "med"
+},
+{
+"name": "Gui Santos",
+"team": "GSW",
+"kind": "boost",
+"mult": {
+"min": 1.05,
+"pts": 1.05,
+"reb": 1.04,
+"ast": 1.04
+},
+"headline": "'In the mix' to start; started 26 of the last 29 games last season",
+"note": "Kerr says only Curry and Green are locked in and Santos is part of an open competition. He posted career highs (9.2 points, 3.9 rebounds, 2.3 assists in 20.5 minutes) and finished last season as a starter, but rookie Yaxel Lendeborg got the first preseason start at small forward. A deep sleeper: if he wins the job his minutes jump toward 28.",
+"source": "https://www.cbssports.com/fantasy/basketball/news/warriors-gui-santos-in-the-mix-for-spot-in-starting-lineup/",
+"date": "2026-09-30",
+"confidence": "low"
+},
+{
+"name": "Isaiah Jackson",
+"team": "LAC",
+"kind": "boost",
+"mult": {
+"min": 1.2,
+"pts": 1.15,
+"reb": 1.15,
+"blk": 1.15,
+"fga": 1.12
+},
+"headline": "Starting at center in the first days of Clippers camp, ahead of 38-year-old Brook Lopez",
+"note": "Lue opened camp with Garland, Strus, Jones Jr., Hachimura and Jackson, and said the lineup is not set: Lopez could still start against certain matchups. Jackson is the more mobile, athletic option and a strong shot-blocker per minute. If he holds the job he's a big upside swing at center in the last rounds.",
+"source": "https://www.si.com/nba/clippers/onsi/what-starting-lineup-ty-lue-just-revealed-says-2026-27-clippers-01m3yexyh3a8",
+"date": "2026-09-30",
+"confidence": "med"
+},
+{
+"name": "Brook Lopez",
+"team": "LAC",
+"kind": "fade",
+"mult": {
+"min": 0.9,
+"pts": 0.9,
+"reb": 0.9,
+"blk": 0.9,
+"fga": 0.9,
+"tpm": 0.9
+},
+"headline": "Not starting in early camp; Isaiah Jackson opened at center",
+"note": "Lue started Isaiah Jackson at center in the first two days of camp, though he said Lopez could still start some games depending on matchups. At 38, a smaller or matchup-based role is the likelier outcome.",
+"source": "https://www.si.com/nba/clippers/onsi/what-starting-lineup-ty-lue-just-revealed-says-2026-27-clippers-01m3yexyh3a8",
+"date": "2026-09-30",
+"confidence": "med"
+},
+{
+"name": "Donovan Mitchell",
+"team": "CLE",
+"kind": "fade",
+"mult": {
+"pts": 0.93,
+"fga": 0.94,
+"ast": 0.91,
+"reb": 0.93,
+"stl": 0.93
+},
+"headline": "Dipped alongside Harden: 26.0/5.2/4.2 in 22 games together vs 27.9/5.7/4.5 for the season",
+"note": "After the Garland-for-Harden deadline trade, Mitchell's scoring, assists, rebounds and steals all came down a little in their 22 games together. Now he gets a full season next to a ball-dominant Harden. CBS still calls him a top-tier fantasy guard, so this is a small trim, not a fall-off.",
+"source": "https://www.cbssports.com/nba/players/2842760/donovan-mitchell/fantasy/",
+"date": "2026-08-20",
+"confidence": "med"
+}
+]

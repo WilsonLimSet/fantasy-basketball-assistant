@@ -1,132 +1,103 @@
-# Adam - ESPN Fantasy Basketball Assistant
+# Takeover Fantasy: fantasy basketball draft assistant
 
-Smart alerts for your ESPN Fantasy Basketball league. Get notified via Telegram when something actually matters - no noise, just actionable insights.
+This app gives you rankings and a live draft board for your league's exact scoring settings: ESPN or Yahoo, points or categories.
 
-## What It Does
-
-- **Smart Injury Alerts**: When a high-usage star gets injured, alerts you if it affects YOUR roster or watchlist
-- **Usage Boost Detection**: "Kawhi is OUT - your Norman Powell should see MORE usage"
-- **League Activity Tracking**: Alerts when a league mate drops a star-level player
-- **Watchlist Snipe Alerts**: Know when someone picks up a player you were watching
-- **Automatic ESPN Watchlist Sync**: Uses your ESPN watchlist, no manual setup
-
-## What It Doesn't Do
-
-- No auto-transactions (you stay in control)
-- No spam about every injury (only high-impact players matter)
-- No generic "top adds" lists (ESPN already shows those)
-
-## Quick Setup (15 mins)
-
-### 1. Clone & Install
+## Run it
 
 ```bash
-git clone https://github.com/yourusername/adam.git
-cd adam
 npm install
+npm run dev            # http://localhost:3000, pulls live ESPN data
 ```
 
-### 2. Get Your ESPN Cookies
-
-1. Go to [ESPN Fantasy Basketball](https://fantasy.espn.com/basketball) and log in
-2. Open DevTools: `Cmd+Option+I` (Mac) or `F12` (Windows)
-3. Go to **Application** tab → **Cookies** → `https://fantasy.espn.com`
-4. Copy these values:
-   - `espn_s2` - long string starting with `AE...`
-   - `SWID` - looks like `{XXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXXX}`
-5. Get your **League ID** from the URL: `fantasy.espn.com/basketball/league?leagueId=12345678`
-6. Get your **Team ID** by clicking your team - it's in the URL: `teamId=6`
-
-### 3. Set Up Telegram Bot
-
-1. Open Telegram, search for `@BotFather`
-2. Send `/newbot`, follow prompts, save the token
-3. Start a chat with your new bot (send it any message)
-4. Get your chat ID:
-   ```bash
-   curl "https://api.telegram.org/bot<YOUR_TOKEN>/getUpdates"
-   ```
-   Look for `"chat":{"id":123456789` - that number is your chat ID
-
-### 4. Configure Environment
+To work offline with synthetic data:
 
 ```bash
-cp .env.example .env.local
+node scripts/make-fixture.mjs
+CV_MOCK_FILE=$PWD/.data/espn-mock.json npm run dev
 ```
 
-Edit `.env.local`:
-```env
-# ESPN (Required)
-ESPN_S2=your_espn_s2_cookie_here
-ESPN_SWID={YOUR-SWID-HERE}
-ESPN_LEAGUE_ID=12345678
-ESPN_SEASON=2026
-ESPN_MY_TEAM_ID=1
+## Deploying (and keeping build costs down)
 
-# Telegram (Required for alerts)
-TELEGRAM_BOT_TOKEN=your_bot_token_here
-TELEGRAM_CHAT_ID=your_chat_id_here
-```
+- Test locally with `npm run dev` (http://localhost:3000). Pushing a branch does **not** build on Vercel.
+- Open a pull request to get a preview build; merging to `main` deploys production at https://takeoverfantasy.com.
+- `scripts/vercel-ignore-build.sh` (Vercel's Ignored Build Step) enforces this: it builds `main` and pull requests, and skips plain branch pushes and docs-only changes.
+- After deploying, open `/api/players` to check the live feed. It should show `withProj`, `withLast` and `withAdp` counts in the hundreds.
 
-### 5. Test Locally
+## Daily news updates (the takes)
 
-```bash
-npm run dev
-```
+`research/raw-takes.json` holds sourced analyst takes: injuries, trades, role changes and rookies. Each take carries stat multipliers, a games estimate and a source link. `node scripts/build-takes.mjs` merges them into `src/data/takes.json`, which drives both the projections and the News & Takes feed.
 
-Visit `http://localhost:3000/api/refresh` - you should see a JSON response with your league data.
+To update every day, run `/update-takes` in Claude Code from this folder, review the summary, and push. If Vercel is connected to the GitHub repo, the update deploys automatically.
 
-### 6. Deploy to Vercel
+## Player notes, news and draft review
 
-```bash
-npm i -g vercel
-vercel
-```
+- **Player profile:** click any player name to open his panel: our projection next to ESPN's and last season's, plain-language reasons for his rank (`src/lib/insights.ts`), our sourced take, ESPN's season outlook and his latest news. Outlook and news come live from ESPN through `GET /api/player/[id]` and are never stored in the repo.
+- **Latest news:** the News & Takes tab has a "Latest news" view built from the most recently updated players.
+- **Mock draft review:** a finished mock is graded against every other team, with best value pick, biggest reach, team strengths and holes, a pick-by-pick verdict and league standings.
 
-Add your environment variables in Vercel Dashboard → Settings → Environment Variables.
+## ESPN league sync
 
-The cron job runs every 12 hours automatically (`vercel.json` is already configured).
+- **Live draft sync:** in the Live Draft tab, enter your ESPN league ID and turn on "Sync from ESPN". The app polls `GET /api/draft-sync?leagueId=…` every 5 seconds (ESPN's `mDraftDetail` view) and replaces the board's picks with the real ones.
+- **League settings import:** League Settings → "Import from ESPN" reads `GET /api/league-settings?leagueId=…` (ESPN's `mSettings` view) and offers to apply your real scoring, roster slots, team count and draft slot.
+- Private leagues need `ESPN_LEAGUE_ID`, `ESPN_S2` and `ESPN_SWID` on the server. The cookies are only ever sent for that one league. Both endpoints accept `&season=` and default to `CV_SEASON`.
 
-## How Smart Alerts Work
+## League scouting
 
-We only alert on **high-usage stars** (25+ projected fantasy points). Role players getting injured doesn't matter for usage redistribution.
+League Settings → "League scouting" reads the last two seasons of drafts for your ESPN league (`GET /api/scouting?leagueId=…`), matching managers across seasons by ESPN account so renamed teams line up. It shows each manager's early-round position lean, how often they autodraft, and players they drafted before who are still on the board. With it loaded:
 
-| Scenario | Alert? | Why |
-|----------|--------|-----|
-| Kawhi (star) injured, you have Norman Powell | YES | Norman's usage goes UP |
-| Zubac (role player) injured, you have Harden | NO | Zubac doesn't affect Harden's touches |
-| League mate drops 40-point player | YES | Rare opportunity to grab a star |
-| League mate drops 20-point player | NO | Not worth the noise |
-| Someone adds your watchlist player | YES | You missed out, update your watchlist |
+- Live Draft shows who picks before your next turn and who they've taken before.
+- Your targets warn when a manager picking before you drafted that player last year.
+- Player profiles say who in your league drafted him before.
+- Mock draft CPU teams lean toward their real managers' past picks.
 
-## Files That Matter
+- **Any user's private league:** League Settings → Import from ESPN → "Add your ESPN cookies". The cookies are kept in that browser and sent as `x-espn-s2` / `x-espn-swid` headers, used for that one request to ESPN and never stored. Your own team is found from your ESPN account.
+- **Recreated leagues:** enter last season's league ID next to the scouting button (or set `ESPN_HISTORY_LEAGUE_IDS` for the owner's league).
+- **Draft order:** ESPN's order can be a placeholder. Set the real order under League scouting, or it updates itself from round 1 once Sync from ESPN is on.
+- The server's own cookies (`ESPN_S2`, `ESPN_SWID`) only ever apply to `ESPN_LEAGUE_ID` and `ESPN_HISTORY_LEAGUE_IDS`.
 
-```
-src/
-├── lib/
-│   ├── espnClient.ts    # ESPN API calls
-│   ├── smartAlerts.ts   # Alert logic (this is the brain)
-│   └── telegram.ts      # Telegram messaging
-├── app/api/
-│   └── refresh/route.ts # Cron endpoint
-└── types/
-    └── index.ts         # Data types
-```
+## In-season module (Adam)
 
-## FAQ
+The original in-season assistant lives under `/inseason` (pages), `/api/inseason/*` (routes) and `src/lib/inseason` (logic). Its original README is in `README.adam.md`. The Vercel cron calls `/api/inseason/refresh`.
 
-**Q: How do I find my Team ID?**
-Click on your team in ESPN, look at the URL for `teamId=X`
+## Paywall and payments
 
-**Q: ESPN cookies expired?**
-Re-copy them from DevTools. They last a few months usually.
+- Free users get the top `CV_FREE_LIMIT` players (50 by default) and short mock drafts. A season pass unlocks everything.
+- The paywall is **off until payments are configured**: with no `STRIPE_PAYMENT_LINK`, everyone gets the full product. Set `CV_PAYWALL=on` to force it on without Stripe.
+- Create a Stripe **Payment Link** and set its after-payment redirect to `https://YOUR-DOMAIN/api/unlock?session_id={CHECKOUT_SESSION_ID}`. The server checks the payment with Stripe, sets a signed cookie, and shows the buyer a license key they can use to restore access on other devices.
+- Environment variables:
 
-**Q: Can I change alert frequency?**
-Edit `vercel.json` - currently set to every 12 hours (`0 */12 * * *`)
+| Variable | Purpose |
+| --- | --- |
+| `STRIPE_PAYMENT_LINK` | URL of the buy button |
+| `STRIPE_SECRET_KEY` | `sk_live_...`, used to verify payments |
+| `CV_SECRET` | Long random string that signs cookies and license keys (set before launch) |
+| `CV_PRICE_LABEL` | Price shown in the UI, e.g. "$19 season pass" |
+| `CV_ACCESS_CODES` | Comma-separated free codes for friends and testers |
+| `CV_PASS_EXPIRES` | When passes expire, e.g. `2027-07-01T00:00:00Z` |
+| `CV_FREE_LIMIT` | Number of players shown free (default 50) |
 
-**Q: Is this against ESPN ToS?**
-It's read-only personal use. No automation, no scraping at scale.
+## How it works
 
-## License
+- **Data:** the app reads ESPN's public fantasy endpoint (`kona_player_info`) on the server and caches it for 6 hours. Each player record includes last season's stats, ESPN's projection for the new season, ESPN's ADP, injury status and position eligibility.
+- **Projection** (`src/lib/engine.ts → project`):
+  - Per-game stats blend ESPN's projection with last season's actual numbers. Last season counts for up to 40%, scaled down when it was cut short (a 30-game season counts half as much as a 60-game one). A sourced take's role multipliers then move the blended line halfway. Rookies use the take's projected line. Injury takes override games played.
+  - Games played is a blend of ESPN's estimate and last season's real total, because ESPN is optimistic about injury-prone players.
+    One lost season can pull that estimate down only as far as 70% of ESPN's number. Players older than 32 lose 2% of their games per extra year (up to 20%), using ages from ESPN's team rosters.
+  - Last season's line is aged one year before blending: up to +10% for players 20 and under, tapering to zero by 25, and −3% to −5% from age 33.
+  - A last season of fewer than 15 games is ignored for per-game production; ESPN's projection is used instead. Unsigned players with no ESPN projection and no take (retired or out of the league) are left off the board.
+  - In season, current stats get more weight as the sample grows.
+- **Value:**
+  - *Points leagues:* fantasy points per game × projected games.
+  - *Category leagues:* z-scores against the draftable pool. FG% and FT% are weighted by shot volume, and you can punt categories.
+  - **Team fit:** each team's projections are checked against what one team can use. Minutes over 240 a game (weighted by games played) come mostly out of the bench. Teams whose players shoot well above the typical team's rate get shots and points trimmed, with the go-to scorer cut least.
+  - In points leagues, a missed game is credited at 70% of replacement level, because you can usually start someone else. Without that, injury-risk stars were being punished twice.
+  - Both formats then subtract replacement level, which is found by filling every team's lineup slots league-wide. That builds positional scarcity into the rankings.
+- **Draft board:** tracks snake-draft order and recommends your next pick. It weighs value, open roster slots and your weakest categories. It also compares ADP to your next two picks to flag "can wait" and "likely gone".
+- **Format Edges:** shows the players whose rank changes most between two formats, for example ESPN points vs Yahoo points.
 
-MIT - do whatever you want with it.
+## Roadmap to a paid product
+
+1. Sync with private ESPN leagues (`espn_s2` / `SWID` cookies) and Yahoo leagues (OAuth). That allows auto-importing settings and draft picks.
+2. In-season tools: waiver add/drop scores, a weekly games-played grid, and injury and news alerts for a watchlist via Telegram or push.
+3. Accounts (Clerk or Supabase) and Stripe, with a free tier (rankings) and a paid tier (sync, alerts, in-season tools).
+4. A licensed data feed before charging. ESPN's endpoint is unofficial and has no commercial license.

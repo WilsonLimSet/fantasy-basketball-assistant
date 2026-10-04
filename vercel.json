@@ -1,8 +1,9 @@
 {
   "crons": [
     {
-      "path": "/api/refresh",
+      "path": "/api/inseason/refresh",
       "schedule": "0 11,23 * * *"
     }
-  ]
+  ],
+  "ignoreCommand": "bash scripts/vercel-ignore-build.sh"
 }
