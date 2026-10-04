@@ -202,7 +202,11 @@ export default function MockDraft({ board, league }: { board: Board; league: Lea
           rosters={Array.from({ length: cfg.teams }, (_, t) => rosterOf(t))}
           league={lg}
           me={me}
-          label={(t) => scouting?.data && cfg.teams === league.teams ? scouting.managerAtSlot(t)?.name ?? `Team ${t + 1}` : `Team ${t + 1}`}
+          label={(t) => {
+            // League mates' names for CPU seats; never your own name on a seat that isn't yours in this mock.
+            const m = scouting?.data && cfg.teams === league.teams ? scouting.managerAtSlot(t) : null;
+            return m && !m.isMe ? m.name : `Team ${t + 1}`;
+          }}
         />
         <DraftGrid picks={picks} cfg={cfg} rounds={maxRounds} me={me} byId={byId} />
         {!board.paid && <Paywall info={board} what="full-length mock drafts" />}
