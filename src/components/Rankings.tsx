@@ -1,6 +1,7 @@
 "use client";
 
-import { Fragment, useState } from "react";
+import { Fragment, useMemo, useState } from "react";
+import type { StatLine } from "@/lib/types";
 import { League, PRESETS, Valued, leagueFromPreset, rosterSize, tierLabel } from "@/lib/engine";
 import type { DraftState } from "@/lib/draft";
 import { LATE_ROUND_SHARE } from "@/lib/draft";
@@ -12,6 +13,29 @@ import { Paywall } from "./Paywall";
 import type { Board } from "./App";
 
 /** Where we most disagree with ESPN's own draft rank. */
+const HEAT_COLS: { key: string; get: (l: StatLine) => number; lowGood?: boolean }[] = [
+  { key: "pts", get: (l) => l.pts },
+  { key: "reb", get: (l) => l.reb },
+  { key: "ast", get: (l) => l.ast },
+  { key: "stl", get: (l) => l.stl },
+  { key: "blk", get: (l) => l.blk },
+  { key: "3pm", get: (l) => l.tpm },
+  { key: "to", get: (l) => l.tov, lowGood: true },
+  { key: "fg%", get: (l) => (l.fga ? (100 * l.fgm) / l.fga : NaN) },
+];
+
+/** Green for the top of the draftable pool, red for the bottom, nothing in the middle. */
+function heatClass(sorted: number[] | undefined, x: number, lowGood?: boolean) {
+  if (!sorted?.length || !Number.isFinite(x)) return "";
+  let pct = sorted.filter((y) => y <= x).length / sorted.length;
+  if (lowGood) pct = 1 - pct;
+  if (pct >= 0.9) return "bg-emerald-500/25";
+  if (pct >= 0.75) return "bg-emerald-500/12";
+  if (pct <= 0.1) return "bg-red-500/20";
+  if (pct <= 0.25) return "bg-red-500/10";
+  return "";
+}
+
 function Calls({ board, league }: { board: Board; league: League }) {
   const rows = board.valued
     .map((v) => ({ v, er: espnRankFor(v, league) }))
@@ -174,6 +198,16 @@ export default function Rankings({ board, league, draftedIds, setLeague, draft, 
       (!hideAvoid || !avoid.has(v.p.id)) &&
       (showWaiver || !!q || starsOnly || v.bucket !== "waiver"),
   );
+  // Heatmap: each stat colored by where it sits among the players who get drafted.
+  const [heat, setHeat] = useState(false);
+  const heatScale = useMemo(() => {
+    const pool = valued.slice(0, league.teams * rosterSize(league));
+    return Object.fromEntries(HEAT_COLS.map((c) => {
+      const xs = pool.map((v) => c.get(v.proj.line)).filter(Number.isFinite).sort((a, b) => a - b);
+      return [c.key, xs];
+    })) as Record<string, number[]>;
+  }, [valued, league]);
+
   // Sleepers stay grouped ahead of the waiver wire even though their ranks interleave.
   const bucketOrder = { core: 0, flier: 1, sleeper: 2, waiver: 3 } as const;
   rows.sort((a, b) => bucketOrder[a.bucket] - bucketOrder[b.bucket] || a.rank - b.rank);
@@ -204,6 +238,11 @@ export default function Rankings({ board, league, draftedIds, setLeague, draft, 
             <button onClick={() => setStarsOnly((s) => !s)} aria-pressed={starsOnly} className={starsOnly ? "btn-accent" : "btn-ghost"}>
               ★ Targets{stars.size ? ` (${stars.size})` : ""}
             </button>
+            {league.format === "points" && (
+              <button onClick={() => setHeat((h) => !h)} aria-pressed={heat} className={heat ? "btn-accent" : "btn-ghost"} title="Color each stat by where it ranks among draftable players">
+                Heatmap
+              </button>
+            )}
             {avoid.size > 0 && (
               <button onClick={() => setHideAvoid((h) => !h)} aria-pressed={hideAvoid} className={hideAvoid ? "btn-accent" : "btn-ghost"}>
                 {hideAvoid ? "Show" : "Hide"} do-not-draft ({avoid.size})
@@ -278,14 +317,14 @@ export default function Rankings({ board, league, draftedIds, setLeague, draft, 
                       ? cats.map((c) => <td key={c} className="pr-1 text-center"><ZChip z={v.z[c]} /></td>)
                       : (
                         <>
-                          <td className="pr-2 tabular-nums">{fmt(l.pts)}</td>
-                          <td className="pr-2 tabular-nums">{fmt(l.reb)}</td>
-                          <td className="pr-2 tabular-nums">{fmt(l.ast)}</td>
-                          <td className="pr-2 tabular-nums">{fmt(l.stl)}</td>
-                          <td className="pr-2 tabular-nums">{fmt(l.blk)}</td>
-                          <td className="pr-2 tabular-nums">{fmt(l.tpm)}</td>
-                          <td className="pr-2 tabular-nums">{fmt(l.tov)}</td>
-                          <td className="pr-2 tabular-nums">{l.fga ? fmt((100 * l.fgm) / l.fga) : "–"}</td>
+                          {HEAT_COLS.map((c) => {
+                            const x = c.get(l);
+                            return (
+                              <td key={c.key} className={`pr-2 tabular-nums ${heat ? heatClass(heatScale[c.key], x, c.lowGood) : ""}`}>
+                                {Number.isFinite(x) ? fmt(x) : "–"}
+                              </td>
+                            );
+                          })}
                         </>
                       )}
                   </tr>

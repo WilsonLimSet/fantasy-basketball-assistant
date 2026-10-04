@@ -1,4 +1,4 @@
-import { Player, Pos, StatKey, StatLine, STAT_KEYS } from "./types";
+import { Player, PlayerBio, Pos, StatKey, StatLine, STAT_KEYS } from "./types";
 
 // ESPN stat id -> our key (ids from ESPN's fantasy API, see cwendt94/espn-api)
 const ESPN_STAT: Record<string, StatKey | "gp"> = {
@@ -81,6 +81,7 @@ export function parsePlayers(json: any, season: number, outlooks?: Map<number, s
       proj: projE ? toLine(projE) : null,
       cur: curE ? toLine(curE) : null,
       age: null,
+      bio: null,
       lastNews: typeof p.lastNewsDate === "number" ? p.lastNewsDate : null,
     });
   }
@@ -125,9 +126,9 @@ function filters(season: number, limit: number) {
 
 const ROSTER = "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/teams";
 
-/** Player ages by ESPN id, read from the 30 team rosters. Cached for a day; missing teams are skipped. */
-export async function fetchAges(): Promise<Map<number, number>> {
-  const ages = new Map<number, number>();
+/** Age and bio by ESPN id, read from the 30 team rosters. Cached for a day; missing teams are skipped. */
+export async function fetchAges(): Promise<Map<number, { age: number | null; bio: PlayerBio }>> {
+  const ages = new Map<number, { age: number | null; bio: PlayerBio }>();
   await Promise.all(
     Array.from({ length: 30 }, (_, i) => i + 1).map(async (teamId) => {
       try {
@@ -140,7 +141,17 @@ export async function fetchAges(): Promise<Map<number, number>> {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         for (const a of (j?.athletes ?? []) as any[]) {
           const id = Number(a?.id), age = Number(a?.age);
-          if (id > 0 && age > 15 && age < 50) ages.set(id, age);
+          if (!(id > 0)) continue;
+          ages.set(id, {
+            age: age > 15 && age < 50 ? age : null,
+            bio: {
+              height: a?.displayHeight ? String(a.displayHeight).replace(/\s+/g, " ") : null,
+              weight: a?.displayWeight ? String(a.displayWeight) : null,
+              years: Number.isFinite(Number(a?.experience?.years)) ? Number(a.experience.years) : null,
+              jersey: a?.jersey ? String(a.jersey) : null,
+              college: a?.college?.shortName ?? a?.college?.name ?? null,
+            },
+          });
         }
       } catch { /* ages are a refinement; rankings still work without them */ }
     }),

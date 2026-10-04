@@ -94,6 +94,7 @@ function PlayerSheet({ v, league, onClose }: { v: Valued; league: League; onClos
                 <TeamLogo team={p.team} size={16} />
                 {p.team} · {p.pos.join("/")}{posRank && ` · ${posRank}`}
               </div>
+              <Bio v={v} />
               <div className="mt-2 flex flex-wrap gap-1.5 text-xs">
                 {v.cvRank != null ? (
                   <>
@@ -291,6 +292,38 @@ function MyRank({ v }: { v: Valued }) {
         Disagree with us? Put him where you&apos;d take him. Your rankings, mocks and draft recommendations all follow it.
       </span>
     </section>
+  );
+}
+
+/** Height, weight, age, experience, college, and how much of his team's offense he carries. */
+function Bio({ v }: { v: Valued }) {
+  const { p } = v;
+  const b = p.bio;
+  const l = v.proj.line;
+  // Possessions he uses per 36 minutes: shots, trips to the line and turnovers.
+  const load = l.min ? ((l.fga + 0.44 * l.fta + l.tov) * 36) / l.min : null;
+  const bits = [
+    b?.jersey ? `#${b.jersey}` : null,
+    b?.height, b?.weight,
+    p.age != null ? `Age ${p.age}` : null,
+    b?.years != null ? (b.years === 0 ? "Rookie" : `${b.years + 1}${b.years + 1 === 2 ? "nd" : b.years + 1 === 3 ? "rd" : "th"} season`) : null,
+    b?.college,
+  ].filter(Boolean);
+  return (
+    <div className="mt-1 space-y-1">
+      {bits.length > 0 && <div className="text-xs text-muted">{bits.join(" · ")}</div>}
+      {(v.role || load != null) && (
+        <div className="flex flex-wrap gap-1.5 text-[11px]">
+          {v.role && (
+            <span className="rounded bg-sunken px-1.5 py-0.5">
+              {v.role.shotRank === 1 ? "Go-to scorer" : `${v.role.shotRank}${v.role.shotRank === 2 ? "nd" : v.role.shotRank === 3 ? "rd" : "th"} option`} · {Math.round(v.role.shotShare * 100)}% of team shots
+            </span>
+          )}
+          {load != null && <span className="rounded bg-sunken px-1.5 py-0.5" title="Shots + 0.44 × free throws + turnovers, per 36 minutes">Usage load {load.toFixed(1)}/36</span>}
+          {l.min > 0 && <span className="rounded bg-sunken px-1.5 py-0.5">{l.min.toFixed(0)} min</span>}
+        </div>
+      )}
+    </div>
   );
 }
 

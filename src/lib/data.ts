@@ -18,7 +18,7 @@ export async function getPlayers() {
   } else {
     const [fetched, ages] = await Promise.all([fetchEspnPlayers(SEASON), fetchAges()]);
     ({ players, source, outlooks } = fetched);
-    for (const p of players) p.age = ages.get(p.id) ?? null;
+    for (const p of players) { const a = ages.get(p.id); p.age = a?.age ?? null; p.bio = a?.bio ?? null; }
   }
   cache = { at: Date.now(), players, source, outlooks };
   return cache;

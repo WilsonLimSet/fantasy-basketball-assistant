@@ -8,6 +8,14 @@ export type StatLine = Record<StatKey, number> & { gp: number };
 
 export type Pos = "PG" | "SG" | "SF" | "PF" | "C";
 
+export interface PlayerBio {
+  height: string | null; // e.g. 6' 11"
+  weight: string | null; // e.g. 265 lbs
+  years: number | null; // NBA seasons of experience
+  jersey: string | null;
+  college: string | null;
+}
+
 export interface Player {
   id: number;
   name: string;
@@ -22,6 +30,7 @@ export interface Player {
   proj: StatLine | null; // ESPN projection, per game
   cur: StatLine | null; // current season actual (in-season)
   age: number | null; // from ESPN team rosters; null when unknown (e.g. free agents)
+  bio: PlayerBio | null;
   lastNews: number | null; // ms timestamp of the latest ESPN news item
 }
 

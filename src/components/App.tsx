@@ -10,13 +10,14 @@ import Rankings from "./Rankings";
 import DraftBoard from "./DraftBoard";
 import MockDraft from "./MockDraft";
 import FormatEdges from "./FormatEdges";
+import CheatSheet from "./CheatSheet";
 import LeagueSettings from "./LeagueSettings";
 import News from "./News";
 import { PassInfo } from "./Paywall";
 import { PlayerSheetProvider } from "./PlayerSheet";
 import { ScoutingProvider } from "@/lib/scouting";
 
-type Tab = "kit" | "mock" | "draft" | "news" | "edges" | "settings";
+type Tab = "kit" | "mock" | "draft" | "sheet" | "news" | "edges" | "settings";
 
 export interface Board extends PassInfo {
   season: number;
@@ -88,6 +89,7 @@ export default function App() {
     { id: "kit", label: "Draft Kit" },
     { id: "mock", label: "Mock Draft" },
     { id: "draft", label: "Live Draft" },
+    { id: "sheet", label: "Cheat Sheet" },
     { id: "news", label: "News & Takes" },
     { id: "edges", label: "ESPN vs Yahoo" },
     { id: "settings", label: "League Settings" },
@@ -97,7 +99,7 @@ export default function App() {
     <ScoutingProvider>
     <PlayerSheetProvider league={league}>
     <div className="min-h-screen">
-      <header className="sticky top-0 z-20 border-b border-line bg-bg/90 backdrop-blur">
+      <header className="sticky top-0 z-20 border-b border-line bg-bg/90 backdrop-blur print:hidden">
         <div className="mx-auto flex max-w-7xl flex-wrap items-center gap-x-6 gap-y-2 px-4 py-3">
           <Link href="/" className="flex items-center gap-2" title="CourtVision home">
             <LogoMark size={22} />
@@ -138,7 +140,7 @@ export default function App() {
       </header>
 
       {tab === "kit" && !board?.pro && (
-        <section className="border-b border-line">
+        <section className="border-b border-line print:hidden">
           <div className="mx-auto grid max-w-7xl gap-8 px-4 py-12 lg:grid-cols-[1fr_auto] lg:items-end">
             <div>
             <h1 className="text-3xl font-medium leading-tight tracking-[-0.03em] sm:text-4xl">
@@ -186,7 +188,7 @@ export default function App() {
         {tab === "news" && <News />}
         {tab === "settings" && <LeagueSettings league={league} setLeague={setLeague} draft={draft} setDraft={setDraft} valued={board?.valued ?? null} />}
 
-        {!board && !err && ["kit", "mock", "draft", "edges"].includes(tab) && (
+        {!board && !err && ["kit", "mock", "draft", "edges", "sheet"].includes(tab) && (
           <div className="py-20 text-center text-muted">Loading players…</div>
         )}
         {board && (
@@ -194,11 +196,12 @@ export default function App() {
             {tab === "kit" && <Rankings board={board} league={league} draftedIds={new Set(draft.picks)} setLeague={setLeague} draft={draft} setDraft={setDraft} onEditSettings={() => setTab("settings")} />}
             {tab === "mock" && <MockDraft board={board} league={league} />}
             {tab === "edges" && <FormatEdges board={board} league={league} />}
+            {tab === "sheet" && <CheatSheet board={board} league={league} draft={draft} />}
             {tab === "draft" && <DraftBoard board={board} league={league} draft={draft} setDraft={setDraft} />}
           </>
         )}
       </main>
-      <footer className="mx-auto max-w-7xl px-4 pb-8 text-xs text-muted">
+      <footer className="mx-auto max-w-7xl px-4 pb-8 text-xs text-muted print:hidden">
         Projections blend ESPN&apos;s preseason projection with last season&apos;s production, adjusted by sourced analyst
         takes and a durability-adjusted games estimate. Not affiliated with ESPN or Yahoo.
       </footer>
