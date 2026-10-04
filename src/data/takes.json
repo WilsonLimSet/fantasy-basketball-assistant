@@ -1,5 +1,5 @@
 {
- "updatedAt": "2026-10-03",
+ "updatedAt": "2026-10-04",
  "takes": [
   {
    "key": "jimmy butler",
@@ -859,15 +859,19 @@
    "key": "tyrese haliburton",
    "name": "Tyrese Haliburton",
    "team": "IND",
-   "kind": "note",
-   "games": 72,
-   "mult": {},
+   "kind": "injury",
+   "games": 62,
+   "mult": {
+    "min": 0.97,
+    "pts": 0.97,
+    "ast": 0.97
+   },
    "line": null,
    "headline": "Says he's '100%' with no restrictions after Achilles tear",
    "notes": [
     {
      "headline": "Says he's '100%' with no restrictions after Achilles tear",
-     "text": "Missed all of 2025-26 after tearing his Achilles in Game 7 of the 2025 Finals; says he is fully cleared. Some rust and load-management risk in his first year back.",
+     "text": "Missed all of 2025-26 after tearing his Achilles in Game 7 of the 2025 Finals; says he is fully cleared. Some rust and load-management risk in his first year back. First season back from an Achilles tear: we budget about 62 games (ESPN projects 64) and a little rust early.",
      "source": "https://lindyssports.com/nba/nba-media-day-2026-tyrese-haliburton-stephen-curry-and-karl-anthony-towns",
      "date": "2026-09-28",
      "confidence": "high"
@@ -976,14 +980,14 @@
    "name": "Jayson Tatum",
    "team": "BOS",
    "kind": "note",
-   "games": 74,
+   "games": 68,
    "mult": {},
    "line": null,
    "headline": "Achilles behind him; says he feels 'great' at media day",
    "notes": [
     {
      "headline": "Achilles behind him; says he feels 'great' at media day",
-     "text": "Returned in March 2026 and is now more than a year removed from Achilles surgery. No added risk beyond his normal workload.",
+     "text": "Returned in March 2026 and is now more than a year removed from Achilles surgery. No added risk beyond his normal workload. He played only 16 games after returning, so we stay a touch under ESPN's 70 games.",
      "source": "https://www.boston.com/sports/boston-celtics/2026/09/28/celtics-jayson-tatum-paul-george-media-day-takeaways/",
      "date": "2026-09-28",
      "confidence": "high"

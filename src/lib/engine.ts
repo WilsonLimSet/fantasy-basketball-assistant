@@ -174,9 +174,9 @@ export function project(p: Player, take?: Take | null): Projection | null {
   // Games: ESPN projections tend to be optimistic for injury-prone players.
   let games: number;
   if (take?.games != null) games = take.games;
-  // One injury-wrecked season is a warning, not a forecast: last season can pull the estimate down
-  // only as far as 70% of ESPN's number.
-  else if (proj && lastGp > 0) games = 0.55 * proj.gp + 0.45 * Math.max(Math.min(lastGp, 82), 0.7 * proj.gp);
+  // One injury-hit season is a warning, not a forecast: it counts for a third, and can pull the
+  // estimate down only as far as 70% of ESPN's number.
+  else if (proj && lastGp > 0) games = 0.65 * proj.gp + 0.35 * Math.max(Math.min(lastGp, 82), 0.7 * proj.gp);
   else if (proj) games = proj.gp * 0.95;
   else games = Math.min(lastGp, 78) * 0.95;
   games = Math.max(0, Math.min(games, 79));
