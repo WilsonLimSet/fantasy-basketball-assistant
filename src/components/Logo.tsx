@@ -1,5 +1,5 @@
 /**
- * CourtVision's mark: a half-court line and center circle seen from above, with a dot for the
+ * Takeover Fantasy's mark: a half-court line and center circle seen from above, with a dot for the
  * "vision". Same drawing as src/app/icon.svg.
  */
 export function LogoMark({ size = 22, className = "" }: { size?: number; className?: string }) {

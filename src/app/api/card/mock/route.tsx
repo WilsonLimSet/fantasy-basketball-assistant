@@ -19,7 +19,7 @@ export async function GET(req: Request) {
         <div style={{ display: "flex", flexDirection: "column", flex: 1 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 18 }}>
             {MARK}
-            <div style={{ fontSize: 38, fontWeight: 600, color: "#191919" }}>CourtVision</div>
+            <div style={{ fontSize: 38, fontWeight: 600, color: "#191919" }}>Takeover Fantasy</div>
             <div style={{ fontSize: 26, color: "#8a8988", marginLeft: 8 }}>Mock draft</div>
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 48, marginTop: 64 }}>

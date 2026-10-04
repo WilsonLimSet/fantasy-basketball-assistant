@@ -15,7 +15,7 @@ const NEWS = "https://site.api.espn.com/apis/fantasy/v2/games/fba/news/players";
 export async function fetchPlayerNews(playerId: number, limit = 6): Promise<NewsItem[]> {
   try {
     const r = await fetch(`${NEWS}?playerId=${playerId}&limit=${limit}`, {
-      headers: { Accept: "application/json", "User-Agent": "Mozilla/5.0 (compatible; CourtVision/0.1)" },
+      headers: { Accept: "application/json", "User-Agent": "Mozilla/5.0 (compatible; TakeoverFantasy/0.1)" },
       next: { revalidate: 60 * 15 },
     });
     if (!r.ok) return [];

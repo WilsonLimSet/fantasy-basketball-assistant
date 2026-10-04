@@ -74,7 +74,7 @@ export async function fetchLeague(leagueId: string, season: number, views: strin
   const url = `${BASE}/${season}/segments/0/leagues/${leagueId}?${views.map((v) => `view=${v}`).join("&")}`;
   const headers: Record<string, string> = {
     Accept: "application/json",
-    "User-Agent": "Mozilla/5.0 (compatible; CourtVision/0.1)",
+    "User-Agent": "Mozilla/5.0 (compatible; TakeoverFantasy/0.1)",
   };
   // A visitor's own cookies (sent with this request) work for any league they can see; the
   // server's cookies only for the owner's leagues.

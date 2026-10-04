@@ -197,7 +197,7 @@ export function noteLine(v: Valued): string {
 }
 
 /**
- * CourtVision's written notes on a player, generated from the numbers: his role on his team,
+ * Takeover Fantasy's written notes on a player, generated from the numbers: his role on his team,
  * how his line changes from last season, what kind of fantasy player he is, his range of
  * outcomes, and when to draft him.
  */

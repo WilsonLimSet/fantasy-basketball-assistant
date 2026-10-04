@@ -12,7 +12,7 @@ export function Header() {
       <div className="header-content">
         <Link href="/inseason" className="logo">
           <LogoMark size={22} />
-          <span>CourtVision <span style={{ color: 'var(--muted)', fontWeight: 400 }}>In-Season</span></span>
+          <span>Takeover Fantasy <span style={{ color: 'var(--muted)', fontWeight: 400 }}>In-Season</span></span>
         </Link>
         <nav className="nav">
           <Link

@@ -1,10 +1,10 @@
 import { ImageResponse } from "next/og";
 
-export const alt = "CourtVision: fantasy basketball rankings for your league";
+export const alt = "Takeover Fantasy: fantasy basketball rankings for your league";
 export const size = { width: 1200, height: 630 };
 export const contentType = "image/png";
 
-/** The preview card shown when a CourtVision link is shared in iMessage, Discord, X and so on. */
+/** The preview card shown when a Takeover Fantasy link is shared in iMessage, Discord, X and so on. */
 export default function OpengraphImage() {
   return new ImageResponse(
     (
@@ -16,7 +16,7 @@ export default function OpengraphImage() {
             <circle cx="32" cy="32" r="15" fill="#191919" stroke="#faf8f7" strokeWidth="5" />
             <circle cx="32" cy="32" r="5.5" fill="#3fa37a" />
           </svg>
-          <div style={{ fontSize: 48, fontWeight: 600, color: "#191919", letterSpacing: -1 }}>CourtVision</div>
+          <div style={{ fontSize: 48, fontWeight: 600, color: "#191919", letterSpacing: -1 }}>Takeover Fantasy</div>
         </div>
         <div style={{ display: "flex", flexDirection: "column" }}>
           <div style={{ fontSize: 76, fontWeight: 600, color: "#191919", letterSpacing: -2.5, lineHeight: 1.05 }}>Rankings for your league,</div>

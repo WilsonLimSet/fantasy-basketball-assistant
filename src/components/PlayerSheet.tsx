@@ -65,7 +65,7 @@ function PlayerSheet({ v, league, onClose }: { v: Valued; league: League; onClos
   const espnTotal = points && p.proj ? fantasyPoints(p.proj, league.scoring) * p.proj.gp : null;
   const seasonLabel = notes ? `${notes.season - 1}-${String(notes.season).slice(2)}` : "";
   const rows: { label: string; line: StatLine | null; gp: number | null; strong?: boolean }[] = [
-    { label: "CourtVision", line: v.proj.line, gp: v.proj.games, strong: true },
+    { label: "Our projection", line: v.proj.line, gp: v.proj.games, strong: true },
     { label: "ESPN projection", line: p.proj, gp: p.proj?.gp ?? null },
     { label: "Last season", line: p.last, gp: p.last?.gp ?? null },
   ];
@@ -134,7 +134,7 @@ function PlayerSheet({ v, league, onClose }: { v: Valued; league: League; onClos
           </section>
 
           {/* Our notes */}
-          <Section title="CourtVision notes">
+          <Section title="Our notes">
             <div className="space-y-2 text-sm leading-relaxed">
               {playerNotes(v, league).map((n) => <p key={n}>{n}</p>)}
               {leagueHistory.length > 0 && (

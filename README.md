@@ -1,4 +1,4 @@
-# CourtVision: fantasy basketball draft assistant
+# Takeover Fantasy: fantasy basketball draft assistant
 
 This app gives you rankings and a live draft board for your league's exact scoring settings: ESPN or Yahoo, points or categories.
 
@@ -16,14 +16,12 @@ node scripts/make-fixture.mjs
 CV_MOCK_FILE=$PWD/.data/espn-mock.json npm run dev
 ```
 
-## Deploy to Vercel
+## Deploying (and keeping build costs down)
 
-```bash
-npx vercel            # first time: link or create the project
-npx vercel --prod
-```
-
-After deploying, open `/api/players` to check the live feed. It should show `withProj`, `withLast` and `withAdp` counts in the hundreds.
+- Test locally with `npm run dev` (http://localhost:3000). Pushing a branch does **not** build on Vercel.
+- Open a pull request to get a preview build; merging to `main` deploys production at https://takeoverfantasy.com.
+- `scripts/vercel-ignore-build.sh` (Vercel's Ignored Build Step) enforces this: it builds `main` and pull requests, and skips plain branch pushes and docs-only changes.
+- After deploying, open `/api/players` to check the live feed. It should show `withProj`, `withLast` and `withAdp` counts in the hundreds.
 
 ## Daily news updates (the takes)
 

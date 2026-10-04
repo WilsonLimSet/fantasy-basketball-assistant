@@ -12,7 +12,7 @@ export default function Landing() {
         <div className="mx-auto flex max-w-6xl items-center gap-6 px-4 py-3">
           <Link href="/" className="flex items-center gap-2">
             <LogoMark size={22} />
-            <span className="text-base font-semibold tracking-tight">CourtVision</span>
+            <span className="text-base font-semibold tracking-tight">Takeover Fantasy</span>
           </Link>
           <nav className="hidden gap-5 text-sm text-muted sm:flex">
             <a href="#scouting" className="hover:text-fg">Scouting</a>
@@ -38,8 +38,8 @@ export default function Landing() {
                 <span className="text-muted">knows your league.</span>
               </h1>
               <p className="mt-5 max-w-xl text-base leading-relaxed text-muted">
-                Rankings tuned to your exact ESPN scoring, a live draft assistant that syncs with your draft room, and a
-                scouting report on every manager in your league, built from the players they drafted before.
+                Rankings tuned to your exact ESPN scoring, a live draft assistant that syncs with your draft room, a
+                scouting report on every manager in your league, and in-season help with waivers and lineups after the draft.
               </p>
               <div className="mt-7 flex flex-wrap gap-2">
                 <Link href="/draft" className="rounded-full bg-ink px-5 py-2.5 text-sm font-medium text-white hover:bg-ink/85">
@@ -116,12 +116,12 @@ export default function Landing() {
         {/* Comparison */}
         <section className="border-b border-line bg-panel">
           <div className="mx-auto max-w-4xl px-4 py-16">
-            <Eyebrow>Why CourtVision</Eyebrow>
+            <Eyebrow>Why Takeover</Eyebrow>
             <H2 a="Built for your league," b="not the average one." />
             <div className="mt-8 overflow-hidden rounded-xl border border-line">
               <table className="w-full text-sm">
                 <thead className="bg-sunken text-left text-xs text-muted">
-                  <tr><th className="px-4 py-2.5 font-medium" /><th className="px-4 py-2.5 font-medium">CourtVision</th><th className="px-4 py-2.5 font-medium">A typical draft kit</th></tr>
+                  <tr><th className="px-4 py-2.5 font-medium" /><th className="px-4 py-2.5 font-medium">Takeover Fantasy</th><th className="px-4 py-2.5 font-medium">A typical draft kit</th></tr>
                 </thead>
                 <tbody>
                   {COMPARE.map(([row, us, them]) => (
@@ -186,7 +186,7 @@ export default function Landing() {
 
       <footer className="border-t border-line">
         <div className="mx-auto flex max-w-6xl flex-wrap items-center gap-3 px-4 py-6 text-xs text-muted">
-          <LogoMark size={16} /> CourtVision
+          <LogoMark size={16} /> Takeover Fantasy
           <span className="ml-auto">Not affiliated with ESPN, Yahoo or the NBA.</span>
         </div>
       </footer>

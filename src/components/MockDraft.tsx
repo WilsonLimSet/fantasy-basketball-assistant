@@ -162,7 +162,7 @@ export default function MockDraft({ board, league }: { board: Board; league: Lea
             {cfg.seq === "snake" ? "Snake draft" : cfg.seq === "linear" ? "Linear draft (same order every round)" : "Snake with 3rd-round reversal"}
             {cfg.clock ? `, ${cfg.clock} seconds per pick (the top recommendation is taken if time runs out)` : ""}. Most CPU teams draft like real ESPN users, following ESPN ADP with some randomness; about
             a third are sharp drafters working from our rankings, so your grade has real competition. You draft with
-            CourtVision rankings for your {league.format === "points" ? "points" : "category"} settings.
+            Takeover Fantasy rankings for your {league.format === "points" ? "points" : "category"} settings.
             {!board.paid && ` Free mocks run ${maxRounds} rounds.`}
           </p>
           {scouting?.data && cfg.teams === league.teams && (

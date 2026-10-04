@@ -103,9 +103,9 @@ export default function App() {
     <div className="min-h-screen">
       <header className="sticky top-0 z-20 border-b border-line bg-bg/90 backdrop-blur print:hidden">
         <div className="mx-auto flex max-w-7xl flex-wrap items-center gap-x-6 gap-y-2 px-4 py-3">
-          <Link href="/" className="flex items-center gap-2" title="CourtVision home">
+          <Link href="/" className="flex items-center gap-2" title="Takeover Fantasy home">
             <LogoMark size={22} />
-            <span className="text-base font-semibold tracking-tight">CourtVision</span>
+            <span className="text-base font-semibold tracking-tight">Takeover Fantasy</span>
           </Link>
           <nav className="no-scrollbar -mx-1 flex max-w-full gap-1 overflow-x-auto px-1">
             {tabs.map((t) => (

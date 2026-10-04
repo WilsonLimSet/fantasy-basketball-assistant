@@ -222,7 +222,7 @@ export default function Rankings({ board, league, draftedIds, setLeague, draft, 
     const blob = new Blob([[head.join(","), ...lines].join("\n")], { type: "text/csv" });
     const a = document.createElement("a");
     a.href = URL.createObjectURL(blob);
-    a.download = `courtvision-${league.presetId}-${league.teams}team.csv`;
+    a.download = `takeover-${league.presetId}-${league.teams}team.csv`;
     a.click();
   };
 
