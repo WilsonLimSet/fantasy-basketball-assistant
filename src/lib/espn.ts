@@ -170,7 +170,8 @@ export async function fetchEspnPlayers(season: number, limit = 400) {
           Accept: "application/json",
           "User-Agent": "Mozilla/5.0 (compatible; CourtVision/0.1)",
         },
-        next: { revalidate: 60 * 60 * 6 },
+        // ESPN moves ranks and ADP daily during draft season; refetch at most hourly.
+        next: { revalidate: 60 * 60 },
       });
       if (!r.ok) {
         errors.push(`${name}: HTTP ${r.status}`);

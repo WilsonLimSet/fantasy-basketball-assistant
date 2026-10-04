@@ -9,11 +9,11 @@ export async function POST(req: Request) {
   try {
     const league = (await req.json()) as League;
     if (!league?.slots || !league.teams) return NextResponse.json({ error: "bad league" }, { status: 400 });
-    const [{ players, source }, pass] = await Promise.all([getPlayers(), currentPass()]);
+    const [{ players, source, at }, pass] = await Promise.all([getPlayers(), currentPass()]);
     const all = valuePlayers(players, league);
     const paid = !!pass || !PAYWALL_ON;
     return NextResponse.json({
-      season: SEASON, source, takesUpdated: TAKES_UPDATED,
+      season: SEASON, source, takesUpdated: TAKES_UPDATED, espnAt: new Date(at).toISOString(),
       paid, pro: !!pass, email: pass?.email ?? null,
       total: all.length, freeLimit: FREE_LIMIT,
       paymentLink: process.env.STRIPE_PAYMENT_LINK ?? null,

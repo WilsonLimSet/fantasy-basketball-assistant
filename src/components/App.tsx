@@ -23,6 +23,8 @@ export interface Board extends PassInfo {
   season: number;
   source: string;
   takesUpdated: string;
+  /** When the ESPN rankings, ADP and projections were last fetched. */
+  espnAt?: string;
   valued: Valued[];
 }
 
@@ -128,6 +130,7 @@ export default function App() {
             <span>
               {league.format === "points" ? "Points" : "Cats"} · {league.teams} teams
               {board && ` · news ${board.takesUpdated}`}
+              {board?.espnAt && ` · ESPN data ${new Date(board.espnAt).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}`}
               {loading && " · updating…"}
             </span>
             {board?.pro ? (
