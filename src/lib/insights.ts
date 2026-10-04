@@ -1,5 +1,5 @@
 import { Cat, League, Valued, edgeTags, fantasyPoints } from "./engine";
-import { fillLineup, teamForPick } from "./draft";
+import { DraftSequence, fillLineup, teamForPick } from "./draft";
 
 export interface Insight { tone: "good" | "bad" | "info"; text: string }
 
@@ -115,14 +115,14 @@ function reviewPick(k: number, v: Valued): PickReview {
 }
 
 /** Grades every team and explains where your draft was strong or weak. */
-export function reviewDraft(picks: number[], byId: Map<number, Valued>, league: League, me: number): DraftReview {
+export function reviewDraft(picks: number[], byId: Map<number, Valued>, league: League, me: number, seq: DraftSequence = "snake"): DraftReview {
   const n = league.teams;
   const rosters: Valued[][] = Array.from({ length: n }, () => []);
   const all: (PickReview & { t: number })[] = [];
   picks.forEach((id, k) => {
     const v = byId.get(id);
     if (!v) return;
-    const t = teamForPick(k, n);
+    const t = teamForPick(k, n, seq);
     rosters[t].push(v);
     all.push({ ...reviewPick(k, v), t });
   });

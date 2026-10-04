@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { League, Valued, rosterSize } from "@/lib/engine";
-import { fillLineup, nextPicksFor, recommend, teamForPick } from "@/lib/draft";
+import { DraftSequence, fillLineup, nextPicksFor, recommend, teamForPick } from "@/lib/draft";
+import type { Pos } from "@/lib/types";
 import { Card, Headshot, PlayerCell, PlayerName, ValueCell, VsEspn, fmt } from "./ui";
 import { reviewDraft } from "@/lib/insights";
 import { mockShareQuery } from "@/lib/shareCard";
@@ -12,7 +13,12 @@ import Targets from "./Targets";
 import { Paywall } from "./Paywall";
 import type { Board } from "./App";
 
-interface Cfg { teams: number; slot: number; rounds: number; speed: number; randomSlot: boolean }
+interface Cfg {
+  teams: number; slot: number; rounds: number; speed: number; randomSlot: boolean;
+  seq: DraftSequence;
+  /** Seconds you get per pick; 0 = no clock. When it runs out the top recommendation is taken. */
+  clock: number;
+}
 
 /** About a third of CPU teams are "sharp": they draft mostly off our board instead of ESPN ADP. */
 const isSharp = (t: number, me: number) => t !== me && t % 3 === 2;
@@ -35,7 +41,10 @@ function cpuPick(avail: Valued[], roster: Valued[], rnd: () => number, sharp: bo
 }
 
 export default function MockDraft({ board, league }: { board: Board; league: League }) {
-  const [cfg, setCfg] = useState<Cfg>({ teams: league.teams, slot: 1, rounds: rosterSize(league), speed: 350, randomSlot: false });
+  const [cfg, setCfg] = useState<Cfg>({ teams: league.teams, slot: 1, rounds: rosterSize(league), speed: 350, randomSlot: false, seq: "snake", clock: 0 });
+  const [autoPick, setAutoPick] = useState(false);
+  const [left, setLeft] = useState(0);
+  const recsRef = useRef<{ v: Valued }[]>([]);
   const [picks, setPicks] = useState<number[] | null>(null); // null = not started
   const [mySlot, setMySlot] = useState(1);
   const [q, setQ] = useState("");
@@ -57,12 +66,12 @@ export default function MockDraft({ board, league }: { board: Board; league: Lea
 
   const pickNo = picks?.length ?? 0;
   const done = picks != null && pickNo >= total;
-  const onClock = picks && !done ? teamForPick(pickNo, cfg.teams) : -1;
+  const onClock = picks && !done ? teamForPick(pickNo, cfg.teams, cfg.seq) : -1;
   const me = mySlot - 1;
   const taken = useMemo(() => new Set(picks ?? []), [picks]);
   const avail = useMemo(() => valued.filter((v) => !taken.has(v.p.id)), [valued, taken]);
   const rosterOf = (t: number) =>
-    (picks ?? []).filter((_, k) => teamForPick(k, cfg.teams) === t).map((id) => byId.get(id)!).filter(Boolean);
+    (picks ?? []).filter((_, k) => teamForPick(k, cfg.teams, cfg.seq) === t).map((id) => byId.get(id)!).filter(Boolean);
 
   // CPU auto-picks
   useEffect(() => {
@@ -85,6 +94,30 @@ export default function MockDraft({ board, league }: { board: Board; league: Lea
   };
   const myPick = (id: number) => { if (onClock === me) { setPicks((p) => (p ? [...p, id] : p)); setQ(""); } };
 
+  // Your clock, and auto-pick: when time runs out (or auto-pick is on), take the top recommendation.
+  const myTurn = !!picks && !done && onClock === me;
+  const pickCount = picks?.length ?? 0;
+  useEffect(() => {
+    if (!myTurn) return;
+    if (autoPick) {
+      const t = setTimeout(() => { const top = recsRef.current[0]; if (top) setPicks((p) => (p ? [...p, top.v.p.id] : p)); }, 700);
+      return () => clearTimeout(t);
+    }
+    if (!cfg.clock) return;
+    setLeft(cfg.clock);
+    const started = Date.now();
+    const t = setInterval(() => {
+      const remaining = cfg.clock - Math.floor((Date.now() - started) / 1000);
+      setLeft(Math.max(0, remaining));
+      if (remaining <= 0) {
+        clearInterval(t);
+        const top = recsRef.current[0];
+        if (top) setPicks((p) => (p ? [...p, top.v.p.id] : p));
+      }
+    }, 250);
+    return () => clearInterval(t);
+  }, [myTurn, pickCount, autoPick, cfg.clock]);
+
   if (!picks) {
     return (
       <div className="mx-auto max-w-2xl space-y-4">
@@ -105,6 +138,16 @@ export default function MockDraft({ board, league }: { board: Board; league: Lea
                 {Array.from({ length: 13 }, (_, i) => i + 8).map((n) => <option key={n}>{n}</option>)}
               </select>
             </Field>
+            <Field label="Draft order">
+              <select className="input w-full" value={cfg.seq} onChange={(e) => setCfg({ ...cfg, seq: e.target.value as DraftSequence })}>
+                <option value="snake">Snake</option><option value="linear">Linear</option><option value="3rr">3rd-round reversal</option>
+              </select>
+            </Field>
+            <Field label="Your clock">
+              <select className="input w-full" value={cfg.clock} onChange={(e) => setCfg({ ...cfg, clock: Number(e.target.value) })}>
+                <option value={0}>No clock</option><option value={30}>30 sec</option><option value={60}>60 sec</option><option value={90}>90 sec</option>
+              </select>
+            </Field>
             <Field label="CPU speed">
               <select className="input w-full" value={cfg.speed} onChange={(e) => setCfg({ ...cfg, speed: Number(e.target.value) })}>
                 <option value={900}>Slow</option><option value={350}>Normal</option><option value={60}>Fast</option>
@@ -115,7 +158,8 @@ export default function MockDraft({ board, league }: { board: Board; league: Lea
             <input type="checkbox" checked={cfg.randomSlot} onChange={(e) => setCfg({ ...cfg, randomSlot: e.target.checked })} /> Random draft slot
           </label>
           <p className="mt-3 text-xs text-muted">
-            Snake draft. Most CPU teams draft like real ESPN users, following ESPN ADP with some randomness; about
+            {cfg.seq === "snake" ? "Snake draft" : cfg.seq === "linear" ? "Linear draft (same order every round)" : "Snake with 3rd-round reversal"}
+            {cfg.clock ? `, ${cfg.clock} seconds per pick (the top recommendation is taken if time runs out)` : ""}. Most CPU teams draft like real ESPN users, following ESPN ADP with some randomness; about
             a third are sharp drafters working from our rankings, so your grade has real competition. You draft with
             CourtVision rankings for your {league.format === "points" ? "points" : "category"} settings.
             {!board.paid && ` Free mocks run ${maxRounds} rounds.`}
@@ -139,8 +183,9 @@ export default function MockDraft({ board, league }: { board: Board; league: Lea
   }
 
   const myRoster = rosterOf(me);
-  const myNext = nextPicksFor(me, cfg.teams, maxRounds, pickNo, 3);
+  const myNext = nextPicksFor(me, cfg.teams, maxRounds, pickNo, 3, cfg.seq);
   const recs = !done ? recommend(avail, myRoster, lg, pickNo, myNext, stars, avoid).slice(0, 5) : [];
+  recsRef.current = recs;
   const matches = avail.filter((v) =>
     (pos === "ALL" || v.p.pos.includes(pos as never)) &&
     (!starsOnly || stars.has(v.p.id)) &&
@@ -151,7 +196,7 @@ export default function MockDraft({ board, league }: { board: Board; league: Lea
   if (done) {
     return (
       <div className="space-y-4">
-        <Review picks={picks} byId={byId} league={lg} me={me} onAgain={start} onSettings={() => setPicks(null)} />
+        <Review picks={picks} byId={byId} league={lg} me={me} seq={cfg.seq} onAgain={start} onSettings={() => setPicks(null)} />
         <DraftGrid picks={picks} cfg={cfg} rounds={maxRounds} me={me} byId={byId} />
         {!board.paid && <Paywall info={board} what="full-length mock drafts" />}
       </div>
@@ -170,7 +215,18 @@ export default function MockDraft({ board, league }: { board: Board; league: Lea
           You pick {mySlot} of {cfg.teams}
           {onClock !== me && picksUntilMe != null && <> · your turn in <b className="text-fg">{picksUntilMe}</b></>}
         </div>
-        <button onClick={() => setPicks(null)} className="btn-ghost ml-auto">Quit</button>
+        {myTurn && cfg.clock > 0 && !autoPick && (
+          <div className={`rounded-full px-3 py-1 text-sm font-medium tabular-nums ${left <= 10 ? "bg-red-500/10 text-red-700" : "bg-sunken"}`}>
+            0:{String(left).padStart(2, "0")}
+          </div>
+        )}
+        <div className="ml-auto flex flex-wrap items-center gap-2">
+          <Depth roster={myRoster} />
+          <button onClick={() => setAutoPick((a) => !a)} aria-pressed={autoPick} className={autoPick ? "btn-accent" : "btn-ghost"} title="Take the top recommendation for you each turn">
+            Auto-pick {autoPick ? "on" : "off"}
+          </button>
+          <button onClick={() => { setAutoPick(false); setPicks(null); }} className="btn-ghost">Quit</button>
+        </div>
       </div>
 
       <div className="grid gap-4 lg:grid-cols-[1fr_320px]">
@@ -247,7 +303,7 @@ export default function MockDraft({ board, league }: { board: Board; league: Lea
           <Card title="Last picks">
             <ol className="space-y-1 text-sm">
               {picks.map((id, k) => ({ id, k })).reverse().slice(0, 12).map(({ id, k }) => {
-                const t = teamForPick(k, cfg.teams);
+                const t = teamForPick(k, cfg.teams, cfg.seq);
                 return (
                   <li key={k} className={`flex gap-2 ${t === me ? "text-accent" : ""}`}>
                     <span className="w-10 text-[11px] text-muted">#{k + 1}</span>
@@ -272,10 +328,10 @@ const LABEL_CLS: Record<string, string> = {
 };
 
 /** Post-draft review: grade, what went right and wrong, pick-by-pick value and league standings. */
-function Review({ picks, byId, league, me, onAgain, onSettings }: {
-  picks: number[]; byId: Map<number, Valued>; league: League; me: number; onAgain: () => void; onSettings: () => void;
+function Review({ picks, byId, league, me, seq, onAgain, onSettings }: {
+  picks: number[]; byId: Map<number, Valued>; league: League; me: number; seq: DraftSequence; onAgain: () => void; onSettings: () => void;
 }) {
-  const r = useMemo(() => reviewDraft(picks, byId, league, me), [picks, byId, league, me]);
+  const r = useMemo(() => reviewDraft(picks, byId, league, me, seq), [picks, byId, league, me, seq]);
   const n = league.teams;
   const pickLabel = (k: number) => `${Math.floor(k / n) + 1}.${(k % n) + 1}`;
   const points = league.format === "points";
@@ -417,6 +473,23 @@ function ShareButton({ query, grade }: { query: string; grade: string }) {
     } catch { /* cancelled */ }
   };
   return <button onClick={share} className="btn-ghost">{done ? "Link copied" : "Share result"}</button>;
+}
+
+/** How many players you have at each position (multi-position players count for each). */
+function Depth({ roster }: { roster: Valued[] }) {
+  const POS: Pos[] = ["PG", "SG", "SF", "PF", "C"];
+  return (
+    <div className="flex gap-1" title="Your players by position">
+      {POS.map((p) => {
+        const n = roster.filter((v) => v.p.pos.includes(p)).length;
+        return (
+          <span key={p} className={`rounded-md border px-1.5 py-0.5 text-[11px] tabular-nums ${n ? "border-line bg-panel" : "border-dashed border-line text-muted"}`}>
+            {p} <b className="font-medium">{n}</b>
+          </span>
+        );
+      })}
+    </div>
+  );
 }
 
 function Tile({ title, children }: { title: string; children: React.ReactNode }) {

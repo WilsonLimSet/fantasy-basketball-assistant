@@ -7,17 +7,21 @@ export interface DraftState {
   picks: number[]; // player ids in pick order
 }
 
-/** Team index (0-based) on the clock for pick k (0-based) in a snake draft. */
-export function teamForPick(k: number, teams: number) {
+/** Draft order: snake, the same order every round, or snake with rounds 2 and 3 both reversed. */
+export type DraftSequence = "snake" | "linear" | "3rr";
+
+/** Team index (0-based) on the clock for pick k (0-based). */
+export function teamForPick(k: number, teams: number, seq: DraftSequence = "snake") {
   const round = Math.floor(k / teams);
   const i = k % teams;
-  return round % 2 === 0 ? i : teams - 1 - i;
+  const reversed = seq === "linear" ? false : seq === "3rr" ? round === 1 || (round >= 2 && round % 2 === 0) : round % 2 === 1;
+  return reversed ? teams - 1 - i : i;
 }
 
 /** Upcoming pick numbers (0-based) for team `t`, starting at or after `from`. */
-export function nextPicksFor(t: number, teams: number, rounds: number, from: number, count = 3) {
+export function nextPicksFor(t: number, teams: number, rounds: number, from: number, count = 3, seq: DraftSequence = "snake") {
   const out: number[] = [];
-  for (let k = from; k < teams * rounds && out.length < count; k++) if (teamForPick(k, teams) === t) out.push(k);
+  for (let k = from; k < teams * rounds && out.length < count; k++) if (teamForPick(k, teams, seq) === t) out.push(k);
   return out;
 }
 
