@@ -11,6 +11,7 @@ import { espnHeaders } from "@/lib/espnAuth";
 import { useAvoid, useStars } from "@/lib/stars";
 import Targets from "./Targets";
 import PickingBefore from "./PickingBefore";
+import H2HReport from "./H2HReport";
 import { useScouting } from "@/lib/scouting";
 
 const SYNC_MS = 5000;
@@ -150,6 +151,15 @@ export default function DraftBoard({ board, league, draft, setDraft }: Props) {
             </button>
           </div>
         </div>
+
+        {pickNo >= total && total > 0 && (
+          <H2HReport
+            rosters={Array.from({ length: teams }, (_, t) => draft.picks.filter((_, k) => teamForPick(k, teams) === t).map((id) => byId.get(id)).filter(Boolean) as Valued[])}
+            league={league}
+            me={me}
+            label={(t) => scouting?.managerAtSlot(t)?.name ?? `Team ${t + 1}`}
+          />
+        )}
 
         {/* ESPN live sync */}
         <div className="flex flex-wrap items-center gap-3 rounded-xl border border-line bg-panel px-4 py-3 text-sm">

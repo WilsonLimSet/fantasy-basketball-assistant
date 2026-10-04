@@ -292,3 +292,93 @@ export function playerNotes(v: Valued, league: League): string[] {
   }
   return out;
 }
+
+/* ---------------- Weekly head-to-head ---------------- */
+
+/** Games an NBA team plays in a typical fantasy week. */
+const GAMES_PER_WEEK = 3.4;
+const WEEKS = 20;
+
+function phi(z: number) {
+  // Standard normal CDF (Abramowitz-Stegun approximation).
+  const t = 1 / (1 + 0.2316419 * Math.abs(z));
+  const d = 0.3989423 * Math.exp((-z * z) / 2);
+  const p = d * t * (0.3193815 + t * (-0.3565638 + t * (1.781478 + t * (-1.821256 + t * 1.330274))));
+  return z > 0 ? 1 - p : p;
+}
+
+export interface H2HTeam {
+  t: number;
+  /** Chance of beating each other team in a week (index = team; NaN for itself). */
+  vs: number[];
+  /** Average chance of winning a week, and the season record that implies over 20 weeks. */
+  winRate: number;
+  record: string;
+  /** Points leagues: projected fantasy points in a typical week. */
+  weekly: number | null;
+  /** Category leagues: this team's rank in each category (1 = best). */
+  catRank: Partial<Record<Cat, number>>;
+}
+
+/**
+ * How often each drafted team would win a week against each other team, from its starters'
+ * projections. Points: a normal model of weekly totals. Categories: each category's chance, then
+ * the chance of winning more than half of them.
+ */
+export function h2hReport(rosters: Valued[][], league: League): H2HTeam[] {
+  const n = rosters.length;
+  const starters = rosters.map((r) => fillLineup(r, league).filled.map((f) => f.v).filter(Boolean) as Valued[]);
+  const share = (v: Valued) => Math.min(1, v.proj.games / 82) * GAMES_PER_WEEK;
+  const vs: number[][] = Array.from({ length: n }, () => Array(n).fill(NaN));
+  let weekly: (number | null)[] = Array(n).fill(null);
+  const catRank: Partial<Record<Cat, number>>[] = Array.from({ length: n }, () => ({}));
+
+  if (league.format === "points") {
+    const mu = starters.map((s) => s.reduce((a, v) => a + v.fppg * share(v), 0));
+    // A player's single-game score varies ~35% around his average; schedules add ~8% at team level.
+    const sd = starters.map((s, i) => Math.sqrt(s.reduce((a, v) => a + share(v) * (0.35 * v.fppg) ** 2, 0) + (0.08 * mu[i]) ** 2));
+    weekly = mu;
+    for (let a = 0; a < n; a++) for (let b = 0; b < n; b++) if (a !== b) vs[a][b] = phi((mu[a] - mu[b]) / Math.sqrt(sd[a] ** 2 + sd[b] ** 2 || 1));
+  } else {
+    const cats = league.cats.filter((c) => !league.punts.includes(c));
+    const total = (s: Valued[], c: Cat) => {
+      if (c === "fg%" || c === "ft%") {
+        const [m, x] = c === "fg%" ? ["fgm", "fga"] as const : ["ftm", "fta"] as const;
+        const made = s.reduce((a, v) => a + v.proj.line[m] * share(v), 0), att = s.reduce((a, v) => a + v.proj.line[x] * share(v), 0);
+        return att ? made / att : 0;
+      }
+      return s.reduce((a, v) => a + (v.proj.line[c as keyof typeof v.proj.line] ?? 0) * share(v), 0);
+    };
+    const tot = cats.map((c) => starters.map((s) => total(s, c)));
+    cats.forEach((c, ci) => {
+      const xs = tot[ci];
+      const m = xs.reduce((a, b) => a + b, 0) / n;
+      // Week-to-week noise per category, scaled to how spread out the league is (and never zero).
+      const spread = Math.sqrt(xs.reduce((a, b) => a + (b - m) ** 2, 0) / n) || 1e-6;
+      const noise = Math.max(spread, (c === "fg%" || c === "ft%" ? 0.012 : 0.08 * Math.abs(m)));
+      const better = (a: number, b: number) => (c === "tov" ? b - a : a - b);
+      xs.forEach((x, i) => { catRank[i][c] = xs.filter((y) => better(y, x) > 0).length + 1; });
+      (tot[ci] as number[] & { p?: number[][] }).p = xs.map((xa) => xs.map((xb) => phi(better(xa, xb) / (noise * Math.SQRT2))));
+    });
+    for (let a = 0; a < n; a++) for (let b = 0; b < n; b++) {
+      if (a === b) continue;
+      // Chance of winning more than half the categories (ties count half).
+      let dist = [1];
+      for (const t of tot) {
+        const p = (t as number[] & { p: number[][] }).p[a][b];
+        const next = Array(dist.length + 1).fill(0);
+        dist.forEach((q, k) => { next[k] += q * (1 - p); next[k + 1] += q * p; });
+        dist = next;
+      }
+      const k = cats.length;
+      vs[a][b] = dist.reduce((acc, q, won) => acc + (won * 2 > k ? q : won * 2 === k ? q / 2 : 0), 0);
+    }
+  }
+
+  return rosters.map((_, t) => {
+    const ps = vs[t].filter((x) => !Number.isNaN(x));
+    const winRate = ps.reduce((a, b) => a + b, 0) / (ps.length || 1);
+    const w = Math.round(winRate * WEEKS);
+    return { t, vs: vs[t], winRate, record: `${w}-${WEEKS - w}`, weekly: weekly[t], catRank: catRank[t] };
+  });
+}

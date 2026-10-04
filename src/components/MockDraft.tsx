@@ -10,6 +10,7 @@ import { mockShareQuery } from "@/lib/shareCard";
 import { useAvoid, useStars } from "@/lib/stars";
 import { useScouting } from "@/lib/scouting";
 import Targets from "./Targets";
+import H2HReport from "./H2HReport";
 import { Paywall } from "./Paywall";
 import type { Board } from "./App";
 
@@ -197,6 +198,12 @@ export default function MockDraft({ board, league }: { board: Board; league: Lea
     return (
       <div className="space-y-4">
         <Review picks={picks} byId={byId} league={lg} me={me} seq={cfg.seq} onAgain={start} onSettings={() => setPicks(null)} />
+        <H2HReport
+          rosters={Array.from({ length: cfg.teams }, (_, t) => rosterOf(t))}
+          league={lg}
+          me={me}
+          label={(t) => scouting?.data && cfg.teams === league.teams ? scouting.managerAtSlot(t)?.name ?? `Team ${t + 1}` : `Team ${t + 1}`}
+        />
         <DraftGrid picks={picks} cfg={cfg} rounds={maxRounds} me={me} byId={byId} />
         {!board.paid && <Paywall info={board} what="full-length mock drafts" />}
       </div>
@@ -518,7 +525,8 @@ function DraftGrid({ picks, cfg, rounds, me, byId }: { picks: number[]; cfg: Cfg
             <tr key={r}>
               <td className="pr-1 text-muted">R{r + 1}</td>
               {Array.from({ length: cfg.teams }, (_, t) => {
-                const k = r % 2 === 0 ? r * cfg.teams + t : r * cfg.teams + (cfg.teams - 1 - t);
+                // The pick in round r that belongs to team t, for whatever draft order this was.
+                const k = Array.from({ length: cfg.teams }, (_, i) => r * cfg.teams + i).find((kk) => teamForPick(kk, cfg.teams, cfg.seq) === t) ?? r * cfg.teams + t;
                 const v = byId.get(picks[k]);
                 return (
                   <td key={t} className={`min-w-[88px] rounded px-1.5 py-1 align-top ${t === me ? "bg-accent/10" : "bg-bg"}`}>
