@@ -2,6 +2,120 @@
  "updatedAt": "2026-10-05",
  "takes": [
   {
+   "key": "jaylen brown",
+   "name": "Jaylen Brown",
+   "team": "PHI",
+   "kind": "fade",
+   "games": null,
+   "mult": {
+    "pts": 0.88,
+    "fga": 0.887,
+    "fta": 0.865,
+    "ast": 0.9,
+    "tov": 0.88,
+    "reb": 0.92
+   },
+   "line": null,
+   "headline": "Goes from Boston's alpha to sharing the ball with Embiid, Maxey and LeBron",
+   "notes": [
+    {
+     "headline": "More touches on the nights LeBron rests",
+     "text": "Brown's fade is built on sharing the ball with Embiid, Maxey and LeBron. LeBron is likely to miss around 30 games with his foot arthritis and back, so Brown gets more shots on those nights. A partial softening of the fade, not a reversal.",
+     "source": "https://sports.yahoo.com/nba/article/lebron-james-reportedly-dealing-with-chronic-arthritis-in-his-left-foot-144131553.html",
+     "date": "2026-10-05",
+     "confidence": "med"
+    },
+    {
+     "headline": "Goes from Boston's alpha to sharing the ball with Embiid, Maxey and LeBron",
+     "text": "Coming off a 28.7/6.9/5.1 All-NBA season. PrizePicks projects 23.3 ppg.",
+     "source": "https://www.prizepicks.com/playbook-article/philadelphia-76ers-lineup-deprth-chart-starters-lebron-james-signing",
+     "date": "2026-07-24",
+     "confidence": "high"
+    },
+    {
+     "headline": "Traded BOS to PHI for Paul George and two firsts",
+     "text": "His 36.2% usage should drop sharply next to Maxey, Embiid and LeBron. Still a solid scorer, but no longer a volume monster.",
+     "source": "https://www.nba.com/news/2026-offseason-trade-tracker",
+     "date": "2026-07-06",
+     "confidence": "high"
+    }
+   ],
+   "updated": "2026-10-05"
+  },
+  {
+   "key": "lebron james",
+   "name": "LeBron James",
+   "team": "PHI",
+   "kind": "fade",
+   "games": null,
+   "mult": {
+    "min": 0.935,
+    "pts": 0.87,
+    "ast": 0.915,
+    "fga": 0.875,
+    "reb": 0.95,
+    "tov": 0.9
+   },
+   "line": null,
+   "headline": "Manages chronic arthritis in his left foot and sciatica in his lower back",
+   "notes": [
+    {
+     "headline": "Manages chronic arthritis in his left foot and sciatica in his lower back",
+     "text": "Per ESPN's Dave McMenamin, LeBron does daily work with his trainer for chronic left-foot arthritis and lingering sciatica, which cost him a month at the start of a recent season. Both are managed conditions: he is practicing without restrictions and has played at least 55 games in every non-COVID season. Our projection already expects about 51 games at age 41, so no further change.",
+     "source": "https://sports.yahoo.com/nba/article/lebron-james-reportedly-dealing-with-chronic-arthritis-in-his-left-foot-144131553.html",
+     "date": "2026-10-05",
+     "confidence": "high"
+    },
+    {
+     "headline": "Signs with 76ers at age 41",
+     "text": "Goes from co-lead in LA to one of four options in Philly, with load management likely.",
+     "source": "https://www.cbssports.com/nba/news/2026-nba-free-agency-rankings-tracker/",
+     "date": "2026-08-05",
+     "confidence": "high"
+    },
+    {
+     "headline": "Projected for 17.5/6.4/6.7 in Philly",
+     "text": "Projected to start at PF next to Brown, Maxey and Embiid. Lighter responsibility and staggered minutes cut his scoring.",
+     "source": "https://www.prizepicks.com/playbook-article/philadelphia-76ers-lineup-deprth-chart-starters-lebron-james-signing",
+     "date": "2026-07-24",
+     "confidence": "med"
+    }
+   ],
+   "updated": "2026-10-05"
+  },
+  {
+   "key": "tyrese maxey",
+   "name": "Tyrese Maxey",
+   "team": "PHI",
+   "kind": "fade",
+   "games": null,
+   "mult": {
+    "pts": 0.945,
+    "fga": 0.945,
+    "ast": 0.975,
+    "tpm": 0.95
+   },
+   "line": null,
+   "headline": "LeBron's expected missed games give some usage back",
+   "notes": [
+    {
+     "headline": "LeBron's expected missed games give some usage back",
+     "text": "Our fade assumed LeBron shares the ball every night. With his foot arthritis and back, we expect him to miss around 30 games, and Maxey runs the offense on those nights. This softens the fade by about a third; it doesn't erase it.",
+     "source": "https://sports.yahoo.com/nba/article/lebron-james-reportedly-dealing-with-chronic-arthritis-in-his-left-foot-144131553.html",
+     "date": "2026-10-05",
+     "confidence": "med"
+    },
+    {
+     "headline": "Brown and LeBron cut into Maxey's 29.4% usage",
+     "text": "His usage should drop, but he stays fantasy-relevant. The fade grows whenever Embiid is healthy.",
+     "source": "https://www.rotowire.com/basketball/article/fantasy-basketball-2026-27-nba-offseason-trades-rookies-you-need-to-know-134652",
+     "date": "2026-09-16",
+     "confidence": "med"
+    }
+   ],
+   "updated": "2026-10-05"
+  },
+  {
    "key": "alex sarr",
    "name": "Alex Sarr",
    "team": "WAS",
@@ -1598,31 +1712,6 @@
    "updated": "2026-09-16"
   },
   {
-   "key": "tyrese maxey",
-   "name": "Tyrese Maxey",
-   "team": "PHI",
-   "kind": "fade",
-   "games": null,
-   "mult": {
-    "pts": 0.92,
-    "fga": 0.92,
-    "ast": 0.95,
-    "tpm": 0.95
-   },
-   "line": null,
-   "headline": "Brown and LeBron cut into Maxey's 29.4% usage",
-   "notes": [
-    {
-     "headline": "Brown and LeBron cut into Maxey's 29.4% usage",
-     "text": "His usage should drop, but he stays fantasy-relevant. The fade grows whenever Embiid is healthy.",
-     "source": "https://www.rotowire.com/basketball/article/fantasy-basketball-2026-27-nba-offseason-trades-rookies-you-need-to-know-134652",
-     "date": "2026-09-16",
-     "confidence": "med"
-    }
-   ],
-   "updated": "2026-09-16"
-  },
-  {
    "key": "luka doncic",
    "name": "Luka Doncic",
    "team": "LAL",
@@ -2040,40 +2129,6 @@
    "updated": "2026-08-05"
   },
   {
-   "key": "lebron james",
-   "name": "LeBron James",
-   "team": "PHI",
-   "kind": "fade",
-   "games": null,
-   "mult": {
-    "min": 0.935,
-    "pts": 0.87,
-    "ast": 0.915,
-    "fga": 0.875,
-    "reb": 0.95,
-    "tov": 0.9
-   },
-   "line": null,
-   "headline": "Signs with 76ers at age 41",
-   "notes": [
-    {
-     "headline": "Signs with 76ers at age 41",
-     "text": "Goes from co-lead in LA to one of four options in Philly, with load management likely.",
-     "source": "https://www.cbssports.com/nba/news/2026-nba-free-agency-rankings-tracker/",
-     "date": "2026-08-05",
-     "confidence": "high"
-    },
-    {
-     "headline": "Projected for 17.5/6.4/6.7 in Philly",
-     "text": "Projected to start at PF next to Brown, Maxey and Embiid. Lighter responsibility and staggered minutes cut his scoring.",
-     "source": "https://www.prizepicks.com/playbook-article/philadelphia-76ers-lineup-deprth-chart-starters-lebron-james-signing",
-     "date": "2026-07-24",
-     "confidence": "med"
-    }
-   ],
-   "updated": "2026-08-05"
-  },
-  {
    "key": "cj mccollum",
    "name": "CJ McCollum",
    "team": "ATL",
@@ -2092,40 +2147,6 @@
     }
    ],
    "updated": "2026-08-05"
-  },
-  {
-   "key": "jaylen brown",
-   "name": "Jaylen Brown",
-   "team": "PHI",
-   "kind": "fade",
-   "games": null,
-   "mult": {
-    "pts": 0.845,
-    "fga": 0.855,
-    "fta": 0.865,
-    "ast": 0.875,
-    "tov": 0.88,
-    "reb": 0.92
-   },
-   "line": null,
-   "headline": "Goes from Boston's alpha to sharing the ball with Embiid, Maxey and LeBron",
-   "notes": [
-    {
-     "headline": "Goes from Boston's alpha to sharing the ball with Embiid, Maxey and LeBron",
-     "text": "Coming off a 28.7/6.9/5.1 All-NBA season. PrizePicks projects 23.3 ppg.",
-     "source": "https://www.prizepicks.com/playbook-article/philadelphia-76ers-lineup-deprth-chart-starters-lebron-james-signing",
-     "date": "2026-07-24",
-     "confidence": "high"
-    },
-    {
-     "headline": "Traded BOS to PHI for Paul George and two firsts",
-     "text": "His 36.2% usage should drop sharply next to Maxey, Embiid and LeBron. Still a solid scorer, but no longer a volume monster.",
-     "source": "https://www.nba.com/news/2026-offseason-trade-tracker",
-     "date": "2026-07-06",
-     "confidence": "high"
-    }
-   ],
-   "updated": "2026-07-24"
   },
   {
    "key": "zaccharie risacher",
