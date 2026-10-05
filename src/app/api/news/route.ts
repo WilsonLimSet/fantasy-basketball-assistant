@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { getPlayers } from "@/lib/data";
 import { fetchPlayerNews } from "@/lib/playerNews";
-import { TAKES, TAKES_UPDATED } from "@/lib/takes";
+import { loadTakes } from "@/lib/takes";
 
 const LATEST_PLAYERS = 24;
 
@@ -19,5 +19,6 @@ export async function GET() {
       }))
       .sort((a, b) => b.published.localeCompare(a.published));
   } catch { /* the takes feed still works without live news */ }
-  return NextResponse.json({ updatedAt: TAKES_UPDATED, takes: TAKES, latest });
+  const { takes, updatedAt } = await loadTakes();
+  return NextResponse.json({ updatedAt, takes, latest });
 }

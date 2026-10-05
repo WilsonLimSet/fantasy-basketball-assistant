@@ -25,9 +25,11 @@ CV_MOCK_FILE=$PWD/.data/espn-mock.json npm run dev
 
 ## Daily news updates (the takes)
 
-`research/raw-takes.json` holds sourced analyst takes: injuries, trades, role changes and rookies. Each take carries stat multipliers, a games estimate and a source link. `node scripts/build-takes.mjs` merges them into `src/data/takes.json`, which drives both the projections and the News & Takes feed.
+`research/raw-takes.json` holds sourced analyst takes: injuries, trades, role changes and rookies. Each take carries stat multipliers, a games estimate and a source link.
 
-To update every day, run `/update-takes` in Claude Code from this folder, review the summary, and push. If Vercel is connected to the GitHub repo, the update deploys automatically.
+- Run `/update-takes` in Claude Code (or edit the file by hand), then `npm run takes:publish`. That compiles `src/data/takes.json` and uploads it to Vercel Blob; the live site reads it (`TAKES_URL`) and picks up changes within about 5 minutes. **No build, no deploy.**
+- Commit `research/raw-takes.json` to keep the history. Changes under `research/` skip the Vercel build.
+- If Blob can't be reached, the site falls back to the copy bundled at build time; `npm run build` regenerates it (`prebuild`).
 
 ## Player notes, news and draft review
 

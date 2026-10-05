@@ -23,15 +23,42 @@ export interface Take {
   updated: string;
 }
 
-export const TAKES: Take[] = (takesFile as { takes: Take[] }).takes;
-export const TAKES_UPDATED: string = (takesFile as { updatedAt: string }).updatedAt;
+interface TakeSet { takes: Take[]; updatedAt: string; index: Map<string, Take> }
+
+const makeSet = (takes: Take[], updatedAt: string): TakeSet => ({ takes, updatedAt, index: new Map(takes.map((t) => [t.key, t])) });
+
+/** Takes bundled with the build: the fallback when the published copy can't be read. */
+const BUNDLED = makeSet((takesFile as { takes: Take[] }).takes, (takesFile as { updatedAt: string }).updatedAt);
+let current = BUNDLED;
+let checkedAt = 0;
+const RECHECK_MS = 5 * 60 * 1000;
+
+/**
+ * The latest takes. They're published to Vercel Blob (TAKES_URL) by `npm run takes:publish`, so a
+ * news update goes live within ~5 minutes without a rebuild. Without TAKES_URL, or if the fetch
+ * fails, the copy bundled at build time is used.
+ */
+export async function loadTakes(): Promise<TakeSet> {
+  const url = process.env.TAKES_URL;
+  if (!url || Date.now() - checkedAt < RECHECK_MS) return current;
+  checkedAt = Date.now();
+  try {
+    // Our own 5-minute recheck is the cache; skip Next's data cache so a publish shows up promptly.
+    const r = await fetch(url, { cache: "no-store" });
+    if (r.ok) {
+      const j = (await r.json()) as { takes?: Take[]; updatedAt?: string };
+      if (Array.isArray(j.takes) && j.takes.length && typeof j.updatedAt === "string") current = makeSet(j.takes, j.updatedAt);
+    }
+  } catch { /* keep the last good copy */ }
+  return current;
+}
 
 export const normName = (s: string) =>
   s.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase()
     .replace(/[.'’-]/g, "").replace(/\b(jr|sr|ii|iii|iv)\b/g, "").replace(/\s+/g, " ").trim();
 
-const INDEX = new Map(TAKES.map((t) => [t.key, t]));
-export const findTake = (name: string) => INDEX.get(normName(name));
+/** The take for a player, from the latest loaded set (call loadTakes() first on the server). */
+export const findTake = (name: string) => current.index.get(normName(name));
 
 /** Effective multiplier per stat. Unspecified counting stats follow minutes. */
 function m(take: Take, k: StatKey): number {

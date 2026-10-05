@@ -31,7 +31,9 @@ for (const [key, items] of by) {
   });
 }
 takes.sort((a, b) => b.updated.localeCompare(a.updated));
-fs.writeFileSync("src/data/takes.json", JSON.stringify({ updatedAt: new Date().toISOString().slice(0, 10), takes }, null, 1));
+// updatedAt is the newest research date, so rebuilding at deploy time doesn't fake freshness.
+const updatedAt = raw.map((r) => r.date).sort().at(-1) ?? new Date().toISOString().slice(0, 10);
+fs.writeFileSync("src/data/takes.json", JSON.stringify({ updatedAt, takes }, null, 1));
 console.log(takes.length, "takes;", takes.filter((t) => t.kind === "injury").length, "injury,",
   takes.filter((t) => t.kind === "boost").length, "boost,", takes.filter((t) => t.kind === "fade").length, "fade,",
   takes.filter((t) => t.kind === "rookie").length, "rookie");
