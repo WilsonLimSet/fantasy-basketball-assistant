@@ -1,6 +1,291 @@
 {
- "updatedAt": "2026-10-04",
+ "updatedAt": "2026-10-05",
  "takes": [
+  {
+   "key": "alex sarr",
+   "name": "Alex Sarr",
+   "team": "WAS",
+   "kind": "fade",
+   "games": 68,
+   "mult": {
+    "pts": 0.92,
+    "fga": 0.92,
+    "fgm": 0.92,
+    "fta": 0.92,
+    "tpm": 0.9,
+    "ast": 0.95
+   },
+   "line": null,
+   "headline": "Progressing from foot surgery; expected to start contact work soon",
+   "notes": [
+    {
+     "headline": "Progressing from foot surgery; expected to start contact work soon",
+     "text": "Sarr is close to full contact work after June foot surgery, in line with the team's plan to have him ready for the Oct 21 opener. No change to our projection.",
+     "source": "https://www.rotowire.com/basketball/headlines/alex-sarr-injury-progressing-in-recovery-533155",
+     "date": "2026-10-04",
+     "confidence": "med"
+    },
+    {
+     "headline": "Shares the ball with Trae, a healthy AD and the No. 1 pick; still limited after foot surgery",
+     "text": "Keefe named Young, Dybantsa, Davis and Sarr as four of the five starters, with Sarr splitting PF and C by matchup. Last season's 16.3 points on 13.7 shots came with Davis playing only 20 games and no Dybantsa. Expect his shots and points to dip; his rebounds and blocks should hold. He was still skipping live drills after June foot surgery, though the team expects him for the opener.",
+     "source": "https://sports.yahoo.com/articles/wizards-media-day-2026-one-162216590.html",
+     "date": "2026-09-28",
+     "confidence": "med"
+    },
+    {
+     "headline": "Partial participant after June broken-foot surgery; expected for opener",
+     "text": "Had surgery on a broken right foot in June. The GM expects him to be available on opening night, but he's limited in camp.",
+     "source": "https://www.nbcsports.com/fantasy/basketball/player-news/2026-09-24/wizards-gm-alex-sarr-foot-to-be-limited-in-camp",
+     "date": "2026-09-24",
+     "confidence": "med"
+    }
+   ],
+   "updated": "2026-10-04"
+  },
+  {
+   "key": "tobias harris",
+   "name": "Tobias Harris",
+   "team": "SAS",
+   "kind": "injury",
+   "games": 60,
+   "mult": {
+    "pts": 0.85,
+    "fga": 0.85,
+    "ast": 0.9
+   },
+   "line": null,
+   "headline": "Calf strain: out for the preseason and 'totally questionable' for the opener",
+   "notes": [
+    {
+     "headline": "Calf strain: out for the preseason and 'totally questionable' for the opener",
+     "text": "Spurs coach Mitch Johnson said they won't rush him and that opening night is totally questionable. At 34, a calf strain can linger; we budget about 60 games. Julian Champagnie, Keldon Johnson and Harrison Barnes pick up the minutes meanwhile.",
+     "source": "https://www.rotowire.com/basketball/headlines/tobias-harris-injury-wont-be-rushed-to-return-533142",
+     "date": "2026-10-04",
+     "confidence": "high"
+    },
+    {
+     "headline": "Signs with the Spurs; low usage behind Wemby, Fox and Castle",
+     "text": "Expect a smaller offensive role even if he starts.",
+     "source": "https://sports.yahoo.com/fantasy/article/trae-young-vj-edgecombe-among-fantasy-basketball-winners-losers-in-the-2026-nba-offseason-144615841.html",
+     "date": "2026-07-07",
+     "confidence": "med"
+    }
+   ],
+   "updated": "2026-10-04"
+  },
+  {
+   "key": "darryn peterson",
+   "name": "Darryn Peterson",
+   "team": "UTA",
+   "kind": "rookie",
+   "games": 68,
+   "mult": {},
+   "line": {
+    "min": 29,
+    "pts": 15.5,
+    "reb": 3.8,
+    "ast": 3,
+    "stl": 1,
+    "blk": 0.3,
+    "tpm": 1.8,
+    "fgm": 5.7,
+    "fga": 13.5,
+    "ftm": 2.3,
+    "fta": 2.9,
+    "tov": 2.2
+   },
+   "headline": "Starts his NBA debut and leads Utah with 22 minutes",
+   "notes": [
+    {
+     "headline": "Starts his NBA debut and leads Utah with 22 minutes",
+     "text": "The No. 2 pick started and played a team-high 22 minutes in the preseason opener (3 points on 1-of-5, 6 rebounds, 2 assists). Ignore the shooting; the minutes say he's a key part of the rotation from day one.",
+     "source": "https://www.rotowire.com/basketball/headlines/darryn-peterson-news-team-high-22-minutes-in-win-533150",
+     "date": "2026-10-04",
+     "confidence": "med"
+    },
+    {
+     "headline": "No. 2 pick projected to start alongside Keyonte George",
+     "text": "Points and threes come easily, but his efficiency may lag while he shares touches with George, Markkanen and JJJ.",
+     "source": "https://fansided.com/nba/projecting-the-jazz-starting-lineup-and-rotation-after-taking-darryn-peterson-no-2-01kvv1b16egc",
+     "date": "2026-06-23",
+     "confidence": "med"
+    }
+   ],
+   "updated": "2026-10-04"
+  },
+  {
+   "key": "keaton wagler",
+   "name": "Keaton Wagler",
+   "team": "LAC",
+   "kind": "rookie",
+   "games": 70,
+   "mult": {},
+   "line": {
+    "min": 30.5,
+    "pts": 15,
+    "reb": 3.3,
+    "ast": 5,
+    "stl": 1,
+    "blk": 0.2,
+    "tpm": 1.2,
+    "fgm": 5.6,
+    "fga": 12.6,
+    "ftm": 2.8,
+    "fta": 3.4,
+    "tov": 2.7
+   },
+   "headline": "More minutes coming with Max Strus hurt in the preseason opener",
+   "notes": [
+    {
+     "headline": "More minutes coming with Max Strus hurt in the preseason opener",
+     "text": "Strus, his main competition for the starting shooting guard spot, left Sunday's preseason opener with a right foot injury and didn't return. Rotowire expects Wagler's minutes to go up. One preseason game doesn't settle the job, but it tilts it his way.",
+     "source": "https://www.rotowire.com/basketball/headlines/max-strus-injury-wont-return-sunday-533141",
+     "date": "2026-10-04",
+     "confidence": "med"
+    },
+    {
+     "headline": "Lue: the No. 5 pick will get 'a lot of on-ball opportunities'",
+     "text": "With Brandon Ingram out to start the season and Bradley Beal headed for a bench role, Ty Lue plans to put the ball in the rookie's hands and let him play through mistakes. That sets him up as the second scoring option next to Darius Garland for at least the first two months. Expect usage ahead of efficiency: his summer league shooting was rough.",
+     "source": "https://www.rotowire.com/basketball/headlines/keaton-wagler-news-poised-to-handle-ball-often-533025",
+     "date": "2026-10-01",
+     "confidence": "med"
+    },
+    {
+     "headline": "Battling Max Strus for the starting shooting guard spot",
+     "text": "Lue says only Garland is a true lock to start; Brook Lopez is likely at center and three spots are open. Wagler and Strus are competing at shooting guard. Wagler was drafted to pair with Garland, but Strus has chemistry with him from Cleveland, so a bench role to open the year is possible.",
+     "source": "https://sports.yahoo.com/articles/ty-lue-reveals-clippers-still-100038552.html",
+     "date": "2026-10-01",
+     "confidence": "med"
+    }
+   ],
+   "updated": "2026-10-04"
+  },
+  {
+   "key": "brandin podziemski",
+   "name": "Brandin Podziemski",
+   "team": "GSW",
+   "kind": "boost",
+   "games": null,
+   "mult": {
+    "min": 1.04,
+    "pts": 1.1,
+    "tpm": 1.2,
+    "fga": 1.08,
+    "reb": 1.03,
+    "stl": 1.02
+   },
+   "line": null,
+   "headline": "Starts the preseason opener next to Curry, Lendeborg, Green and Horford",
+   "notes": [
+    {
+     "headline": "Starts the preseason opener next to Curry, Lendeborg, Green and Horford",
+     "text": "Golden State's announced starters were Curry, Podziemski, Lendeborg, Green and Horford. It confirms the starting role our take already assumes; no change to the projection.",
+     "source": "https://sports.yahoo.com/articles/warriors-vs-clippers-preseason-watch-170316230.html",
+     "date": "2026-10-04",
+     "confidence": "high"
+    },
+    {
+     "headline": "Wants to shoot more threes, with Kerr's blessing; averaged 17.5/6.2/4.1 as a starter",
+     "text": "At media day Podziemski said he wants more three-point volume and Kerr backed it. After moving into the starting lineup full time last season he averaged 17.5 points, 6.2 rebounds, 4.1 assists and 1.0 steals over 27 games. With Jimmy Butler (ACL) out until early 2027, the starting role and the shots are his. A classic late-round upside pick.",
+     "source": "https://www.rotowire.com/basketball/headlines/brandin-podziemski-news-wants-to-shoot-more-threes-533028",
+     "date": "2026-10-01",
+     "confidence": "med"
+    }
+   ],
+   "updated": "2026-10-04"
+  },
+  {
+   "key": "gui santos",
+   "name": "Gui Santos",
+   "team": "GSW",
+   "kind": "note",
+   "games": null,
+   "mult": {
+    "min": 1,
+    "pts": 1.005,
+    "reb": 1.04,
+    "ast": 1.04
+   },
+   "line": null,
+   "headline": "Comes off the bench as rookie Yaxel Lendeborg starts at forward",
+   "notes": [
+    {
+     "headline": "Comes off the bench as rookie Yaxel Lendeborg starts at forward",
+     "text": "Lendeborg got the start at forward in the preseason opener, so Santos opens as a reserve. Kerr's competition is still open, but the starting job we had him in the mix for now looks like a long shot.",
+     "source": "https://sports.yahoo.com/articles/warriors-vs-clippers-preseason-watch-170316230.html",
+     "date": "2026-10-04",
+     "confidence": "med"
+    },
+    {
+     "headline": "'In the mix' to start; started 26 of the last 29 games last season",
+     "text": "Kerr says only Curry and Green are locked in and Santos is part of an open competition. He posted career highs (9.2 points, 3.9 rebounds, 2.3 assists in 20.5 minutes) and finished last season as a starter, but rookie Yaxel Lendeborg got the first preseason start at small forward. A deep sleeper: if he wins the job his minutes jump toward 28.",
+     "source": "https://www.cbssports.com/fantasy/basketball/news/warriors-gui-santos-in-the-mix-for-spot-in-starting-lineup/",
+     "date": "2026-09-30",
+     "confidence": "low"
+    }
+   ],
+   "updated": "2026-10-04"
+  },
+  {
+   "key": "max strus",
+   "name": "Max Strus",
+   "team": "LAC",
+   "kind": "fade",
+   "games": null,
+   "mult": {
+    "min": 0.95
+   },
+   "line": null,
+   "headline": "Left the preseason opener with a right foot injury",
+   "notes": [
+    {
+     "headline": "Left the preseason opener with a right foot injury",
+     "text": "Hurt on a cut in the first quarter against the Warriors and didn't return. No imaging results or timeline yet. Worth watching before drafting him; it also opens the shooting guard spot for Keaton Wagler.",
+     "source": "https://www.rotowire.com/basketball/headlines/max-strus-injury-wont-return-sunday-533141",
+     "date": "2026-10-04",
+     "confidence": "med"
+    }
+   ],
+   "updated": "2026-10-04"
+  },
+  {
+   "key": "kawhi leonard",
+   "name": "Kawhi Leonard",
+   "team": "TOR",
+   "kind": "injury",
+   "games": 58,
+   "mult": {
+    "pts": 0.93,
+    "fga": 0.93,
+    "fta": 0.95
+   },
+   "line": null,
+   "headline": "Sits the first preseason games as part of a planned ramp-up",
+   "notes": [
+    {
+     "headline": "Sits the first preseason games as part of a planned ramp-up",
+     "text": "Not injury related: Toronto held him out of the opener and he's unlikely to play next Saturday either, leaving three more preseason chances. It matches the load management plan already in our 58-game estimate.",
+     "source": "https://www.rotowire.com/basketball/headlines/kawhi-leonard-injury-wont-play-in-preseason-opener-533096",
+     "date": "2026-10-03",
+     "confidence": "high"
+    },
+    {
+     "headline": "Load management plan in place; no contact work yet in camp",
+     "text": "Toronto is ramping him up in phases: no contact drills so far and he is unlikely to play the preseason opener. The team says it has a load management plan for the season, which means scheduled rest days on top of his injury history. Budget for roughly 55 to 60 games.",
+     "source": "https://www.cbssports.com/fantasy/basketball/news/raptors-kawhi-leonard-easing-into-camp/",
+     "date": "2026-10-01",
+     "confidence": "med"
+    },
+    {
+     "headline": "Traded LAC to TOR for Ingram, Gradey Dick and picks",
+     "text": "Coming off 27.9 PPG. He'll share touches with Barnes, Quickley and Barrett, so a slight volume dip. Health is still the main risk.",
+     "source": "https://www.nba.com/news/2026-offseason-trade-tracker",
+     "date": "2026-09-14",
+     "confidence": "high"
+    }
+   ],
+   "updated": "2026-10-03"
+  },
   {
    "key": "jimmy butler",
    "name": "Jimmy Butler",
@@ -254,37 +539,6 @@
    "updated": "2026-10-01"
   },
   {
-   "key": "kawhi leonard",
-   "name": "Kawhi Leonard",
-   "team": "TOR",
-   "kind": "injury",
-   "games": 58,
-   "mult": {
-    "pts": 0.93,
-    "fga": 0.93,
-    "fta": 0.95
-   },
-   "line": null,
-   "headline": "Traded LAC to TOR for Ingram, Gradey Dick and picks",
-   "notes": [
-    {
-     "headline": "Load management plan in place; no contact work yet in camp",
-     "text": "Toronto is ramping him up in phases: no contact drills so far and he is unlikely to play the preseason opener. The team says it has a load management plan for the season, which means scheduled rest days on top of his injury history. Budget for roughly 55 to 60 games.",
-     "source": "https://www.cbssports.com/fantasy/basketball/news/raptors-kawhi-leonard-easing-into-camp/",
-     "date": "2026-10-01",
-     "confidence": "med"
-    },
-    {
-     "headline": "Traded LAC to TOR for Ingram, Gradey Dick and picks",
-     "text": "Coming off 27.9 PPG. He'll share touches with Barnes, Quickley and Barrett, so a slight volume dip. Health is still the main risk.",
-     "source": "https://www.nba.com/news/2026-offseason-trade-tracker",
-     "date": "2026-09-14",
-     "confidence": "high"
-    }
-   ],
-   "updated": "2026-10-01"
-  },
-  {
    "key": "darius garland",
    "name": "Darius Garland",
    "team": "LAC",
@@ -399,46 +653,6 @@
    "updated": "2026-10-01"
   },
   {
-   "key": "keaton wagler",
-   "name": "Keaton Wagler",
-   "team": "LAC",
-   "kind": "rookie",
-   "games": 70,
-   "mult": {},
-   "line": {
-    "min": 30.5,
-    "pts": 15,
-    "reb": 3.3,
-    "ast": 5,
-    "stl": 1,
-    "blk": 0.2,
-    "tpm": 1.2,
-    "fgm": 5.6,
-    "fga": 12.6,
-    "ftm": 2.8,
-    "fta": 3.4,
-    "tov": 2.7
-   },
-   "headline": "Lue: the No. 5 pick will get 'a lot of on-ball opportunities'",
-   "notes": [
-    {
-     "headline": "Lue: the No. 5 pick will get 'a lot of on-ball opportunities'",
-     "text": "With Brandon Ingram out to start the season and Bradley Beal headed for a bench role, Ty Lue plans to put the ball in the rookie's hands and let him play through mistakes. That sets him up as the second scoring option next to Darius Garland for at least the first two months. Expect usage ahead of efficiency: his summer league shooting was rough.",
-     "source": "https://www.rotowire.com/basketball/headlines/keaton-wagler-news-poised-to-handle-ball-often-533025",
-     "date": "2026-10-01",
-     "confidence": "med"
-    },
-    {
-     "headline": "Battling Max Strus for the starting shooting guard spot",
-     "text": "Lue says only Garland is a true lock to start; Brook Lopez is likely at center and three spots are open. Wagler and Strus are competing at shooting guard. Wagler was drafted to pair with Garland, but Strus has chemistry with him from Cleveland, so a bench role to open the year is possible.",
-     "source": "https://sports.yahoo.com/articles/ty-lue-reveals-clippers-still-100038552.html",
-     "date": "2026-10-01",
-     "confidence": "med"
-    }
-   ],
-   "updated": "2026-10-01"
-  },
-  {
    "key": "jalen duren",
    "name": "Jalen Duren",
    "team": "DET",
@@ -502,33 +716,6 @@
      "headline": "In a camp battle with Mitchell Robinson for the starting center job",
      "text": "Mazzulla praised Queta's offensive growth, but he is competing with Robinson to start. If Robinson wins the job or the two split time, Queta's minutes fall short of what last season's line assumes. Wait for a preseason starting lineup before reaching.",
      "source": "https://www.rotowire.com/basketball/headlines/neemias-queta-news-continuing-offensive-development-533049",
-     "date": "2026-10-01",
-     "confidence": "med"
-    }
-   ],
-   "updated": "2026-10-01"
-  },
-  {
-   "key": "brandin podziemski",
-   "name": "Brandin Podziemski",
-   "team": "GSW",
-   "kind": "boost",
-   "games": null,
-   "mult": {
-    "min": 1.04,
-    "pts": 1.1,
-    "tpm": 1.2,
-    "fga": 1.08,
-    "reb": 1.03,
-    "stl": 1.02
-   },
-   "line": null,
-   "headline": "Wants to shoot more threes, with Kerr's blessing; averaged 17.5/6.2/4.1 as a starter",
-   "notes": [
-    {
-     "headline": "Wants to shoot more threes, with Kerr's blessing; averaged 17.5/6.2/4.1 as a starter",
-     "text": "At media day Podziemski said he wants more three-point volume and Kerr backed it. After moving into the starting lineup full time last season he averaged 17.5 points, 6.2 rebounds, 4.1 assists and 1.0 steals over 27 games. With Jimmy Butler (ACL) out until early 2027, the starting role and the shots are his. A classic late-round upside pick.",
-     "source": "https://www.rotowire.com/basketball/headlines/brandin-podziemski-news-wants-to-shoot-more-threes-533028",
      "date": "2026-10-01",
      "confidence": "med"
     }
@@ -666,31 +853,6 @@
      "source": "https://clutchpoints.com/nba/oklahoma-city-thunder/thunder-news-mark-daigneault-toasts-driven-jared-mccain-being-ready-training-camp",
      "date": "2026-09-30",
      "confidence": "med"
-    }
-   ],
-   "updated": "2026-09-30"
-  },
-  {
-   "key": "gui santos",
-   "name": "Gui Santos",
-   "team": "GSW",
-   "kind": "boost",
-   "games": null,
-   "mult": {
-    "min": 1.05,
-    "pts": 1.05,
-    "reb": 1.04,
-    "ast": 1.04
-   },
-   "line": null,
-   "headline": "'In the mix' to start; started 26 of the last 29 games last season",
-   "notes": [
-    {
-     "headline": "'In the mix' to start; started 26 of the last 29 games last season",
-     "text": "Kerr says only Curry and Green are locked in and Santos is part of an open competition. He posted career highs (9.2 points, 3.9 rebounds, 2.3 assists in 20.5 minutes) and finished last season as a starter, but rookie Yaxel Lendeborg got the first preseason start at small forward. A deep sleeper: if he wins the job his minutes jump toward 28.",
-     "source": "https://www.cbssports.com/fantasy/basketball/news/warriors-gui-santos-in-the-mix-for-spot-in-starting-lineup/",
-     "date": "2026-09-30",
-     "confidence": "low"
     }
    ],
    "updated": "2026-09-30"
@@ -936,40 +1098,6 @@
      "text": "Two ankle surgeries in nine months plus an elbow procedure, and only 11 games played last season. The GM says he's on pace for Oct 21. Expect a managed workload in a crowded frontcourt.",
      "source": "https://rotowire.com//basketball/player/zach-edey-6263",
      "date": "2026-09-28",
-     "confidence": "med"
-    }
-   ],
-   "updated": "2026-09-28"
-  },
-  {
-   "key": "alex sarr",
-   "name": "Alex Sarr",
-   "team": "WAS",
-   "kind": "fade",
-   "games": 68,
-   "mult": {
-    "pts": 0.92,
-    "fga": 0.92,
-    "fgm": 0.92,
-    "fta": 0.92,
-    "tpm": 0.9,
-    "ast": 0.95
-   },
-   "line": null,
-   "headline": "Shares the ball with Trae, a healthy AD and the No. 1 pick; still limited after foot surgery",
-   "notes": [
-    {
-     "headline": "Shares the ball with Trae, a healthy AD and the No. 1 pick; still limited after foot surgery",
-     "text": "Keefe named Young, Dybantsa, Davis and Sarr as four of the five starters, with Sarr splitting PF and C by matchup. Last season's 16.3 points on 13.7 shots came with Davis playing only 20 games and no Dybantsa. Expect his shots and points to dip; his rebounds and blocks should hold. He was still skipping live drills after June foot surgery, though the team expects him for the opener.",
-     "source": "https://sports.yahoo.com/articles/wizards-media-day-2026-one-162216590.html",
-     "date": "2026-09-28",
-     "confidence": "med"
-    },
-    {
-     "headline": "Partial participant after June broken-foot surgery; expected for opener",
-     "text": "Had surgery on a broken right foot in June. The GM expects him to be available on opening night, but he's limited in camp.",
-     "source": "https://www.nbcsports.com/fantasy/basketball/player-news/2026-09-24/wizards-gm-alex-sarr-foot-to-be-limited-in-camp",
-     "date": "2026-09-24",
      "confidence": "med"
     }
    ],
@@ -2228,30 +2356,6 @@
    "updated": "2026-07-07"
   },
   {
-   "key": "tobias harris",
-   "name": "Tobias Harris",
-   "team": "SAS",
-   "kind": "fade",
-   "games": null,
-   "mult": {
-    "pts": 0.85,
-    "fga": 0.85,
-    "ast": 0.9
-   },
-   "line": null,
-   "headline": "Signs with the Spurs; low usage behind Wemby, Fox and Castle",
-   "notes": [
-    {
-     "headline": "Signs with the Spurs; low usage behind Wemby, Fox and Castle",
-     "text": "Expect a smaller offensive role even if he starts.",
-     "source": "https://sports.yahoo.com/fantasy/article/trae-young-vj-edgecombe-among-fantasy-basketball-winners-losers-in-the-2026-nba-offseason-144615841.html",
-     "date": "2026-07-07",
-     "confidence": "med"
-    }
-   ],
-   "updated": "2026-07-07"
-  },
-  {
    "key": "giannis antetokounmpo",
    "name": "Giannis Antetokounmpo",
    "team": "MIA",
@@ -2324,39 +2428,6 @@
     }
    ],
    "updated": "2026-06-25"
-  },
-  {
-   "key": "darryn peterson",
-   "name": "Darryn Peterson",
-   "team": "UTA",
-   "kind": "rookie",
-   "games": 68,
-   "mult": {},
-   "line": {
-    "min": 29,
-    "pts": 15.5,
-    "reb": 3.8,
-    "ast": 3,
-    "stl": 1,
-    "blk": 0.3,
-    "tpm": 1.8,
-    "fgm": 5.7,
-    "fga": 13.5,
-    "ftm": 2.3,
-    "fta": 2.9,
-    "tov": 2.2
-   },
-   "headline": "No. 2 pick projected to start alongside Keyonte George",
-   "notes": [
-    {
-     "headline": "No. 2 pick projected to start alongside Keyonte George",
-     "text": "Points and threes come easily, but his efficiency may lag while he shares touches with George, Markkanen and JJJ.",
-     "source": "https://fansided.com/nba/projecting-the-jazz-starting-lineup-and-rotation-after-taking-darryn-peterson-no-2-01kvv1b16egc",
-     "date": "2026-06-23",
-     "confidence": "med"
-    }
-   ],
-   "updated": "2026-06-23"
   }
  ]
 }
