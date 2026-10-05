@@ -1683,7 +1683,7 @@
 "min": 0.95
 },
 "headline": "Left the preseason opener with a right foot injury",
-"note": "Hurt on a cut in the first quarter against the Warriors and didn't return. No imaging results or timeline yet. Worth watching before drafting him; it also opens the shooting guard spot for Keaton Wagler.",
+"note": "Hurt on a cut in the first quarter against the Warriors and didn't return. No imaging results or timeline yet. Worth watching before drafting him; it also opens the shooting guard spot for Keaton Wagler. The small minutes trim reflects the injury, not preseason playing time.",
 "source": "https://www.rotowire.com/basketball/headlines/max-strus-injury-wont-return-sunday-533141",
 "date": "2026-10-04",
 "confidence": "med"
@@ -1702,13 +1702,10 @@
 {
 "name": "Gui Santos",
 "team": "GSW",
-"kind": "fade",
-"mult": {
-"min": 0.95,
-"pts": 0.96
-},
+"kind": "note",
+"mult": {},
 "headline": "Comes off the bench as rookie Yaxel Lendeborg starts at forward",
-"note": "Lendeborg got the start at forward in the preseason opener, so Santos opens as a reserve. Kerr's competition is still open, but the starting job we had him in the mix for now looks like a long shot.",
+"note": "Lendeborg got the start at forward in the preseason opener, so Santos opens as a reserve. Kerr's competition is still open, but the starting job we had him in the mix for now looks like a long shot. Preseason lineups aren't a reliable read, so this is a note only; no change to his projection.",
 "source": "https://sports.yahoo.com/articles/warriors-vs-clippers-preseason-watch-170316230.html",
 "date": "2026-10-04",
 "confidence": "med"
