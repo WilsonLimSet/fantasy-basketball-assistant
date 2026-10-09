@@ -8,6 +8,8 @@ export interface TakeNote {
   source: string;
   date: string;
   confidence: "high" | "med" | "low";
+  /** Written by the news cron from ESPN news, not by hand. */
+  auto?: boolean;
 }
 
 export interface Take {
