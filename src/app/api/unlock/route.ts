@@ -1,9 +1,10 @@
 import { NextResponse } from "next/server";
-import { checkLicense, licenseKey, makePass, PASS_COOKIE, passCookieOptions } from "@/lib/auth";
+import { checkLicense, makePass, PASS_COOKIE, passCookieOptions } from "@/lib/auth";
 
 /**
  * GET  /api/unlock?session_id=cs_...  -> Stripe Payment Link success redirect. Verifies the
- *      Checkout Session with Stripe, sets the pass cookie, returns to /unlocked with the license key.
+ *      Checkout Session with Stripe, sets the pass cookie, returns to /unlocked (which reads the cookie,
+ *      so the email and license key never appear in a URL, browser history or analytics).
  * POST /api/unlock {email, key}        -> restore on a new device with the license key.
  * POST /api/unlock {code}              -> comp codes (CV_ACCESS_CODES, comma-separated) for friends/testing.
  */
@@ -19,7 +20,7 @@ export async function GET(req: Request) {
   const s = await r.json();
   const email: string | undefined = s?.customer_details?.email ?? s?.customer_email;
   if (!r.ok || s.payment_status !== "paid" || !email) return NextResponse.redirect(new URL("/draft?unlock=unpaid", u));
-  const res = NextResponse.redirect(new URL(`/unlocked?email=${encodeURIComponent(email)}&key=${licenseKey(email)}`, u));
+  const res = NextResponse.redirect(new URL("/unlocked", u));
   res.cookies.set(PASS_COOKIE, makePass(email), passCookieOptions);
   return res;
 }
