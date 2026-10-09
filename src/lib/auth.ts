@@ -1,5 +1,7 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
 import { cookies } from "next/headers";
+import { AUTH_ON } from "./supabase/env";
+import { supabaseServer } from "./supabase/server";
 
 /**
  * Stateless season pass.
@@ -45,9 +47,51 @@ export function readPass(value: string | undefined): { email: string } | null {
   return { email };
 }
 
-export async function currentPass() {
+/** Emails that get Pro for free when they sign in (FRIEND_EMAILS, comma-separated). */
+const friendEmails = () => new Set((process.env.FRIEND_EMAILS ?? "").split(",").map((e) => e.trim().toLowerCase()).filter(Boolean));
+
+const paidCache = new Map<string, { paid: boolean; at: number }>();
+/** Did this email complete a Stripe checkout? Cached for 10 minutes (a yes for the season). */
+async function paidOnStripe(email: string): Promise<boolean> {
+  const sk = process.env.STRIPE_SECRET_KEY;
+  if (!sk) return false;
+  const hit = paidCache.get(email);
+  if (hit && (hit.paid || Date.now() - hit.at < 10 * 60 * 1000)) return hit.paid;
+  try {
+    const q = new URLSearchParams({ "customer_details[email]": email, limit: "10" });
+    const r = await fetch(`https://api.stripe.com/v1/checkout/sessions?${q}`, { headers: { Authorization: `Bearer ${sk}` }, cache: "no-store" });
+    if (!r.ok) return false;
+    const j = (await r.json()) as { data?: { payment_status?: string }[] };
+    const paid = !!j.data?.some((s) => s.payment_status === "paid");
+    paidCache.set(email, { paid, at: Date.now() });
+    return paid;
+  } catch { return false; }
+}
+
+/** The signed-in account (Supabase), if auth is configured and the email is verified. */
+export async function currentAccount(): Promise<{ email: string } | null> {
+  if (!AUTH_ON) return null;
+  try {
+    const supabase = await supabaseServer();
+    const { data } = await supabase.auth.getClaims();
+    const email = (data?.claims?.email as string | undefined)?.toLowerCase();
+    return email ? { email } : null;
+  } catch { return null; }
+}
+
+/**
+ * Pro access, from any of: the season-pass cookie (paid or comp code), a signed-in friend on
+ * FRIEND_EMAILS, or a signed-in account whose email paid on Stripe.
+ */
+export async function currentPass(): Promise<{ email: string; via: "pass" | "friend" | "stripe" } | null> {
   const jar = await cookies();
-  return readPass(jar.get(PASS_COOKIE)?.value);
+  const pass = readPass(jar.get(PASS_COOKIE)?.value);
+  if (pass) return { ...pass, via: "pass" };
+  const account = await currentAccount();
+  if (!account) return null;
+  if (friendEmails().has(account.email)) return { email: account.email, via: "friend" };
+  if (await paidOnStripe(account.email)) return { email: account.email, via: "stripe" };
+  return null;
 }
 
 export const passCookieOptions = {

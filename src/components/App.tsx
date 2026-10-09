@@ -132,6 +132,14 @@ export default function App() {
               {loading && " · updating…"}
             </span>
             <Link href="/inseason" className="hover:text-fg">In-season</Link>
+            {board?.authOn && (board.account ? (
+              <form action="/auth/signout" method="post" className="flex items-center gap-2">
+                <span className="hidden max-w-[12rem] truncate sm:inline" title={board.account}>{board.account}</span>
+                <button className="hover:text-fg">Sign out</button>
+              </form>
+            ) : (
+              <Link href="/login" className="rounded-full border border-line px-3 py-1 font-medium text-fg hover:border-fg/30 hover:bg-sunken">Sign in</Link>
+            ))}
             <button
               onClick={() => setTab("settings")}
               title="League settings"
