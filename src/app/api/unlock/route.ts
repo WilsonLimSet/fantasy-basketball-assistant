@@ -19,7 +19,11 @@ export async function GET(req: Request) {
   });
   const s = await r.json();
   const email: string | undefined = s?.customer_details?.email ?? s?.customer_email;
-  if (!r.ok || s.payment_status !== "paid" || !email) return NextResponse.redirect(new URL("/draft?unlock=unpaid", u));
+  // Must be a completed, paid session from our own Payment Link (not some other product on the account).
+  const ourLink = process.env.STRIPE_PAYMENT_LINK_ID;
+  if (!r.ok || s.status !== "complete" || s.payment_status !== "paid" || !email || (ourLink && s.payment_link !== ourLink)) {
+    return NextResponse.redirect(new URL("/draft?unlock=unpaid", u));
+  }
   const res = NextResponse.redirect(new URL("/unlocked", u));
   res.cookies.set(PASS_COOKIE, makePass(email), passCookieOptions);
   return res;

@@ -9,7 +9,9 @@ import { supabaseServer } from "./supabase/server";
  *  - license key = first 12 chars of HMAC(email) (lets a buyer unlock on another device)
  * Set CV_SECRET in production.
  */
-const SECRET = process.env.CV_SECRET ?? "dev-secret-change-me";
+const SECRET = process.env.CV_SECRET ?? (process.env.VERCEL_ENV === "production" ? "" : "dev-secret-change-me");
+// Without a real secret anyone could forge a pass, so production refuses to sign or accept one.
+if (!SECRET) console.error("[auth] CV_SECRET is not set; season passes are disabled.");
 export const PASS_COOKIE = "cv_pass";
 export const SEASON_END = Date.parse(process.env.CV_PASS_EXPIRES ?? "2027-07-01T00:00:00Z");
 export const FREE_LIMIT = Number(process.env.CV_FREE_LIMIT ?? 50);
@@ -19,7 +21,10 @@ export const FREE_LIMIT = Number(process.env.CV_FREE_LIMIT ?? 50);
  */
 export const PAYWALL_ON = !!process.env.STRIPE_PAYMENT_LINK || process.env.CV_PAYWALL === "on";
 
-const sign = (s: string) => createHmac("sha256", SECRET).update(s).digest("base64url");
+const sign = (s: string) => {
+  if (!SECRET) throw new Error("CV_SECRET is not set");
+  return createHmac("sha256", SECRET).update(s).digest("base64url");
+};
 
 export function licenseKey(email: string) {
   const h = sign(`key:${email.trim().toLowerCase()}`).replace(/[^A-Za-z0-9]/g, "").toUpperCase().slice(0, 12);
@@ -37,7 +42,7 @@ export function makePass(email: string) {
 }
 
 export function readPass(value: string | undefined): { email: string } | null {
-  if (!value) return null;
+  if (!value || !SECRET) return null;
   const [body, sig] = value.split(".");
   if (!body || !sig) return null;
   const good = Buffer.from(sign(body)), got = Buffer.from(sig);
@@ -51,21 +56,30 @@ export function readPass(value: string | undefined): { email: string } | null {
 const friendEmails = () => new Set((process.env.FRIEND_EMAILS ?? "").split(",").map((e) => e.trim().toLowerCase()).filter(Boolean));
 
 const paidCache = new Map<string, { paid: boolean; at: number }>();
-/** Did this email complete a Stripe checkout? Cached for 10 minutes (a yes for the season). */
+const PAID_CACHE_MAX = 5000;
+/**
+ * Did this email complete a Stripe checkout? A yes is cached for an hour, a no for 10 minutes,
+ * and a Stripe error for a minute (so an outage doesn't turn every request into a Stripe call).
+ */
 async function paidOnStripe(email: string): Promise<boolean> {
   const sk = process.env.STRIPE_SECRET_KEY;
   if (!sk) return false;
   const hit = paidCache.get(email);
-  if (hit && (hit.paid || Date.now() - hit.at < 10 * 60 * 1000)) return hit.paid;
-  try {
-    const q = new URLSearchParams({ "customer_details[email]": email, limit: "10" });
-    const r = await fetch(`https://api.stripe.com/v1/checkout/sessions?${q}`, { headers: { Authorization: `Bearer ${sk}` }, cache: "no-store" });
-    if (!r.ok) return false;
-    const j = (await r.json()) as { data?: { payment_status?: string }[] };
-    const paid = !!j.data?.some((s) => s.payment_status === "paid");
-    paidCache.set(email, { paid, at: Date.now() });
+  const ttl = hit?.paid ? 60 * 60 * 1000 : 10 * 60 * 1000;
+  if (hit && Date.now() - hit.at < ttl) return hit.paid;
+  const remember = (paid: boolean, at = Date.now()) => {
+    if (paidCache.size >= PAID_CACHE_MAX) paidCache.delete(paidCache.keys().next().value!);
+    paidCache.set(email, { paid, at });
     return paid;
-  } catch { return false; }
+  };
+  try {
+    const q = new URLSearchParams({ "customer_details[email]": email, status: "complete", limit: "100" });
+    const r = await fetch(`https://api.stripe.com/v1/checkout/sessions?${q}`, { headers: { Authorization: `Bearer ${sk}` }, cache: "no-store" });
+    // On an error, keep a known yes; otherwise retry in about a minute.
+    if (!r.ok) return remember(hit?.paid ?? false, Date.now() - ttl + 60 * 1000);
+    const j = (await r.json()) as { data?: { payment_status?: string }[] };
+    return remember(!!j.data?.some((s) => s.payment_status === "paid"));
+  } catch { return remember(hit?.paid ?? false, Date.now() - ttl + 60 * 1000); }
 }
 
 /** The signed-in account (Supabase), if auth is configured and the email is verified. */

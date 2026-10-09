@@ -49,8 +49,10 @@ export function ScoutingProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     try {
-      const s = localStorage.getItem(KEY); if (s) setData(JSON.parse(s));
-      const o = localStorage.getItem(ORDER_KEY); if (o) setOrderState(JSON.parse(o));
+      const s = localStorage.getItem(KEY); const d = s ? JSON.parse(s) : null;
+      if (d && Array.isArray(d.managers)) setData(d);
+      const o = localStorage.getItem(ORDER_KEY); const ord = o ? JSON.parse(o) : null;
+      if (ord && typeof ord === "object" && !Array.isArray(ord)) setOrderState(ord);
     } catch { /* ignore */ }
   }, []);
 

@@ -84,6 +84,8 @@ export const rosterSize = (l: League) =>
 /* ---------------- Projection model ---------------- */
 
 const MIN_SAMPLE_GP = 15;
+/** Stats ESPN's preseason projections don't include. */
+const UNPROJECTED = new Set<StatKey>(["oreb", "dreb", "dd", "td"]);
 const FULL_SAMPLE_GP = 60;
 /** Games a healthy starter plays, and how often you can actually plug a replacement into a missed one. */
 const FULL_SEASON_GAMES = 72;
@@ -166,7 +168,12 @@ export function project(p: Player, take?: Take | null): Projection | null {
     basis += "+current";
   }
   for (const k of STAT_KEYS) {
-    line[k] = (proj?.[k] ?? 0) * wProj + (src?.[k] ?? 0) * wLast + (cur?.[k] ?? 0) * wCur;
+    // ESPN's preseason projections leave some stats at 0; carry last season's in their place
+    // instead of shrinking it to the blend weight.
+    const unprojected = UNPROJECTED.has(k) && !proj?.[k] && !!src?.[k];
+    line[k] = unprojected
+      ? (src?.[k] ?? 0) * (wProj + wLast) + (cur?.[k] ?? 0) * wCur
+      : (proj?.[k] ?? 0) * wProj + (src?.[k] ?? 0) * wLast + (cur?.[k] ?? 0) * wCur;
   }
   // A take's role change moves the blended line halfway: ESPN's projection already prices in some
   // of the news, last season none of it.

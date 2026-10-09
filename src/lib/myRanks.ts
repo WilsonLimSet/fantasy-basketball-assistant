@@ -15,7 +15,10 @@ const listeners = new Set<() => void>();
 
 function read(): Ranks {
   if (cache) return cache;
-  try { cache = JSON.parse(localStorage.getItem(KEY) ?? "{}") as Ranks; } catch { cache = {}; }
+  try {
+    const v = JSON.parse(localStorage.getItem(KEY) ?? "{}");
+    cache = v && typeof v === "object" && !Array.isArray(v) ? (v as Ranks) : {};
+  } catch { cache = {}; }
   return cache;
 }
 
@@ -52,13 +55,23 @@ export function applyMyRanks(valued: Valued[], mine: Ranks): Valued[] {
   const moved = valued.filter((v) => v.p.id in mine).sort((a, b) => mine[a.p.id] - mine[b.p.id]);
   const out = [...rest];
   for (const v of moved) out.splice(Math.min(out.length, mine[v.p.id] - 1), 0, v);
+  // Assign values bottom-up so each re-ranked player sits just above the (already final) value
+  // below him, and never above the unranked player ahead of him.
+  const vals = out.map((v) => v.vorp);
+  for (let i = out.length - 1; i >= 0; i--) {
+    if (!(out[i].p.id in mine)) continue;
+    const below = vals[i + 1];
+    let vorp = below != null ? below + Math.abs(below) * 0.001 + 0.001 : out[i].vorp;
+    const above = out[i - 1];
+    if (above && !(above.p.id in mine)) vorp = Math.min(vorp, above.vorp);
+    vals[i] = vorp;
+  }
   return out.map((v, i) => {
     const rank = i + 1;
     if (!(v.p.id in mine)) return v.rank === rank ? v : { ...v, rank };
     const below = out[i + 1], above = out[i - 1];
-    const vorp = below ? below.vorp + Math.abs(below.vorp) * 0.001 + 0.001 : v.vorp;
     // He joins the tier of the spot he moved into.
     const near = below && !(below.p.id in mine) ? below : above ?? below ?? v;
-    return { ...v, rank, cvRank: v.rank, vorp: above ? Math.min(vorp, above.vorp) : vorp, tier: near.tier, bucket: near.bucket };
+    return { ...v, rank, cvRank: v.rank, vorp: vals[i], tier: near.tier, bucket: near.bucket };
   });
 }
