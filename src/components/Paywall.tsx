@@ -7,6 +7,9 @@ export interface PassInfo {
   /** Has a season pass (as opposed to the paywall simply being off). */
   pro?: boolean;
   email: string | null;
+  /** Sign-in is configured, and the signed-in account's email (if any). */
+  authOn?: boolean;
+  account?: string | null;
   paymentLink: string | null;
   priceLabel: string;
   total: number;
@@ -35,8 +38,11 @@ export function Paywall({ info, what }: { info: PassInfo; what: string }) {
           ) : (
             <span className="rounded-full border border-line px-4 py-2 text-sm text-muted">Payments not configured yet</span>
           )}
+          {info.authOn && !info.account ? (
+            <a href="/login" className="text-center text-xs text-muted underline">Already paid? Sign in</a>
+          ) : null}
           <button onClick={() => setRestore((v) => !v)} className="text-xs text-muted underline">
-            Already paid? Restore access
+            {info.authOn ? "Have a license key or code?" : "Already paid? Restore access"}
           </button>
         </div>
       </div>
