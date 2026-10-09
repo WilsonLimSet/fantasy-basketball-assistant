@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Analytics } from "@vercel/analytics/next";
+import { SiteAnalytics } from "@/components/SiteAnalytics";
 import { Inter, IBM_Plex_Mono } from "next/font/google";
 import "./globals.css";
 
@@ -18,7 +18,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="en" className={`${inter.variable} ${plexMono.variable}`}>
       <body className="font-sans antialiased">
         {children}
-        <Analytics />
+        <SiteAnalytics />
       </body>
     </html>
   );
