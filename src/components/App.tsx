@@ -87,14 +87,18 @@ export default function App() {
   useEffect(() => { if (hydrated) save("cv.draft", draft); }, [draft, hydrated]);
   useEffect(() => { if (hydrated) save("cv.tab", tab); }, [tab, hydrated]);
 
-  const tabs: { id: Tab; label: string }[] = [
-    { id: "kit", label: "Draft Kit" },
-    { id: "mock", label: "Mock Draft" },
-    { id: "draft", label: "Live Draft" },
-    { id: "sheet", label: "Cheat Sheet" },
-    { id: "news", label: "News & Takes" },
+  // Four tabs. Cheat sheet and ESPN vs Yahoo are views of the rankings; settings sit behind the gear.
+  const RANKING_VIEWS: { id: Tab; label: string }[] = [
+    { id: "kit", label: "Board" },
+    { id: "sheet", label: "Cheat sheet" },
     { id: "edges", label: "ESPN vs Yahoo" },
-    { id: "settings", label: "League Settings" },
+  ];
+  const inRankings = RANKING_VIEWS.some((v) => v.id === tab);
+  const tabs: { id: Tab; label: string; active: boolean }[] = [
+    { id: "kit", label: "Rankings", active: inRankings },
+    { id: "mock", label: "Mock Draft", active: tab === "mock" },
+    { id: "draft", label: "Live Draft", active: tab === "draft" },
+    { id: "news", label: "News", active: tab === "news" },
   ];
 
   return (
@@ -113,18 +117,12 @@ export default function App() {
                 key={t.id}
                 onClick={() => setTab(t.id)}
                 className={`whitespace-nowrap rounded-full px-3 py-1 text-sm ${
-                  tab === t.id ? "bg-sunken font-medium text-fg" : "text-muted hover:text-fg"
+                  t.active ? "bg-sunken font-medium text-fg" : "text-muted hover:text-fg"
                 }`}
               >
                 {t.label}
               </button>
             ))}
-            <Link
-              href="/inseason"
-              className="whitespace-nowrap rounded-full px-3 py-1 text-sm text-muted hover:text-fg"
-            >
-              In-Season
-            </Link>
           </nav>
           <div className="ml-auto flex items-center gap-3 text-xs text-muted">
             <span>
@@ -133,6 +131,18 @@ export default function App() {
               {board?.espnAt && ` · ESPN data ${new Date(board.espnAt).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}`}
               {loading && " · updating…"}
             </span>
+            <Link href="/inseason" className="hover:text-fg">In-season</Link>
+            <button
+              onClick={() => setTab("settings")}
+              title="League settings"
+              aria-label="League settings"
+              className={`rounded-full p-1.5 hover:bg-sunken hover:text-fg ${tab === "settings" ? "bg-sunken text-fg" : ""}`}
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                <circle cx="12" cy="12" r="3" />
+                <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
+              </svg>
+            </button>
             {board?.pro ? (
               <span className="rounded-full border border-accent/30 bg-accent/10 px-2 py-0.5 font-medium text-accent">PRO</span>
             ) : board && !board.paid && board.paymentLink ? (
@@ -186,6 +196,19 @@ export default function App() {
         {err && (
           <div className="mb-4 rounded-lg border border-red-500/30 bg-red-500/5 p-3 text-sm text-red-700">
             Couldn&apos;t load player data: {err}
+          </div>
+        )}
+        {inRankings && (
+          <div className="mb-4 inline-flex rounded-full border border-line bg-panel p-0.5 text-sm print:hidden">
+            {RANKING_VIEWS.map((v) => (
+              <button
+                key={v.id}
+                onClick={() => setTab(v.id)}
+                className={`rounded-full px-3 py-1 ${tab === v.id ? "bg-sunken font-medium text-fg" : "text-muted hover:text-fg"}`}
+              >
+                {v.label}
+              </button>
+            ))}
           </div>
         )}
         {tab === "news" && <News />}
