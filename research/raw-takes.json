@@ -1795,5 +1795,50 @@
 "source": "https://sports.yahoo.com/nba/article/lebron-james-reportedly-dealing-with-chronic-arthritis-in-his-left-foot-144131553.html",
 "date": "2026-10-05",
 "confidence": "med"
+},
+{
+"name": "Jusuf Nurkic",
+"team": "UTA",
+"kind": "injury",
+"games": 50,
+"mult": {},
+"headline": "Partial plantar plate tear in right foot; out at least 4 weeks",
+"note": "Hurt in the Oct 4 preseason opener. Four weeks costs him at least the first 8 games, and foot injuries for 7-footers tend to linger. The model already had him around 49 games for age and history, so this mostly confirms the discount. JJJ at center or Jaxson Hayes absorb the minutes; Markkanen's usage barely changes.",
+"source": "https://www.si.com/nba/jazz/onsi/utah-jazz-c-jusuf-nurkic-to-miss-4-weeks-with-foot-injury-what-it-means",
+"date": "2026-10-08",
+"confidence": "high"
+},
+{
+"name": "Walker Kessler",
+"team": "LAL",
+"kind": "injury",
+"mult": {},
+"headline": "Finger injury; missed two preseason games",
+"note": "Redick says it is not long-term and Kessler is targeting Tuesday vs the Warriors. No change to his projection.",
+"source": "https://www.rotowire.com/basketball/headlines/walker-kessler-injury-ruled-out-thursday-533654",
+"date": "2026-10-08",
+"confidence": "med"
+},
+{
+"name": "Domantas Sabonis",
+"team": "SAC",
+"kind": "injury",
+"mult": {},
+"headline": "Sat Thursday's preseason game (undisclosed); may play Saturday",
+"note": "No injury named and he could return Saturday vs Golden State. Not worth a projection change; watch the next update.",
+"source": "https://www.rotowire.com/basketball/headlines/domantas-sabonis-injury-ruled-out-thursday-533662",
+"date": "2026-10-08",
+"confidence": "med"
+},
+{
+"name": "Keegan Murray",
+"team": "SAC",
+"kind": "injury",
+"mult": {},
+"headline": "Day-to-day with an undisclosed issue",
+"note": "Sat Thursday's preseason game. Day-to-day, so no projection change yet.",
+"source": "https://www.rotowire.com/basketball/headlines/keegan-murray-injury-ruled-out-thursday-533661",
+"date": "2026-10-08",
+"confidence": "med"
 }
 ]
