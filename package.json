@@ -12,6 +12,7 @@
     "prebuild": "node scripts/build-takes.mjs"
   },
   "dependencies": {
+    "@ai-sdk/openai": "^4.0.91",
     "@vercel/blob": "^2.8.0",
     "@vercel/kv": "^2.0.0",
     "ai": "^7.0.136",

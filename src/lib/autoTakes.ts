@@ -1,4 +1,5 @@
 import { put } from "@vercel/blob";
+import { openai } from "@ai-sdk/openai";
 import { generateText, Output } from "ai";
 import { z } from "zod";
 import manualRaw from "../../research/raw-takes.json";
@@ -13,8 +14,13 @@ import { fetchPlayerNews, type NewsItem } from "./playerNews";
  * ~5 minutes (see loadTakes), with no build.
  */
 
-/** Haiku is accurate enough on injury timelines and costs cents a month; override to try a bigger model. */
-const MODEL = process.env.AUTO_TAKES_MODEL ?? "anthropic/claude-haiku-5.5";
+/**
+ * With OPENAI_API_KEY set, calls bill to OpenAI credits rather than the Vercel bill; otherwise AI Gateway.
+ * Small models are accurate enough on injury timelines and cost cents a month.
+ */
+const MODEL = process.env.OPENAI_API_KEY
+  ? openai(process.env.AUTO_TAKES_MODEL ?? "gpt-5.4-mini")
+  : (process.env.AUTO_TAKES_MODEL ?? "anthropic/claude-haiku-5.5");
 /** First regular-season game. Before it, only injuries and transactions move projections. */
 const SEASON_START = process.env.NBA_SEASON_START ?? "2026-10-20";
 const LOOKBACK_DAYS = 4;
@@ -49,7 +55,8 @@ const decision = z.object({
   action: z.enum(["ignore", "note", "update"]).describe(
     "ignore: rest days, routine practice notes, fluff. note: worth showing managers but no projection change. update: changes games or role."),
   kind: z.enum(["injury", "boost", "fade", "new-team"]),
-  games: z.number().nullable().describe("Expected games this season (out of 82) for an injury update, otherwise null."),
+  missedGames: z.number().nullable().describe(
+    "For an injury update: regular-season games this injury will cost, including ramp-up. Season-ending: 82. Null when it costs none or the current take already covers it."),
   mult: z.object(Object.fromEntries(ROLE_STATS.map((k) => [k, z.number().nullable()])) as Record<(typeof ROLE_STATS)[number], z.ZodNullable<z.ZodNumber>>)
     .describe("Per-game multipliers vs last season for a real role change (0.85-1.15), null when unchanged."),
   headline: z.string().describe("Under 80 characters, plain and specific."),
@@ -60,8 +67,9 @@ const decision = z.object({
 const SYSTEM = `You maintain injury and role takes for an NBA fantasy draft and season tool.
 For each ESPN news item, decide whether it changes a player's season projection.
 Rules:
-- Expected games: a healthy player plays about 70-74 of 82. Subtract games the news says they'll miss, plus a few for ramp-up or re-aggravation risk on soft-tissue injuries (hamstring, calf, groin). Season-ending: 0. "Day-to-day" or a single missed game: ignore or note, no games.
-- If the player already has a games estimate and the news doesn't change the timeline, don't output a new number.
+- missedGames counts REGULAR-SEASON games only (the season is 82 games, about 3.5 per week). Preseason games don't count. A player out "4 weeks" from early October who returns before the opener misses few or none; one out "4 weeks" starting right before the opener misses about 14. Add a few for ramp-up or re-aggravation risk on soft-tissue injuries (hamstring, calf, groin). Season-ending: 82.
+- "Day-to-day", rest, or a single missed preseason game: missedGames null (a note at most). A player cleared or returning: missedGames 0.
+- If the current take already accounts for the same injury and the timeline hasn't changed, missedGames null.
 - Rest days, load management, practice reports and box scores are "ignore", or "note" if a manager would care.
 - Multipliers only for real role changes: trades, signings, a starter's long injury opening minutes for a teammate, confirmed rotation changes in the regular season. Keep them between 0.85 and 1.15.
 - Never invent facts beyond the news text.`;
@@ -147,7 +155,11 @@ export async function ingestNews(opts: { dryRun?: boolean; lookbackDays?: number
     const mult = d.action === "update" && roleAllowed
       ? Object.fromEntries(Object.entries(d.mult).filter(([, v]) => v != null && Math.abs(v - 1) >= 0.01).map(([k, v]) => [k, clampMult(v as number)]))
       : {};
-    const games = d.action === "update" && d.kind === "injury" && d.games != null ? Math.round(Math.min(79, Math.max(0, d.games))) : undefined;
+    // Games = a healthy-season baseline minus what this injury costs, so the model only has to judge the injury.
+    const baseline = Math.min(74, src.p.proj?.gp ?? 70);
+    const games = d.action === "update" && d.kind === "injury" && d.missedGames != null
+      ? Math.round(Math.max(0, Math.min(baseline, baseline - d.missedGames)))
+      : undefined;
     added.push({
       name: src.p.name, team: src.p.team, kind: d.kind, ...(games != null ? { games } : {}), mult,
       headline: d.headline, note: d.note,
