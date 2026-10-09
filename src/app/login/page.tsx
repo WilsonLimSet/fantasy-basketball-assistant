@@ -74,7 +74,10 @@ export default function Login() {
         )}
       </div>
       <p className="mt-4 text-center text-xs text-muted">
-        <Link href="/draft" className="underline hover:text-fg">Back to the draft kit</Link>
+        By signing in you agree to our <Link href="/terms" className="underline hover:text-fg">Terms</Link> and{" "}
+        <Link href="/privacy" className="underline hover:text-fg">Privacy Policy</Link>.
+        <br />
+        <Link href="/draft" className="mt-2 inline-block underline hover:text-fg">Back to the draft kit</Link>
       </p>
     </main>
   );

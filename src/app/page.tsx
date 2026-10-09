@@ -187,7 +187,9 @@ export default function Landing() {
       <footer className="border-t border-line">
         <div className="mx-auto flex max-w-6xl flex-wrap items-center gap-3 px-4 py-6 text-xs text-muted">
           <LogoMark size={16} /> Takeover Fantasy
-          <span className="ml-auto">Not affiliated with ESPN, Yahoo or the NBA.</span>
+          <Link href="/privacy" className="ml-auto hover:text-fg">Privacy</Link>
+          <Link href="/terms" className="hover:text-fg">Terms</Link>
+          <span>Not affiliated with ESPN, Yahoo or the NBA.</span>
         </div>
       </footer>
     </div>
