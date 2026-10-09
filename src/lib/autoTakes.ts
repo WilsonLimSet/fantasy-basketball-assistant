@@ -13,7 +13,8 @@ import { fetchPlayerNews, type NewsItem } from "./playerNews";
  * ~5 minutes (see loadTakes), with no build.
  */
 
-const MODEL = process.env.AUTO_TAKES_MODEL ?? "anthropic/claude-sonnet-5.5";
+/** Haiku is accurate enough on injury timelines and costs cents a month; override to try a bigger model. */
+const MODEL = process.env.AUTO_TAKES_MODEL ?? "anthropic/claude-haiku-5.5";
 /** First regular-season game. Before it, only injuries and transactions move projections. */
 const SEASON_START = process.env.NBA_SEASON_START ?? "2026-10-20";
 const LOOKBACK_DAYS = 4;
@@ -140,6 +141,8 @@ export async function ingestNews(opts: { dryRun?: boolean; lookbackDays?: number
   for (const d of output.decisions) {
     const src = byId.get(d.newsId);
     if (!src || d.action === "ignore") continue;
+    // Notes are for injuries and transactions; box scores and preseason starts are noise on a player card.
+    if (d.action === "note" && d.kind !== "injury" && d.kind !== "new-team") continue;
     const roleAllowed = !preseason || d.kind === "new-team";
     const mult = d.action === "update" && roleAllowed
       ? Object.fromEntries(Object.entries(d.mult).filter(([, v]) => v != null && Math.abs(v - 1) >= 0.01).map(([k, v]) => [k, clampMult(v as number)]))

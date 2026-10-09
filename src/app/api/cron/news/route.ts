@@ -4,7 +4,7 @@ import { ingestNews } from "@/lib/autoTakes";
 export const dynamic = "force-dynamic";
 export const maxDuration = 300;
 
-/** Vercel Cron: turn new ESPN player news into takes and republish them. `?dry=1` previews without publishing. */
+/** Vercel Cron (twice a day): turn new ESPN player news into takes and republish them. `?dry=1` previews without publishing. */
 export async function GET(req: Request) {
   const secret = process.env.CRON_SECRET;
   if (!secret || req.headers.get("authorization") !== `Bearer ${secret}`) {
