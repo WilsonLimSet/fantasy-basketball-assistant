@@ -2,10 +2,11 @@
 # Vercel's "Ignored Build Step": exit 1 builds, exit 0 skips (a skipped build costs no build minutes).
 # Build only production (main) and pull requests. Plain pushes to other branches are tested locally.
 
-# The commit only touches docs, planning notes or research: skip. (An empty commit still builds,
+# The commit only touches docs, planning notes, Claude commands or research (takes are published
+# to Blob separately): skip. (An empty commit still builds,
 # so `git commit --allow-empty` is a way to force a preview.)
 changed=$(git diff --name-only HEAD^ HEAD 2>/dev/null)
-if [ -n "$changed" ] && ! echo "$changed" | grep -qvE '^(README[^/]*\.md|\.planning/|research/)'; then
+if [ -n "$changed" ] && ! echo "$changed" | grep -qvE '^(README[^/]*\.md|\.planning/|\.claude/|research/)'; then
   echo "Only docs or research changed: skipping build"
   exit 0
 fi

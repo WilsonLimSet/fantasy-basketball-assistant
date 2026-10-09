@@ -2,18 +2,18 @@ import { NextResponse } from "next/server";
 import { getPlayers, SEASON } from "@/lib/data";
 import { League, valuePlayers } from "@/lib/engine";
 import { currentPass, FREE_LIMIT, PAYWALL_ON } from "@/lib/auth";
-import { TAKES_UPDATED } from "@/lib/takes";
+import { loadTakes } from "@/lib/takes";
 
 /** Valued player board for a league config. Free users get the top FREE_LIMIT only. */
 export async function POST(req: Request) {
   try {
     const league = (await req.json()) as League;
     if (!league?.slots || !league.teams) return NextResponse.json({ error: "bad league" }, { status: 400 });
-    const [{ players, source, at }, pass] = await Promise.all([getPlayers(), currentPass()]);
+    const [{ players, source, at }, pass, takeSet] = await Promise.all([getPlayers(), currentPass(), loadTakes()]);
     const all = valuePlayers(players, league);
     const paid = !!pass || !PAYWALL_ON;
     return NextResponse.json({
-      season: SEASON, source, takesUpdated: TAKES_UPDATED, espnAt: new Date(at).toISOString(),
+      season: SEASON, source, takesUpdated: takeSet.updatedAt, espnAt: new Date(at).toISOString(),
       paid, pro: !!pass, email: pass?.email ?? null,
       total: all.length, freeLimit: FREE_LIMIT,
       paymentLink: process.env.STRIPE_PAYMENT_LINK ?? null,

@@ -3,6 +3,7 @@ import { getPlayers } from "@/lib/data";
 import { League, PRESETS, edgeTags, leagueFromPreset, valuePlayers } from "@/lib/engine";
 import { currentPass, FREE_LIMIT, PAYWALL_ON } from "@/lib/auth";
 import { STAT_KEYS } from "@/lib/types";
+import { loadTakes } from "@/lib/takes";
 
 interface Side { league: League | string; label?: string }
 
@@ -26,7 +27,7 @@ export async function POST(req: Request) {
     const B = resolve(body.b ?? { league: "yahoo-points" }, teams);
     const pass = (await currentPass()) || !PAYWALL_ON;
     const topN = pass ? Math.min(250, Number(body.top ?? 150)) : FREE_LIMIT;
-    const { players } = await getPlayers();
+    const [{ players }] = await Promise.all([getPlayers(), loadTakes()]);
     const va = valuePlayers(players, A.league);
     const rb = new Map(valuePlayers(players, B.league).map((v) => [v.p.id, v]));
     // Average per-game value of the top of each board, to compare stat weights on one scale.

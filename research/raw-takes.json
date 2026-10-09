@@ -1795,5 +1795,108 @@
 "source": "https://sports.yahoo.com/nba/article/lebron-james-reportedly-dealing-with-chronic-arthritis-in-his-left-foot-144131553.html",
 "date": "2026-10-05",
 "confidence": "med"
+},
+{
+"name": "Jusuf Nurkic",
+"team": "UTA",
+"kind": "injury",
+"games": 50,
+"mult": {},
+"headline": "Partial plantar plate tear in right foot; out at least 4 weeks",
+"note": "Hurt in the Oct 4 preseason opener. Four weeks costs him at least the first 8 games, and foot injuries for 7-footers tend to linger. The model already had him around 49 games for age and history, so this mostly confirms the discount. JJJ at center or Jaxson Hayes absorb the minutes; Markkanen's usage barely changes.",
+"source": "https://www.si.com/nba/jazz/onsi/utah-jazz-c-jusuf-nurkic-to-miss-4-weeks-with-foot-injury-what-it-means",
+"date": "2026-10-08",
+"confidence": "high"
+},
+{
+"name": "Walker Kessler",
+"team": "LAL",
+"kind": "injury",
+"mult": {},
+"headline": "Finger injury; missed two preseason games",
+"note": "Redick says it is not long-term and Kessler is targeting Tuesday vs the Warriors. No change to his projection.",
+"source": "https://www.rotowire.com/basketball/headlines/walker-kessler-injury-ruled-out-thursday-533654",
+"date": "2026-10-08",
+"confidence": "med"
+},
+{
+"name": "Domantas Sabonis",
+"team": "SAC",
+"kind": "injury",
+"mult": {},
+"headline": "Sat Thursday's preseason game (undisclosed); may play Saturday",
+"note": "No injury named and he could return Saturday vs Golden State. Not worth a projection change; watch the next update.",
+"source": "https://www.rotowire.com/basketball/headlines/domantas-sabonis-injury-ruled-out-thursday-533662",
+"date": "2026-10-08",
+"confidence": "med"
+},
+{
+"name": "Keegan Murray",
+"team": "SAC",
+"kind": "injury",
+"mult": {},
+"headline": "Day-to-day with an undisclosed issue",
+"note": "Sat Thursday's preseason game. Day-to-day, so no projection change yet.",
+"source": "https://www.rotowire.com/basketball/headlines/keegan-murray-injury-ruled-out-thursday-533661",
+"date": "2026-10-08",
+"confidence": "med"
+},
+{
+"name": "Nic Claxton",
+"team": "CHI",
+"kind": "injury",
+"games": 63,
+"mult": {},
+"headline": "Hamstring strain; out at least two weeks, opener in doubt",
+"note": "Re-evaluated around Oct 19, so he misses all of the preseason and may miss the Oct 21 opener at Toronto. Hamstrings tend to recur, so we're pricing in a slow first couple of weeks rather than a long absence.",
+"source": "https://www.hoopsrumors.com/2026/10/bulls-nic-claxton-hamstring-out-at-least-two-weeks.html",
+"date": "2026-10-05",
+"confidence": "high"
+},
+{
+"name": "Coby White",
+"team": "CHA",
+"kind": "injury",
+"games": 58,
+"mult": {},
+"headline": "Left calf strain; out for the preseason, opener uncertain",
+"note": "Calf strains cost him chunks of last season too, which is the real worry. Charlotte re-evaluates him just before Oct 21. With Knueppel also hurt, the Hornets start thin.",
+"source": "https://www.nbcsports.com/fantasy/basketball/player-news/2026-10-05/coby-white-calf-ruled-out-for-preseason",
+"date": "2026-10-05",
+"confidence": "med"
+},
+{
+"name": "Kristaps Porzingis",
+"team": "GSW",
+"kind": "injury",
+"games": 45,
+"mult": {},
+"headline": "Kerr calls his health situation 'definitely concerning'",
+"note": "Still no timeline as of Oct 6, and he hasn't been around the team. Leaning lower on games until there is a real update.",
+"source": "https://www.essentiallysports.com/nba-active-basketball-news-steve-kerr-delivers-bad-news-on-kristaps-porzingis-ahead-of-warriors-lakers-as-concerning-situation-unfolds/",
+"date": "2026-10-06",
+"confidence": "med"
+},
+{
+"name": "Dereck Lively II",
+"team": "DAL",
+"kind": "injury",
+"mult": {},
+"headline": "Still not cleared; remains out indefinitely",
+"note": "Out for the preseason opener in Macao and still not cleared for full activity. No change from the existing discount, but the clock is running.",
+"source": "https://www.rotowire.com/basketball/headlines/dereck-lively-injury-remains-out-indefinitely-533698",
+"date": "2026-10-09",
+"confidence": "med"
+},
+{
+"name": "Brandon Miller",
+"team": "CHA",
+"kind": "injury",
+"mult": {},
+"headline": "Shin contusion; sat the preseason opener",
+"note": "A bruise from practice, listed day-to-day and not expected to affect the Oct 21 opener. No projection change.",
+"source": "https://www.rotoballer.com/?p=1959968",
+"date": "2026-10-08",
+"confidence": "med"
 }
 ]

@@ -1,6 +1,204 @@
 {
- "updatedAt": "2026-10-05",
+ "updatedAt": "2026-10-09",
  "takes": [
+  {
+   "key": "dereck lively",
+   "name": "Dereck Lively II",
+   "team": "DAL",
+   "kind": "injury",
+   "games": 45,
+   "mult": {
+    "min": 0.9
+   },
+   "line": null,
+   "headline": "Still not cleared; remains out indefinitely",
+   "notes": [
+    {
+     "headline": "Still not cleared; remains out indefinitely",
+     "text": "Out for the preseason opener in Macao and still not cleared for full activity. No change from the existing discount, but the clock is running.",
+     "source": "https://www.rotowire.com/basketball/headlines/dereck-lively-injury-remains-out-indefinitely-533698",
+     "date": "2026-10-09",
+     "confidence": "med"
+    },
+    {
+     "headline": "Not cleared for camp after Dec 2025 foot surgery; opener status TBD",
+     "text": "Slowly ramping up to basketball activity, with no setback reported. He has played only 43 games over the last two seasons, so expect a delayed start and managed minutes.",
+     "source": "https://bleacherreport.com/articles/25502461-dereck-lively-ii-injury-update-reveals-status-mavs-camp-amid-foot-issue-ahead-nba-season",
+     "date": "2026-09-23",
+     "confidence": "med"
+    }
+   ],
+   "updated": "2026-10-09"
+  },
+  {
+   "key": "brandon miller",
+   "name": "Brandon Miller",
+   "team": "CHA",
+   "kind": "boost",
+   "games": 70,
+   "mult": {
+    "pts": 1.07,
+    "fga": 1.07,
+    "ast": 1.05,
+    "fta": 1.03,
+    "tov": 1.04
+   },
+   "line": null,
+   "headline": "Cleared for contact after May shoulder surgery",
+   "notes": [
+    {
+     "headline": "Shin contusion; sat the preseason opener",
+     "text": "A bruise from practice, listed day-to-day and not expected to affect the Oct 21 opener. No projection change.",
+     "source": "https://www.rotoballer.com/?p=1959968",
+     "date": "2026-10-08",
+     "confidence": "med"
+    },
+    {
+     "headline": "Cleared for contact after May shoulder surgery",
+     "text": "Had shoulder stabilization surgery in May and was cleared for full contact about three weeks before media day. Expected to take full part in camp.",
+     "source": "https://eudyreport.substack.com/p/hornets-2026-media-day-recap",
+     "date": "2026-09-29",
+     "confidence": "high"
+    },
+    {
+     "headline": "LaMelo and Bridges both gone; Miller is the primary scorer",
+     "text": "NBA.com names Miller Charlotte's primary scorer after the trades. At 23, he has a ceiling around 27/6/4.",
+     "source": "https://nba.com/news/southeast-division-offseason-recap-look-ahead",
+     "date": "2026-09-14",
+     "confidence": "med"
+    }
+   ],
+   "updated": "2026-10-08"
+  },
+  {
+   "key": "walker kessler",
+   "name": "Walker Kessler",
+   "team": "LAL",
+   "kind": "boost",
+   "games": null,
+   "mult": {
+    "min": 1.05,
+    "reb": 1.03,
+    "blk": 1.03
+   },
+   "line": null,
+   "headline": "Finger injury; missed two preseason games",
+   "notes": [
+    {
+     "headline": "Finger injury; missed two preseason games",
+     "text": "Redick says it is not long-term and Kessler is targeting Tuesday vs the Warriors. No change to his projection.",
+     "source": "https://www.rotowire.com/basketball/headlines/walker-kessler-injury-ruled-out-thursday-533654",
+     "date": "2026-10-08",
+     "confidence": "med"
+    },
+    {
+     "headline": "Traded UTA to LAL; starting center on a 4yr/$130M deal",
+     "text": "Projected as a lob, rebound and block specialist next to Luka. He played very little last season after shoulder surgery, so judge him on a full-season baseline.",
+     "source": "https://www.nba.com/news/2026-offseason-trade-tracker",
+     "date": "2026-07-08",
+     "confidence": "med"
+    }
+   ],
+   "updated": "2026-10-08"
+  },
+  {
+   "key": "keegan murray",
+   "name": "Keegan Murray",
+   "team": "SAC",
+   "kind": "boost",
+   "games": null,
+   "mult": {
+    "pts": 1.06,
+    "fga": 1.06,
+    "min": 1.03
+   },
+   "line": null,
+   "headline": "Day-to-day with an undisclosed issue",
+   "notes": [
+    {
+     "headline": "Day-to-day with an undisclosed issue",
+     "text": "Sat Thursday's preseason game. Day-to-day, so no projection change yet.",
+     "source": "https://www.rotowire.com/basketball/headlines/keegan-murray-injury-ruled-out-thursday-533661",
+     "date": "2026-10-08",
+     "confidence": "med"
+    },
+    {
+     "headline": "DeRozan waived by the Kings; more touches for Murray",
+     "text": "A real bounce-back setup, though rookie Acuff and LaVine will still take shots.",
+     "source": "https://sports.yahoo.com/fantasy/article/trae-young-vj-edgecombe-among-fantasy-basketball-winners-losers-in-the-2026-nba-offseason-144615841.html",
+     "date": "2026-07-07",
+     "confidence": "med"
+    }
+   ],
+   "updated": "2026-10-08"
+  },
+  {
+   "key": "jusuf nurkic",
+   "name": "Jusuf Nurkic",
+   "team": "UTA",
+   "kind": "injury",
+   "games": 50,
+   "mult": {},
+   "line": null,
+   "headline": "Partial plantar plate tear in right foot; out at least 4 weeks",
+   "notes": [
+    {
+     "headline": "Partial plantar plate tear in right foot; out at least 4 weeks",
+     "text": "Hurt in the Oct 4 preseason opener. Four weeks costs him at least the first 8 games, and foot injuries for 7-footers tend to linger. The model already had him around 49 games for age and history, so this mostly confirms the discount. JJJ at center or Jaxson Hayes absorb the minutes; Markkanen's usage barely changes.",
+     "source": "https://www.si.com/nba/jazz/onsi/utah-jazz-c-jusuf-nurkic-to-miss-4-weeks-with-foot-injury-what-it-means",
+     "date": "2026-10-08",
+     "confidence": "high"
+    }
+   ],
+   "updated": "2026-10-08"
+  },
+  {
+   "key": "domantas sabonis",
+   "name": "Domantas Sabonis",
+   "team": "SAC",
+   "kind": "note",
+   "games": null,
+   "mult": {},
+   "line": null,
+   "headline": "Sat Thursday's preseason game (undisclosed); may play Saturday",
+   "notes": [
+    {
+     "headline": "Sat Thursday's preseason game (undisclosed); may play Saturday",
+     "text": "No injury named and he could return Saturday vs Golden State. Not worth a projection change; watch the next update.",
+     "source": "https://www.rotowire.com/basketball/headlines/domantas-sabonis-injury-ruled-out-thursday-533662",
+     "date": "2026-10-08",
+     "confidence": "med"
+    }
+   ],
+   "updated": "2026-10-08"
+  },
+  {
+   "key": "kristaps porzingis",
+   "name": "Kristaps Porzingis",
+   "team": "GSW",
+   "kind": "injury",
+   "games": 45,
+   "mult": {},
+   "line": null,
+   "headline": "Kerr calls his health situation 'definitely concerning'",
+   "notes": [
+    {
+     "headline": "Kerr calls his health situation 'definitely concerning'",
+     "text": "Still no timeline as of Oct 6, and he hasn't been around the team. Leaning lower on games until there is a real update.",
+     "source": "https://www.essentiallysports.com/nba-active-basketball-news-steve-kerr-delivers-bad-news-on-kristaps-porzingis-ahead-of-warriors-lakers-as-concerning-situation-unfolds/",
+     "date": "2026-10-06",
+     "confidence": "med"
+    },
+    {
+     "headline": "Out indefinitely with undisclosed health issue; didn't travel to camp",
+     "text": "The GM says he's out indefinitely but is 'not marking him down as being out to start the season.' He also missed time with a mysterious illness in 2025-26, so his risk is high either way.",
+     "source": "https://bleacherreport.com/articles/25504121-kristaps-porzingis-out-indefinitely-jimmy-butler-injury-update-announced-warriors",
+     "date": "2026-09-28",
+     "confidence": "med"
+    }
+   ],
+   "updated": "2026-10-06"
+  },
   {
    "key": "jaylen brown",
    "name": "Jaylen Brown",
@@ -111,6 +309,59 @@
      "source": "https://www.rotowire.com/basketball/article/fantasy-basketball-2026-27-nba-offseason-trades-rookies-you-need-to-know-134652",
      "date": "2026-09-16",
      "confidence": "med"
+    }
+   ],
+   "updated": "2026-10-05"
+  },
+  {
+   "key": "coby white",
+   "name": "Coby White",
+   "team": "CHA",
+   "kind": "injury",
+   "games": 58,
+   "mult": {
+    "ast": 1.12,
+    "pts": 1.03,
+    "fga": 1.03,
+    "stl": 1.03,
+    "tov": 1.08
+   },
+   "line": null,
+   "headline": "Left calf strain; out for the preseason, opener uncertain",
+   "notes": [
+    {
+     "headline": "Left calf strain; out for the preseason, opener uncertain",
+     "text": "Calf strains cost him chunks of last season too, which is the real worry. Charlotte re-evaluates him just before Oct 21. With Knueppel also hurt, the Hornets start thin.",
+     "source": "https://www.nbcsports.com/fantasy/basketball/player-news/2026-10-05/coby-white-calf-ruled-out-for-preseason",
+     "date": "2026-10-05",
+     "confidence": "med"
+    },
+    {
+     "headline": "Takes over at PG with LaMelo gone",
+     "text": "He was already in Charlotte late last season, so part of this is priced in. The main gain is assists.",
+     "source": "https://nba.com/news/southeast-division-offseason-recap-look-ahead",
+     "date": "2026-09-14",
+     "confidence": "med"
+    }
+   ],
+   "updated": "2026-10-05"
+  },
+  {
+   "key": "nic claxton",
+   "name": "Nic Claxton",
+   "team": "CHI",
+   "kind": "injury",
+   "games": 63,
+   "mult": {},
+   "line": null,
+   "headline": "Hamstring strain; out at least two weeks, opener in doubt",
+   "notes": [
+    {
+     "headline": "Hamstring strain; out at least two weeks, opener in doubt",
+     "text": "Re-evaluated around Oct 19, so he misses all of the preseason and may miss the Oct 21 opener at Toronto. Hamstrings tend to recur, so we're pricing in a slow first couple of weeks rather than a long absence.",
+     "source": "https://www.hoopsrumors.com/2026/10/bulls-nic-claxton-hamstring-out-at-least-two-weeks.html",
+     "date": "2026-10-05",
+     "confidence": "high"
     }
    ],
    "updated": "2026-10-05"
@@ -1047,39 +1298,6 @@
    "updated": "2026-09-29"
   },
   {
-   "key": "brandon miller",
-   "name": "Brandon Miller",
-   "team": "CHA",
-   "kind": "boost",
-   "games": 70,
-   "mult": {
-    "pts": 1.07,
-    "fga": 1.07,
-    "ast": 1.05,
-    "fta": 1.03,
-    "tov": 1.04
-   },
-   "line": null,
-   "headline": "Cleared for contact after May shoulder surgery",
-   "notes": [
-    {
-     "headline": "Cleared for contact after May shoulder surgery",
-     "text": "Had shoulder stabilization surgery in May and was cleared for full contact about three weeks before media day. Expected to take full part in camp.",
-     "source": "https://eudyreport.substack.com/p/hornets-2026-media-day-recap",
-     "date": "2026-09-29",
-     "confidence": "high"
-    },
-    {
-     "headline": "LaMelo and Bridges both gone; Miller is the primary scorer",
-     "text": "NBA.com names Miller Charlotte's primary scorer after the trades. At 23, he has a ceiling around 27/6/4.",
-     "source": "https://nba.com/news/southeast-division-offseason-recap-look-ahead",
-     "date": "2026-09-14",
-     "confidence": "med"
-    }
-   ],
-   "updated": "2026-09-29"
-  },
-  {
    "key": "brandon ingram",
    "name": "Brandon Ingram",
    "team": "LAC",
@@ -1106,26 +1324,6 @@
      "text": "Becomes the lead scorer next to Garland with Kawhi and Harden gone, but see the injury note.",
      "source": "https://sports.yahoo.com/fantasy/article/trae-young-vj-edgecombe-among-fantasy-basketball-winners-losers-in-the-2026-nba-offseason-144615841.html",
      "date": "2026-07-07",
-     "confidence": "med"
-    }
-   ],
-   "updated": "2026-09-28"
-  },
-  {
-   "key": "kristaps porzingis",
-   "name": "Kristaps Porzingis",
-   "team": "GSW",
-   "kind": "injury",
-   "games": 50,
-   "mult": {},
-   "line": null,
-   "headline": "Out indefinitely with undisclosed health issue; didn't travel to camp",
-   "notes": [
-    {
-     "headline": "Out indefinitely with undisclosed health issue; didn't travel to camp",
-     "text": "The GM says he's out indefinitely but is 'not marking him down as being out to start the season.' He also missed time with a mysterious illness in 2025-26, so his risk is high either way.",
-     "source": "https://bleacherreport.com/articles/25504121-kristaps-porzingis-out-indefinitely-jimmy-butler-injury-update-announced-warriors",
-     "date": "2026-09-28",
      "confidence": "med"
     }
    ],
@@ -1601,28 +1799,6 @@
    "updated": "2026-09-23"
   },
   {
-   "key": "dereck lively",
-   "name": "Dereck Lively II",
-   "team": "DAL",
-   "kind": "injury",
-   "games": 45,
-   "mult": {
-    "min": 0.9
-   },
-   "line": null,
-   "headline": "Not cleared for camp after Dec 2025 foot surgery; opener status TBD",
-   "notes": [
-    {
-     "headline": "Not cleared for camp after Dec 2025 foot surgery; opener status TBD",
-     "text": "Slowly ramping up to basketball activity, with no setback reported. He has played only 43 games over the last two seasons, so expect a delayed start and managed minutes.",
-     "source": "https://bleacherreport.com/articles/25502461-dereck-lively-ii-injury-update-reveals-status-mavs-camp-amid-foot-issue-ahead-nba-season",
-     "date": "2026-09-23",
-     "confidence": "med"
-    }
-   ],
-   "updated": "2026-09-23"
-  },
-  {
    "key": "dejounte murray",
    "name": "Dejounte Murray",
    "team": "NOP",
@@ -1825,32 +2001,6 @@
     {
      "headline": "Still the Hawks' lead player; Kuminga and Risacher are gone",
      "text": "The McCollum effect is already in last season's numbers. Losing Kuminga and Risacher frees a few frontcourt shots, so the net change is tiny. Don't fade him for McCollum.",
-     "source": "https://nba.com/news/southeast-division-offseason-recap-look-ahead",
-     "date": "2026-09-14",
-     "confidence": "med"
-    }
-   ],
-   "updated": "2026-09-14"
-  },
-  {
-   "key": "coby white",
-   "name": "Coby White",
-   "team": "CHA",
-   "kind": "boost",
-   "games": null,
-   "mult": {
-    "ast": 1.12,
-    "pts": 1.03,
-    "fga": 1.03,
-    "stl": 1.03,
-    "tov": 1.08
-   },
-   "line": null,
-   "headline": "Takes over at PG with LaMelo gone",
-   "notes": [
-    {
-     "headline": "Takes over at PG with LaMelo gone",
-     "text": "He was already in Charlotte late last season, so part of this is priced in. The main gain is assists.",
      "source": "https://nba.com/news/southeast-division-offseason-recap-look-ahead",
      "date": "2026-09-14",
      "confidence": "med"
@@ -2173,30 +2323,6 @@
    "updated": "2026-07-20"
   },
   {
-   "key": "walker kessler",
-   "name": "Walker Kessler",
-   "team": "LAL",
-   "kind": "boost",
-   "games": null,
-   "mult": {
-    "min": 1.05,
-    "reb": 1.03,
-    "blk": 1.03
-   },
-   "line": null,
-   "headline": "Traded UTA to LAL; starting center on a 4yr/$130M deal",
-   "notes": [
-    {
-     "headline": "Traded UTA to LAL; starting center on a 4yr/$130M deal",
-     "text": "Projected as a lob, rebound and block specialist next to Luka. He played very little last season after shoulder surgery, so judge him on a full-season baseline.",
-     "source": "https://www.nba.com/news/2026-offseason-trade-tracker",
-     "date": "2026-07-08",
-     "confidence": "med"
-    }
-   ],
-   "updated": "2026-07-08"
-  },
-  {
    "key": "kevin porter",
    "name": "Kevin Porter Jr.",
    "team": "MIL",
@@ -2345,30 +2471,6 @@
     {
      "headline": "Traded MIN to CHA; goes from sixth man to starter",
      "text": "Yahoo lists him as an offseason winner, with a starting role and a better shot diet.",
-     "source": "https://sports.yahoo.com/fantasy/article/trae-young-vj-edgecombe-among-fantasy-basketball-winners-losers-in-the-2026-nba-offseason-144615841.html",
-     "date": "2026-07-07",
-     "confidence": "med"
-    }
-   ],
-   "updated": "2026-07-07"
-  },
-  {
-   "key": "keegan murray",
-   "name": "Keegan Murray",
-   "team": "SAC",
-   "kind": "boost",
-   "games": null,
-   "mult": {
-    "pts": 1.06,
-    "fga": 1.06,
-    "min": 1.03
-   },
-   "line": null,
-   "headline": "DeRozan waived by the Kings; more touches for Murray",
-   "notes": [
-    {
-     "headline": "DeRozan waived by the Kings; more touches for Murray",
-     "text": "A real bounce-back setup, though rookie Acuff and LaVine will still take shots.",
      "source": "https://sports.yahoo.com/fantasy/article/trae-young-vj-edgecombe-among-fantasy-basketball-winners-losers-in-the-2026-nba-offseason-144615841.html",
      "date": "2026-07-07",
      "confidence": "med"

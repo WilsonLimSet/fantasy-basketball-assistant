@@ -63,8 +63,8 @@ export function TakeModal({ take, onClose }: { take: Take; onClose: () => void }
             <li key={i} className="text-sm">
               <p className="text-fg/90">{n.text}</p>
               <div className="mt-1 text-[11px] text-muted">
-                {n.date} · confidence {n.confidence} ·{" "}
-                <a href={n.source} target="_blank" rel="noreferrer" className="underline hover:text-accent">source</a>
+                {n.date} · {n.auto ? "auto from ESPN news" : `confidence ${n.confidence}`} ·{" "}
+                <a href={n.source} target="_blank" rel="noreferrer" className="underline hover:text-accent">{n.auto ? "ESPN" : "source"}</a>
               </div>
             </li>
           ))}
