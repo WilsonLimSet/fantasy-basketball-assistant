@@ -1,8 +1,13 @@
 import Link from "next/link";
 import { LogoMark } from "@/components/Logo";
+import { currentPass, licenseKey } from "@/lib/auth";
 
-export default async function Unlocked({ searchParams }: { searchParams: Promise<{ email?: string; key?: string }> }) {
-  const { email, key } = await searchParams;
+/** Shown after a Stripe purchase. Reads the pass cookie set by /api/unlock rather than URL params. */
+export default async function Unlocked() {
+  const pass = await currentPass();
+  // Comp-code passes ("code:…") have no license key to show.
+  const email = pass && !pass.email.startsWith("code:") ? pass.email : null;
+  const key = email ? licenseKey(email) : null;
   return (
     <main className="mx-auto max-w-lg px-4 py-16 text-center">
       <LogoMark size={44} className="mx-auto mb-4" />
