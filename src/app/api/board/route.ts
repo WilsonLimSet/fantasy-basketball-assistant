@@ -8,7 +8,7 @@ import { loadTakes } from "@/lib/takes";
 /** Valued player board for a league config. Free users get the top FREE_LIMIT only. */
 export async function POST(req: Request) {
   try {
-    const league = (await req.json()) as League;
+    const league = (await req.json().catch(() => null)) as League | null;
     if (!league?.slots || !league.teams) return NextResponse.json({ error: "bad league" }, { status: 400 });
     const [{ players, source, at }, pass, account, takeSet] = await Promise.all([getPlayers(), currentPass(), currentAccount(), loadTakes()]);
     const all = valuePlayers(players, league);

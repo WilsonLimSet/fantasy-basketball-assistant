@@ -22,6 +22,6 @@ export async function middleware(req: NextRequest) {
 }
 
 export const config = {
-  // Pages and the API routes that check access; skip static files, images and the cron.
-  matcher: ["/((?!_next/|api/cron|api/inseason|.*\\.(?:png|jpg|jpeg|gif|svg|ico|webp|txt|xml)$).*)"],
+  // Pages and the API routes that check access; skip static files, images and the crons.
+  matcher: ["/((?!_next/|api/cron|api/inseason/refresh|.*\\.(?:png|jpg|jpeg|gif|svg|ico|webp|txt|xml)$).*)"],
 };

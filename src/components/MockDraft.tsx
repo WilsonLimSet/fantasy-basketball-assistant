@@ -41,7 +41,8 @@ function cpuPick(avail: Valued[], roster: Valued[], rnd: () => number, sharp: bo
   return pool[0];
 }
 
-export default function MockDraft({ board, league }: { board: Board; league: League }) {
+/** `active` is false while another tab is showing: the draft stays in memory but nothing picks. */
+export default function MockDraft({ board, league, active = true }: { board: Board; league: League; active?: boolean }) {
   const [cfg, setCfg] = useState<Cfg>({ teams: league.teams, slot: 1, rounds: rosterSize(league), speed: 350, randomSlot: false, seq: "snake", clock: 0 });
   const [autoPick, setAutoPick] = useState(false);
   const [left, setLeft] = useState(0);
@@ -76,7 +77,7 @@ export default function MockDraft({ board, league }: { board: Board; league: Lea
 
   // CPU auto-picks
   useEffect(() => {
-    if (!picks || done || onClock === me || !avail.length) return;
+    if (!active || !picks || done || onClock === me || !avail.length) return;
     const t = setTimeout(() => {
       // With league scouting loaded, each CPU team leans toward players its real manager has drafted before.
       const mgr = scouting?.data && cfg.teams === league.teams ? scouting.managerAtSlot(onClock) : null;
@@ -86,7 +87,7 @@ export default function MockDraft({ board, league }: { board: Board; league: Lea
     }, cfg.speed);
     return () => clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [picks, done, onClock, me, avail, cfg.speed]);
+  }, [active, picks, done, onClock, me, avail, cfg.speed]);
 
   const start = () => {
     const slot = cfg.randomSlot ? 1 + Math.floor(Math.random() * cfg.teams) : Math.min(cfg.slot, cfg.teams);
@@ -96,7 +97,7 @@ export default function MockDraft({ board, league }: { board: Board; league: Lea
   const myPick = (id: number) => { if (onClock === me) { setPicks((p) => (p ? [...p, id] : p)); setQ(""); } };
 
   // Your clock, and auto-pick: when time runs out (or auto-pick is on), take the top recommendation.
-  const myTurn = !!picks && !done && onClock === me;
+  const myTurn = active && !!picks && !done && onClock === me;
   const pickCount = picks?.length ?? 0;
   useEffect(() => {
     if (!myTurn) return;

@@ -30,13 +30,11 @@ export async function GET(request: Request) {
   const startTime = Date.now();
 
   try {
-    // Simple auth: allow manual refresh, cron with secret, or no secret configured
+    // Only Vercel Cron (which sends CRON_SECRET) may trigger a refresh: it calls ESPN with the
+    // server's league cookies and can send Telegram alerts.
     const authHeader = request.headers.get('authorization');
     const cronSecret = process.env.CRON_SECRET;
-    const isManualRefresh = request.headers.get('x-manual-refresh') === 'true';
-
-    // Only enforce auth if CRON_SECRET is set and this isn't a manual refresh
-    if (cronSecret && !isManualRefresh && authHeader !== `Bearer ${cronSecret}`) {
+    if (!cronSecret || authHeader !== `Bearer ${cronSecret}`) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 

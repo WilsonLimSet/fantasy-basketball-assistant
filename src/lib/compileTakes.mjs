@@ -41,30 +41,48 @@ export function compileTakes(raw) {
   return { updatedAt, takes };
 }
 
+// Newest first: by date, then by ESPN news id (ids increase over time) for same-day items.
+const newestFirst = (x, y) => y.date.localeCompare(x.date) || (y.newsId ?? 0) - (x.newsId ?? 0);
+
 /**
- * Merge manual research items with the news cron's automatic ones. Per player, keep one current
- * projection item (the newest auto item with games or multipliers) plus up to 3 newer notes, and
- * drop auto items once a newer manual item covers the player.
+ * The automatic items worth keeping for each player: the newest one with a games estimate, the
+ * newest one with role multipliers (chosen independently, so a later role note can't erase an
+ * injury), and up to 3 newer notes. Also used to prune the cron's stored state.
+ * @param {any[]} auto @returns {Map<string, { games: any, mult: any, notes: any[] }>}
+ */
+export function currentAuto(auto) {
+  const byPlayer = new Map();
+  for (const a of [...auto].sort(newestFirst)) {
+    const k = normName(a.name);
+    (byPlayer.get(k) ?? byPlayer.set(k, []).get(k)).push(a);
+  }
+  const out = new Map();
+  for (const [k, items] of byPlayer) {
+    const games = items.find((i) => i.games != null) ?? null;
+    const mult = items.find((i) => Object.keys(i.mult ?? {}).length) ?? null;
+    const notes = items.filter((i) => i !== games && i !== mult).slice(0, 3);
+    out.set(k, { games, mult, notes });
+  }
+  return out;
+}
+
+/**
+ * Merge manual research items with the news cron's automatic ones. A newer manual item for a
+ * player overrides the automatic ones; a newer automatic games estimate replaces older manual
+ * games (games compile as a min, so "cleared" news could otherwise never raise it).
  * @param {any[]} manual @param {any[]} auto @returns {any[]}
  */
 export function mergeItems(manual, auto) {
   const manualLatest = new Map();
   for (const m of manual) { const k = normName(m.name); if ((manualLatest.get(k) ?? "") < m.date) manualLatest.set(k, m.date); }
-  const byPlayer = new Map();
-  for (const a of [...auto].sort((x, y) => y.date.localeCompare(x.date))) {
-    const k = normName(a.name);
-    if ((manualLatest.get(k) ?? "") >= a.date) continue;
-    (byPlayer.get(k) ?? byPlayer.set(k, []).get(k)).push(a);
-  }
+  const fresh = auto.filter((a) => (manualLatest.get(normName(a.name)) ?? "") < a.date);
   const kept = [];
   const supersedesGames = new Set();
-  for (const [k, items] of byPlayer) {
-    const proj = items.find((i) => i.games != null || Object.keys(i.mult ?? {}).length);
-    if (proj) kept.push(proj);
-    if (proj?.games != null) supersedesGames.add(k);
-    kept.push(...items.filter((i) => i !== proj).map((i) => ({ ...i, games: undefined, mult: {} })).slice(0, 3));
+  for (const [k, { games, mult, notes }] of currentAuto(fresh)) {
+    if (games) { kept.push(mult === games ? games : { ...games, mult: {} }); supersedesGames.add(k); }
+    if (mult && mult !== games) kept.push({ ...mult, games: undefined });
+    kept.push(...notes.map((i) => ({ ...i, games: undefined, mult: {} })));
   }
-  // A newer games estimate replaces older manual ones (games compile as a min, so "cleared" news could never raise it).
   const manualOut = manual.map((m) => (supersedesGames.has(normName(m.name)) ? { ...m, games: undefined } : m));
   return [...manualOut, ...kept];
 }

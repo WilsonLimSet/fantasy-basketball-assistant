@@ -180,7 +180,7 @@ export async function fetchEspnPlayers(season: number, limit = 400) {
       const outlooks = new Map<number, string>();
       const players = parsePlayers(await r.json(), season, outlooks);
       const withStats = players.filter((p) => p.proj || p.last).length;
-      if (withStats >= Math.min(50, players.length / 2)) return { players, source: `espn:${name}`, outlooks };
+      if (players.length > 0 && withStats >= Math.min(50, players.length / 2)) return { players, source: `espn:${name}`, outlooks };
       errors.push(`${name}: only ${withStats}/${players.length} players had season stats`);
     } catch (e) {
       errors.push(`${name}: ${String(e)}`);
