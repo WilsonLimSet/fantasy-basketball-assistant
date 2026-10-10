@@ -3,7 +3,7 @@ import { openai } from "@ai-sdk/openai";
 import { generateText, Output } from "ai";
 import { z } from "zod";
 import manualRaw from "../../research/raw-takes.json";
-import { compileTakes, mergeItems, normName } from "./compileTakes.mjs";
+import { compileTakes, currentAuto, mergeItems, normName } from "./compileTakes.mjs";
 import { getPlayers } from "./data";
 import { fetchPlayerNews, type NewsItem } from "./playerNews";
 
@@ -68,6 +68,7 @@ const SYSTEM = `You maintain injury and role takes for an NBA fantasy draft and 
 For each ESPN news item, decide whether it changes a player's season projection.
 Rules:
 - missedGames counts REGULAR-SEASON games only (the season is 82 games, about 3.5 per week). Preseason games don't count. A player out "4 weeks" from early October who returns before the opener misses few or none; one out "4 weeks" starting right before the opener misses about 14. Add a few for ramp-up or re-aggravation risk on soft-tissue injuries (hamstring, calf, groin). Season-ending: 82.
+- "Out indefinitely" or "not cleared" with no timeline and no season-ending language: be conservative, about 10-15 games unless the news says the absence is long. Don't guess a long absence from vague news.
 - "Day-to-day", rest, or a single missed preseason game: missedGames null (a note at most). A player cleared or returning: missedGames 0.
 - If the current take already accounts for the same injury and the timeline hasn't changed, missedGames null.
 - Rest days, load management, practice reports and box scores are "ignore", or "note" if a manager would care.
@@ -76,13 +77,14 @@ Rules:
 
 const blobBase = () => process.env.TAKES_URL?.replace(/\/[^/]+$/, "") ?? null;
 
+/** A Blob JSON file: null if it doesn't exist yet; throws on any other failure (so a hiccup can't wipe state). */
 async function readJson<T>(name: string): Promise<T | null> {
   const base = blobBase();
   if (!base) return null;
-  try {
-    const r = await fetch(`${base}/${name}`, { cache: "no-store" });
-    return r.ok ? ((await r.json()) as T) : null;
-  } catch { return null; }
+  const r = await fetch(`${base}/${name}`, { cache: "no-store" });
+  if (r.status === 404) return null;
+  if (!r.ok) throw new Error(`Blob read ${name}: ${r.status}`);
+  return (await r.json()) as T;
 }
 
 const writeJson = (name: string, body: unknown, maxAge = 60) => put(name, JSON.stringify(body), {
@@ -136,19 +138,29 @@ export async function ingestNews(opts: { dryRun?: boolean; lookbackDays?: number
   };
   const chunks: (typeof todo)[] = [];
   for (let i = 0; i < todo.length; i += ITEMS_PER_CALL) chunks.push(todo.slice(i, i + ITEMS_PER_CALL));
-  const results = await Promise.all(chunks.map((chunk) => generateText({
+  // One failed batch shouldn't sink the run: keep the others, and retry the failed items next time.
+  const results = await Promise.allSettled(chunks.map((chunk) => generateText({
     model: MODEL,
     system: SYSTEM,
     prompt: [header, ...chunk.map(describe)].join("\n\n"),
     output: Output.object({ schema: z.object({ decisions: z.array(decision) }) }),
   })));
-  const output = { decisions: results.flatMap((r) => r.output.decisions) };
+  const answered = new Set<number>();
+  results.forEach((r, i) => {
+    if (r.status === "fulfilled") for (const x of chunks[i]) answered.add(x.n.id);
+    else console.error("[news cron] batch failed:", r.reason);
+  });
+  if (!answered.size) throw new Error("Every model batch failed");
+  const output = { decisions: results.flatMap((r) => (r.status === "fulfilled" ? r.value.output.decisions : [])) };
 
   const byId = new Map(todo.map((x) => [x.n.id, x]));
   const added: RawItem[] = [];
+  const decided = new Set<number>();
   for (const d of output.decisions) {
     const src = byId.get(d.newsId);
-    if (!src || d.action === "ignore") continue;
+    if (!src || decided.has(d.newsId)) continue;
+    decided.add(d.newsId);
+    if (d.action === "ignore") continue;
     // Notes are for injuries and transactions; box scores and preseason starts are noise on a player card.
     if (d.action === "note" && d.kind !== "injury" && d.kind !== "new-team") continue;
     const roleAllowed = !preseason || d.kind === "new-team";
@@ -170,9 +182,13 @@ export async function ingestNews(opts: { dryRun?: boolean; lookbackDays?: number
 
   if (opts.dryRun) return { checked: relevant.length, fresh: fresh.length, added, published: false };
 
-  for (const x of todo) seen.add(x.n.id);
-  const next: AutoState = { seen: [...seen].slice(-SEEN_KEEP), items: [...state.items, ...added], runAt: new Date().toISOString() };
+  for (const id of answered) seen.add(id);
+  // Store only what can still matter (per player: latest games, latest role change, 3 notes).
+  const items = [...currentAuto([...state.items, ...added]).values()]
+    .flatMap(({ games, mult, notes }) => [games, mult === games ? null : mult, ...notes].filter(Boolean)) as RawItem[];
+  const next: AutoState = { seen: [...seen].slice(-SEEN_KEEP), items, runAt: new Date().toISOString() };
   await writeJson("auto-takes.json", next);
-  await writeJson("takes.json", compileTakes(mergeItems(manual, next.items)));
+  // Re-read the manual takes: a `takes:publish` may have landed while the model was running.
+  await writeJson("takes.json", compileTakes(mergeItems(await manualItems(), next.items)));
   return { checked: relevant.length, fresh: fresh.length, added, published: true };
 }

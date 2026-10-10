@@ -4,6 +4,7 @@
  */
 
 import { NextResponse } from 'next/server';
+import { isOwner } from '@/lib/auth';
 import { createStorageAdapter } from '@/lib/inseason/storage';
 import type { Watchlist } from '@/types';
 
@@ -17,6 +18,7 @@ interface WatchlistResponse {
 
 // GET - Get current watchlist
 export async function GET() {
+  if (!(await isOwner())) return NextResponse.json({ error: 'Sign in as the league owner' }, { status: 401 });
   try {
     const leagueId = parseInt(process.env.ESPN_LEAGUE_ID || '0', 10);
     const seasonId = parseInt(process.env.ESPN_SEASON || '2026', 10);
@@ -49,6 +51,7 @@ export async function GET() {
 
 // POST - Add player to watchlist
 export async function POST(request: Request) {
+  if (!(await isOwner())) return NextResponse.json({ error: 'Sign in as the league owner' }, { status: 401 });
   try {
     const leagueId = parseInt(process.env.ESPN_LEAGUE_ID || '0', 10);
     const seasonId = parseInt(process.env.ESPN_SEASON || '2026', 10);
@@ -96,6 +99,7 @@ export async function POST(request: Request) {
 
 // DELETE - Remove player from watchlist
 export async function DELETE(request: Request) {
+  if (!(await isOwner())) return NextResponse.json({ error: 'Sign in as the league owner' }, { status: 401 });
   try {
     const leagueId = parseInt(process.env.ESPN_LEAGUE_ID || '0', 10);
     const seasonId = parseInt(process.env.ESPN_SEASON || '2026', 10);

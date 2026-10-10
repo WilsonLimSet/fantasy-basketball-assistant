@@ -5,8 +5,12 @@ import { supabaseServer } from "@/lib/supabase/server";
 export async function GET(req: Request) {
   const u = new URL(req.url);
   const code = u.searchParams.get("code");
-  const next = u.searchParams.get("next");
-  const dest = next?.startsWith("/") && !next.startsWith("//") ? next : "/draft";
+  // Only same-origin paths ("/\\evil.com" and tab tricks resolve off-site, so compare origins).
+  let dest = "/draft";
+  try {
+    const n = new URL(u.searchParams.get("next") ?? "/draft", u.origin);
+    if (n.origin === u.origin) dest = n.pathname + n.search;
+  } catch { /* keep /draft */ }
   if (code) {
     const supabase = await supabaseServer();
     const { error } = await supabase.auth.exchangeCodeForSession(code);

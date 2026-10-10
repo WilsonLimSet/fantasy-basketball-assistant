@@ -5,7 +5,10 @@
 # The commit only touches docs, planning notes, Claude commands or research (takes are published
 # to Blob separately): skip. (An empty commit still builds,
 # so `git commit --allow-empty` is a way to force a preview.)
-changed=$(git diff --name-only HEAD^ HEAD 2>/dev/null)
+# Compare with the last deployed commit for this branch when Vercel knows it, so a docs-only last
+# commit on a PR doesn't hide code changes in earlier commits.
+base="${VERCEL_GIT_PREVIOUS_SHA:-HEAD^}"
+changed=$(git diff --name-only "$base" HEAD 2>/dev/null || git diff --name-only HEAD^ HEAD 2>/dev/null)
 if [ -n "$changed" ] && ! echo "$changed" | grep -qvE '^(README[^/]*\.md|\.planning/|\.claude/|research/)'; then
   echo "Only docs or research changed: skipping build"
   exit 0

@@ -128,11 +128,16 @@ export function parseDraft(json: any, leagueId: string, season: number): DraftSy
     teamId: Number(p.teamId),
     playerId: Number(p.playerId),
   }));
+  // Index = overall pick - 1, so a pick ESPN doesn't show (e.g. a keeper) leaves a 0 placeholder
+  // instead of shifting every later pick to the wrong team.
+  const last = detail.reduce((m, p) => (Number.isFinite(p.overall) ? Math.max(m, p.overall) : m), 0);
+  const picks = last >= detail.length ? Array<number>(last).fill(0) : detail.map((p) => p.playerId);
+  if (last >= detail.length) for (const p of detail) if (p.overall >= 1) picks[p.overall - 1] = p.playerId;
   return {
     leagueId, season,
     drafted: !!d.drafted,
     inProgress: !!d.inProgress,
-    picks: detail.map((p) => p.playerId),
+    picks,
     detail,
   };
 }
@@ -184,9 +189,12 @@ export function parseSettings(json: any, leagueId: string, season: number, swid?
   }
   if (unsupported.length) notes.push(`Not modeled here, so ignored: ${unsupported.join(", ")}.`);
   // DREB and REB both scored: our projections carry both, so that works. Flag stats ESPN doesn't project.
-  if (format === "points" && (scoring.dd || scoring.td || scoring.oreb || scoring.dreb)) {
-    notes.push("ESPN's preseason projections don't include OREB, DREB, DD or TD, so those lean on last season's numbers.");
-  }
+  const unprojected = format === "points"
+    ? scoring.dd || scoring.td || scoring.oreb || scoring.dreb
+    : cats.some((c) => ["dd", "td", "oreb", "dreb"].includes(c));
+  if (unprojected) notes.push("ESPN's preseason projections don't include OREB, DREB, DD or TD, so those use last season's numbers.");
+  if (format === "points" && !Object.keys(scoring).length) notes.push("Couldn't read this league's point values, so check the scoring below.");
+  if (format === "cats" && !cats.length) notes.push("Couldn't read this league's categories, so check them below.");
 
   const slots: Record<Slot, number> = { PG: 0, SG: 0, SF: 0, PF: 0, C: 0, G: 0, F: 0, UT: 0 };
   let bench = 0, hybrid = 0;
@@ -200,6 +208,7 @@ export function parseSettings(json: any, leagueId: string, season: number, swid?
   }
   if (hybrid) notes.push(`${hybrid} hybrid slot${hybrid > 1 ? "s" : ""} (SG/SF, G/F, PF/C or F/C) counted as UTIL.`);
   const rounds = Object.values(slots).reduce((a, b) => a + b, 0) + bench;
+  if (!rounds) notes.push("Couldn't read this league's roster slots, so check them below.");
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const teams = Number(s.size) || ((json?.teams as any[] | undefined)?.length ?? 10);

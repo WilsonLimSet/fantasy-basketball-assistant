@@ -17,7 +17,8 @@ import { PassInfo } from "./Paywall";
 import { PlayerSheetProvider } from "./PlayerSheet";
 import { ScoutingProvider } from "@/lib/scouting";
 
-type Tab = "kit" | "mock" | "draft" | "sheet" | "news" | "edges" | "settings";
+const TABS = ["kit", "mock", "draft", "sheet", "news", "edges", "settings"] as const;
+type Tab = (typeof TABS)[number];
 
 export interface Board extends PassInfo {
   season: number;
@@ -53,9 +54,19 @@ export default function App() {
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    setLeague(load("cv.league", leagueFromPreset("espn-points", 10)));
-    setDraft(load("cv.draft", { mySlot: 1, rounds: 13, picks: [] }));
-    setTab(load<Tab>("cv.tab", "kit"));
+    // Saved state can be from an older version or hand-edited: merge over defaults and validate.
+    const base = leagueFromPreset("espn-points", 10);
+    const l = load<Partial<League> | null>("cv.league", null);
+    const lg: League = l && typeof l === "object" && l.slots && typeof l.teams === "number" && l.teams >= 2 ? { ...base, ...l } as League : base;
+    setLeague(lg);
+    const d = load<Partial<DraftState> | null>("cv.draft", null);
+    setDraft({
+      mySlot: Number.isInteger(d?.mySlot) ? Math.min(Math.max(1, d!.mySlot!), lg.teams) : 1,
+      rounds: Number.isInteger(d?.rounds) && d!.rounds! > 0 ? d!.rounds! : 13,
+      picks: Array.isArray(d?.picks) ? d!.picks!.filter(Number.isInteger) : [],
+    });
+    const t = load<string>("cv.tab", "kit");
+    setTab((TABS as readonly string[]).includes(t) ? (t as Tab) : "kit");
     setHydrated(true);
   }, []);
 
@@ -131,7 +142,6 @@ export default function App() {
               {board?.espnAt && ` · ESPN data ${new Date(board.espnAt).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}`}
               {loading && " · updating…"}
             </span>
-            <Link href="/inseason" className="hover:text-fg">In-season</Link>
             {board?.authOn && (board.account ? (
               <form action="/auth/signout" method="post" className="flex items-center gap-2">
                 <span className="hidden max-w-[12rem] truncate sm:inline" title={board.account}>{board.account}</span>
@@ -228,7 +238,8 @@ export default function App() {
         {board && (
           <>
             {tab === "kit" && <Rankings board={board} league={league} draftedIds={new Set(draft.picks)} setLeague={setLeague} draft={draft} setDraft={setDraft} onEditSettings={() => setTab("settings")} />}
-            {tab === "mock" && <MockDraft board={board} league={league} />}
+            {/* Stays mounted so a mock in progress survives switching tabs. */}
+            <div hidden={tab !== "mock"}><MockDraft board={board} league={league} active={tab === "mock"} /></div>
             {tab === "edges" && <FormatEdges board={board} league={league} />}
             {tab === "sheet" && <CheatSheet board={board} league={league} draft={draft} />}
             {tab === "draft" && <DraftBoard board={board} league={league} draft={draft} setDraft={setDraft} />}

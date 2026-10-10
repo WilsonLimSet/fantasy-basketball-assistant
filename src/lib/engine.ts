@@ -84,6 +84,8 @@ export const rosterSize = (l: League) =>
 /* ---------------- Projection model ---------------- */
 
 const MIN_SAMPLE_GP = 15;
+/** Stats ESPN's preseason projections don't include. */
+const UNPROJECTED = new Set<StatKey>(["oreb", "dreb", "dd", "td"]);
 const FULL_SAMPLE_GP = 60;
 /** Games a healthy starter plays, and how often you can actually plug a replacement into a missed one. */
 const FULL_SEASON_GAMES = 72;
@@ -166,7 +168,12 @@ export function project(p: Player, take?: Take | null): Projection | null {
     basis += "+current";
   }
   for (const k of STAT_KEYS) {
-    line[k] = (proj?.[k] ?? 0) * wProj + (src?.[k] ?? 0) * wLast + (cur?.[k] ?? 0) * wCur;
+    // ESPN's preseason projections leave some stats at 0; carry last season's in their place
+    // instead of shrinking it to the blend weight.
+    const unprojected = UNPROJECTED.has(k) && !proj?.[k] && !!src?.[k];
+    line[k] = unprojected
+      ? (src?.[k] ?? 0) * (wProj + wLast) + (cur?.[k] ?? 0) * wCur
+      : (proj?.[k] ?? 0) * wProj + (src?.[k] ?? 0) * wLast + (cur?.[k] ?? 0) * wCur;
   }
   // A take's role change moves the blended line halfway: ESPN's projection already prices in some
   // of the news, last season none of it.
@@ -389,7 +396,9 @@ export function valuePlayers(players: Player[], league: League, useTakes = true)
   if (useTakes) for (const p of players) { const t = findTake(p.name); if (t) takeOf.set(p.id, t); }
   const base = players
     .map((p) => ({ p, proj: project(p, takeOf.get(p.id)) }))
-    .filter((x): x is { p: Player; proj: Projection } => !!x.proj && x.proj.games > 0);
+    // A take saying he's out for the season (0 games) keeps him on the board, at the bottom, so
+    // people searching for him see why instead of finding nothing.
+    .filter((x): x is { p: Player; proj: Projection } => !!x.proj && (x.proj.games > 0 || takeOf.get(x.p.id)?.games === 0));
   const roles = fitTeams(base);
 
   const draftable = league.teams * rosterSize(league);

@@ -4,6 +4,7 @@
  */
 
 import { NextResponse } from 'next/server';
+import { isOwner } from '@/lib/auth';
 import { createStorageAdapter } from '@/lib/inseason/storage';
 import { generateDailyBriefing } from '@/lib/inseason/optimizer';
 import type { DailyBriefing } from '@/types';
@@ -18,6 +19,7 @@ interface BriefingResponse {
 }
 
 export async function GET() {
+  if (!(await isOwner())) return NextResponse.json({ error: 'Sign in as the league owner' }, { status: 401 });
   try {
     const leagueId = parseInt(process.env.ESPN_LEAGUE_ID || '0', 10);
     const seasonId = parseInt(process.env.ESPN_SEASON || '2026', 10);
