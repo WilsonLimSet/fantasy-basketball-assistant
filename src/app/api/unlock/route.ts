@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { NextResponse } from "next/server";
 import { checkLicense, makePass, PASS_COOKIE, passCookieOptions } from "@/lib/auth";
 
@@ -34,7 +35,8 @@ export async function POST(req: Request) {
   let email: string | null = null;
   if (body.code) {
     const codes = (process.env.CV_ACCESS_CODES ?? "").split(",").map((c) => c.trim()).filter(Boolean);
-    if (codes.includes(body.code.trim())) email = `code:${body.code.trim()}`;
+    // The cookie body is readable, so store a short hash of the code rather than the code itself.
+    if (codes.includes(body.code.trim())) email = `code:${createHash("sha256").update(body.code.trim()).digest("hex").slice(0, 12)}`;
   } else if (body.email && body.key && checkLicense(body.email, body.key)) {
     email = body.email;
   }

@@ -4,6 +4,7 @@
  */
 
 import { NextResponse } from 'next/server';
+import { isOwner } from '@/lib/auth';
 import { createStorageAdapter } from '@/lib/inseason/storage';
 import { generateWeeklyStreamingPlan, getWaiverRecommendations } from '@/lib/inseason/optimizer';
 import type { WeeklyStreamingPlan, NBATeamSchedule, WaiverRecommendation } from '@/types';
@@ -20,6 +21,7 @@ interface WeeklyPlanResponse {
 }
 
 export async function GET(request: Request) {
+  if (!(await isOwner())) return NextResponse.json({ error: 'Sign in as the league owner' }, { status: 401 });
   try {
     const leagueId = parseInt(process.env.ESPN_LEAGUE_ID || '0', 10);
     const seasonId = parseInt(process.env.ESPN_SEASON || '2026', 10);

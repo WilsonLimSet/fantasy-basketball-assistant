@@ -1,180 +1,55 @@
 /**
  * Storage Layer
- * Uses Vercel KV in production, file-based storage in development
+ * A small key-value store: the Supabase table `inseason_kv` in production (server-only, behind
+ * row-level security), JSON files under .data/ in local development.
  */
 
-import { kv } from '@vercel/kv';
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'fs';
 import { join } from 'path';
 import type { LeagueSnapshot, SnapshotDiff, InjuryHistoryIndex, Watchlist } from '@/types';
+import { SUPABASE_URL } from '@/lib/supabase/env';
 
-const MAX_HISTORY_LENGTH = 50;
+interface KV {
+  get<T>(key: string): Promise<T | null>;
+  set<T>(key: string, value: T): Promise<void>;
+}
+
+// ============ Supabase (production) ============
+
+function supabaseKV(url: string, secret: string): KV {
+  const rest = `${url}/rest/v1/inseason_kv`;
+  const headers = { apikey: secret, Authorization: `Bearer ${secret}`, 'Content-Type': 'application/json' };
+  return {
+    async get<T>(key: string) {
+      const r = await fetch(`${rest}?key=eq.${encodeURIComponent(key)}&select=value`, { headers, cache: 'no-store' });
+      if (!r.ok) throw new Error(`inseason_kv read ${key}: ${r.status}`);
+      const rows = (await r.json()) as { value: T }[];
+      return rows[0]?.value ?? null;
+    },
+    async set<T>(key: string, value: T) {
+      const r = await fetch(rest, {
+        method: 'POST',
+        headers: { ...headers, Prefer: 'resolution=merge-duplicates,return=minimal' },
+        body: JSON.stringify({ key, value, updated_at: new Date().toISOString() }),
+      });
+      if (!r.ok) throw new Error(`inseason_kv write ${key}: ${r.status} ${await r.text()}`);
+    },
+  };
+}
+
+// ============ Files (local development) ============
+
 const DATA_DIR = join(process.cwd(), '.data');
 
-// Ensure data directory exists
-function ensureDataDir() {
-  if (!existsSync(DATA_DIR)) {
-    mkdirSync(DATA_DIR, { recursive: true });
-  }
-}
-
-function getKeys(leagueId: number, seasonId: number) {
-  const prefix = `${leagueId}_${seasonId}`;
-  return {
-    latest: `${prefix}_latest.json`,
-    history: `${prefix}_history.json`,
-    snapshot: (timestamp: number) => `${prefix}_snapshot_${timestamp}.json`,
-    lastDiff: `${prefix}_lastDiff.json`,
-    injuryHistory: `${prefix}_injuryHistory.json`,
-    watchlist: `${prefix}_watchlist.json`,
-  };
-}
-
-// ============ File-based Storage for Development ============
-
-const fileStorage = {
-  read<T>(filename: string): T | null {
-    ensureDataDir();
-    const path = join(DATA_DIR, filename);
+const fileKV: KV = {
+  async get<T>(key: string) {
+    const path = join(DATA_DIR, `${key.replace(/[^\w.-]/g, '_')}.json`);
     if (!existsSync(path)) return null;
-    try {
-      const content = readFileSync(path, 'utf-8');
-      return JSON.parse(content) as T;
-    } catch {
-      return null;
-    }
+    try { return JSON.parse(readFileSync(path, 'utf-8')) as T; } catch { return null; }
   },
-
-  write<T>(filename: string, data: T): void {
-    ensureDataDir();
-    const path = join(DATA_DIR, filename);
-    writeFileSync(path, JSON.stringify(data), 'utf-8');
-  },
-
-  async storeSnapshot(snapshot: LeagueSnapshot): Promise<void> {
-    const keys = getKeys(snapshot.leagueId, snapshot.seasonId);
-
-    // Store snapshot
-    this.write(keys.snapshot(snapshot.fetchedAt), snapshot);
-
-    // Update latest
-    this.write(keys.latest, snapshot);
-
-    // Update history
-    const history = this.read<number[]>(keys.history) || [];
-    history.unshift(snapshot.fetchedAt);
-    if (history.length > MAX_HISTORY_LENGTH) {
-      history.length = MAX_HISTORY_LENGTH;
-    }
-    this.write(keys.history, history);
-  },
-
-  async getLatestSnapshot(leagueId: number, seasonId: number): Promise<LeagueSnapshot | null> {
-    const keys = getKeys(leagueId, seasonId);
-    return this.read<LeagueSnapshot>(keys.latest);
-  },
-
-  async getPreviousSnapshot(leagueId: number, seasonId: number): Promise<LeagueSnapshot | null> {
-    const keys = getKeys(leagueId, seasonId);
-    const history = this.read<number[]>(keys.history) || [];
-    if (history.length < 2) return null;
-    return this.read<LeagueSnapshot>(keys.snapshot(history[1]));
-  },
-
-  async storeLastDiff(leagueId: number, seasonId: number, diff: SnapshotDiff): Promise<void> {
-    const keys = getKeys(leagueId, seasonId);
-    this.write(keys.lastDiff, diff);
-  },
-
-  async getLastDiff(leagueId: number, seasonId: number): Promise<SnapshotDiff | null> {
-    const keys = getKeys(leagueId, seasonId);
-    return this.read<SnapshotDiff>(keys.lastDiff);
-  },
-
-  async storeInjuryHistory(leagueId: number, seasonId: number, history: InjuryHistoryIndex): Promise<void> {
-    const keys = getKeys(leagueId, seasonId);
-    this.write(keys.injuryHistory, history);
-  },
-
-  async getInjuryHistory(leagueId: number, seasonId: number): Promise<InjuryHistoryIndex | null> {
-    const keys = getKeys(leagueId, seasonId);
-    return this.read<InjuryHistoryIndex>(keys.injuryHistory);
-  },
-
-  async storeWatchlist(leagueId: number, seasonId: number, watchlist: Watchlist): Promise<void> {
-    const keys = getKeys(leagueId, seasonId);
-    this.write(keys.watchlist, watchlist);
-  },
-
-  async getWatchlist(leagueId: number, seasonId: number): Promise<Watchlist | null> {
-    const keys = getKeys(leagueId, seasonId);
-    return this.read<Watchlist>(keys.watchlist);
-  },
-};
-
-// ============ Vercel KV Storage for Production ============
-
-function kvKeys(leagueId: number, seasonId: number) {
-  const prefix = `${leagueId}:${seasonId}`;
-  return {
-    latest: `${prefix}:latest`,
-    history: `${prefix}:history`,
-    snapshot: (timestamp: number) => `${prefix}:snapshot:${timestamp}`,
-    lastDiff: `${prefix}:lastDiff`,
-    injuryHistory: `${prefix}:injuryHistory`,
-    watchlist: `${prefix}:watchlist`,
-  };
-}
-
-const kvStorage = {
-  async storeSnapshot(snapshot: LeagueSnapshot): Promise<void> {
-    const keys = kvKeys(snapshot.leagueId, snapshot.seasonId);
-    await kv.set(keys.snapshot(snapshot.fetchedAt), snapshot);
-    await kv.set(keys.latest, snapshot);
-    await kv.lpush(keys.history, snapshot.fetchedAt);
-    await kv.ltrim(keys.history, 0, MAX_HISTORY_LENGTH - 1);
-  },
-
-  async getLatestSnapshot(leagueId: number, seasonId: number): Promise<LeagueSnapshot | null> {
-    const keys = kvKeys(leagueId, seasonId);
-    return kv.get<LeagueSnapshot>(keys.latest);
-  },
-
-  async getPreviousSnapshot(leagueId: number, seasonId: number): Promise<LeagueSnapshot | null> {
-    const keys = kvKeys(leagueId, seasonId);
-    const history = await kv.lrange<number>(keys.history, 0, 1);
-    if (!history || history.length < 2) return null;
-    return kv.get<LeagueSnapshot>(keys.snapshot(history[1]));
-  },
-
-  async storeLastDiff(leagueId: number, seasonId: number, diff: SnapshotDiff): Promise<void> {
-    const keys = kvKeys(leagueId, seasonId);
-    await kv.set(keys.lastDiff, diff);
-  },
-
-  async getLastDiff(leagueId: number, seasonId: number): Promise<SnapshotDiff | null> {
-    const keys = kvKeys(leagueId, seasonId);
-    return kv.get<SnapshotDiff>(keys.lastDiff);
-  },
-
-  async storeInjuryHistory(leagueId: number, seasonId: number, history: InjuryHistoryIndex): Promise<void> {
-    const keys = kvKeys(leagueId, seasonId);
-    await kv.set(keys.injuryHistory, history);
-  },
-
-  async getInjuryHistory(leagueId: number, seasonId: number): Promise<InjuryHistoryIndex | null> {
-    const keys = kvKeys(leagueId, seasonId);
-    return kv.get<InjuryHistoryIndex>(keys.injuryHistory);
-  },
-
-  async storeWatchlist(leagueId: number, seasonId: number, watchlist: Watchlist): Promise<void> {
-    const keys = kvKeys(leagueId, seasonId);
-    await kv.set(keys.watchlist, watchlist);
-  },
-
-  async getWatchlist(leagueId: number, seasonId: number): Promise<Watchlist | null> {
-    const keys = kvKeys(leagueId, seasonId);
-    return kv.get<Watchlist>(keys.watchlist);
+  async set<T>(key: string, value: T) {
+    if (!existsSync(DATA_DIR)) mkdirSync(DATA_DIR, { recursive: true });
+    writeFileSync(join(DATA_DIR, `${key.replace(/[^\w.-]/g, '_')}.json`), JSON.stringify(value), 'utf-8');
   },
 };
 
@@ -192,40 +67,30 @@ export interface StorageAdapter {
   getWatchlist(leagueId: number, seasonId: number): Promise<Watchlist | null>;
 }
 
-/**
- * Check if Vercel KV is available
- */
-async function isKVAvailable(): Promise<boolean> {
-  try {
-    await kv.ping();
-    return true;
-  } catch {
-    return false;
-  }
+const k = (leagueId: number, seasonId: number, name: string) => `${leagueId}:${seasonId}:${name}`;
+
+function adapter(kv: KV): StorageAdapter {
+  return {
+    // Only the latest and previous snapshots are ever read, so that's all we keep.
+    async storeSnapshot(snapshot) {
+      const latest = await kv.get<LeagueSnapshot>(k(snapshot.leagueId, snapshot.seasonId, 'latest'));
+      if (latest) await kv.set(k(snapshot.leagueId, snapshot.seasonId, 'previous'), latest);
+      await kv.set(k(snapshot.leagueId, snapshot.seasonId, 'latest'), snapshot);
+    },
+    getLatestSnapshot: (l, s) => kv.get<LeagueSnapshot>(k(l, s, 'latest')),
+    getPreviousSnapshot: (l, s) => kv.get<LeagueSnapshot>(k(l, s, 'previous')),
+    storeLastDiff: (l, s, diff) => kv.set(k(l, s, 'lastDiff'), diff),
+    getLastDiff: (l, s) => kv.get<SnapshotDiff>(k(l, s, 'lastDiff')),
+    storeInjuryHistory: (l, s, history) => kv.set(k(l, s, 'injuryHistory'), history),
+    getInjuryHistory: (l, s) => kv.get<InjuryHistoryIndex>(k(l, s, 'injuryHistory')),
+    storeWatchlist: (l, s, watchlist) => kv.set(k(l, s, 'watchlist'), watchlist),
+    getWatchlist: (l, s) => kv.get<Watchlist>(k(l, s, 'watchlist')),
+  };
 }
 
-/**
- * Create storage adapter - uses KV in production, file storage in dev
- */
+/** Supabase when SUPABASE_SECRET_KEY is set (production), local files otherwise. */
 export async function createStorageAdapter(): Promise<StorageAdapter> {
-  const kvAvailable = await isKVAvailable();
-
-  if (kvAvailable) {
-    console.log('[Storage] Using Vercel KV');
-    return kvStorage;
-  }
-
-  console.log('[Storage] Using file-based storage (.data/)');
-  return fileStorage;
+  const secret = process.env.SUPABASE_SECRET_KEY;
+  if (SUPABASE_URL && secret) return adapter(supabaseKV(SUPABASE_URL, secret));
+  return adapter(fileKV);
 }
-
-// Export for direct use
-export const storeSnapshot = fileStorage.storeSnapshot.bind(fileStorage);
-export const getLatestSnapshot = fileStorage.getLatestSnapshot.bind(fileStorage);
-export const getPreviousSnapshot = fileStorage.getPreviousSnapshot.bind(fileStorage);
-export const storeLastDiff = fileStorage.storeLastDiff.bind(fileStorage);
-export const getLastDiff = fileStorage.getLastDiff.bind(fileStorage);
-export const storeInjuryHistory = fileStorage.storeInjuryHistory.bind(fileStorage);
-export const getInjuryHistory = fileStorage.getInjuryHistory.bind(fileStorage);
-export const storeWatchlist = fileStorage.storeWatchlist.bind(fileStorage);
-export const getWatchlist = fileStorage.getWatchlist.bind(fileStorage);

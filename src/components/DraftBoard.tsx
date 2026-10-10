@@ -331,7 +331,7 @@ export default function DraftBoard({ board, league, draft, setDraft }: Props) {
                 <li key={k} className={`flex gap-2 ${t === me ? "text-accent" : ""}`}>
                   <span className="w-10 tabular-nums text-muted text-[11px] pt-0.5">#{k + 1}</span>
                   <span className="w-12 text-[11px] text-muted pt-0.5">{t === me ? "YOU" : `T${t + 1}`}</span>
-                  <span className="truncate">{v?.p.name ?? id}</span>
+                  <span className="truncate">{v?.p.name ?? (id > 0 ? `Player ${id}` : "Keeper or hidden pick")}</span>
                   {v && <span className="ml-auto text-[11px] text-muted pt-0.5">rk {v.rank}</span>}
                 </li>
               );

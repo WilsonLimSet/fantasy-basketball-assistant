@@ -42,7 +42,7 @@ export default function ConnectPage() {
         </div>
 
         <div className="alert alert-info" style={{ marginBottom: '1rem' }}>
-          Adam uses your ESPN session cookies to access your private league data.
+          Takeover Fantasy uses your ESPN session cookies to access your private league data.
           Your credentials are never logged or stored insecurely.
         </div>
 

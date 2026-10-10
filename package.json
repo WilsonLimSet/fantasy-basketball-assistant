@@ -17,7 +17,6 @@
     "@supabase/supabase-js": "^2.117.3",
     "@vercel/analytics": "^2.0.1",
     "@vercel/blob": "^2.8.0",
-    "@vercel/kv": "^2.0.0",
     "ai": "^7.0.136",
     "next": "15.5.27",
     "react": "19.1.0",

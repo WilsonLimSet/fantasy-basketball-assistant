@@ -396,7 +396,9 @@ export function valuePlayers(players: Player[], league: League, useTakes = true)
   if (useTakes) for (const p of players) { const t = findTake(p.name); if (t) takeOf.set(p.id, t); }
   const base = players
     .map((p) => ({ p, proj: project(p, takeOf.get(p.id)) }))
-    .filter((x): x is { p: Player; proj: Projection } => !!x.proj && x.proj.games > 0);
+    // A take saying he's out for the season (0 games) keeps him on the board, at the bottom, so
+    // people searching for him see why instead of finding nothing.
+    .filter((x): x is { p: Player; proj: Projection } => !!x.proj && (x.proj.games > 0 || takeOf.get(x.p.id)?.games === 0));
   const roles = fitTeams(base);
 
   const draftable = league.teams * rosterSize(league);

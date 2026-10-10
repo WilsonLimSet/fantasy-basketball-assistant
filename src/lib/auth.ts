@@ -115,3 +115,10 @@ export const passCookieOptions = {
   path: "/",
   expires: new Date(SEASON_END),
 };
+
+/** The league owner (OWNER_EMAILS): the in-season tools read the owner's league with the server's ESPN login. */
+export async function isOwner(): Promise<boolean> {
+  const owners = new Set((process.env.OWNER_EMAILS ?? "").split(",").map((e) => e.trim().toLowerCase()).filter(Boolean));
+  const account = await currentAccount();
+  return !!account && owners.has(account.email);
+}
