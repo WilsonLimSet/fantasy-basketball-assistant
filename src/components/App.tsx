@@ -148,7 +148,7 @@ export default function App() {
                 <button className="hover:text-fg">Sign out</button>
               </form>
             ) : (
-              <Link href="/login" className="rounded-full border border-line px-3 py-1 font-medium text-fg hover:border-fg/30 hover:bg-sunken">Sign in</Link>
+              <Link href="/login" className="shrink-0 whitespace-nowrap rounded-full border border-line px-3 py-1 font-medium text-fg hover:border-fg/30 hover:bg-sunken">Sign in</Link>
             ))}
             <button
               onClick={() => setTab("settings")}
@@ -199,9 +199,9 @@ export default function App() {
                   { k: "With a sourced take", v: String(board.valued.filter((x) => x.take).length) },
                   { k: "News updated", v: new Date(`${board.takesUpdated}T12:00:00`).toLocaleDateString(undefined, { month: "short", day: "numeric" }) },
                 ].map((x) => (
-                  <div key={x.k} className="px-6 py-4">
+                  <div key={x.k} className="px-2 py-4 sm:px-6">
                     <dd className="text-2xl font-medium tracking-tight tabular-nums">{x.v}</dd>
-                    <dt className="mt-0.5 whitespace-nowrap text-[11px] uppercase tracking-wide text-muted">{x.k}</dt>
+                    <dt className="mt-0.5 text-[11px] leading-tight sm:whitespace-nowrap uppercase tracking-wide text-muted">{x.k}</dt>
                   </div>
                 ))}
               </dl>
