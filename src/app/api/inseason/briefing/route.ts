@@ -4,8 +4,7 @@
  */
 
 import { NextResponse } from 'next/server';
-import { isOwner } from '@/lib/auth';
-import { createStorageAdapter } from '@/lib/inseason/storage';
+import { requireLeague } from '@/lib/inseason/routeContext';
 import { generateDailyBriefing } from '@/lib/inseason/optimizer';
 import type { DailyBriefing } from '@/types';
 
@@ -19,19 +18,12 @@ interface BriefingResponse {
 }
 
 export async function GET() {
-  if (!(await isOwner())) return NextResponse.json({ error: 'Sign in as the league owner' }, { status: 401 });
+  const { ctx, error } = await requireLeague();
+  if (error) return error;
   try {
-    const leagueId = parseInt(process.env.ESPN_LEAGUE_ID || '0', 10);
-    const seasonId = parseInt(process.env.ESPN_SEASON || '2026', 10);
+    const { leagueId, seasonId } = ctx;
 
-    if (!leagueId) {
-      return NextResponse.json(
-        { success: false, error: 'ESPN_LEAGUE_ID not configured' },
-        { status: 500 }
-      );
-    }
-
-    const storage = await createStorageAdapter();
+    const { storage } = ctx;
 
     // Get latest snapshot
     const snapshot = await storage.getLatestSnapshot(leagueId, seasonId);

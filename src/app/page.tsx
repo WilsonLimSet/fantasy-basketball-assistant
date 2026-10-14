@@ -19,6 +19,7 @@ export default function Landing() {
             <a href="#features" className="hover:text-fg">Features</a>
             <a href="#pricing" className="hover:text-fg">Pricing</a>
             <a href="#faq" className="hover:text-fg">FAQ</a>
+            <Link href="/inseason" className="hover:text-fg">In-season</Link>
           </nav>
           <Link href="/draft" className="ml-auto rounded-full bg-ink px-4 py-1.5 text-sm font-medium text-white hover:bg-ink/85">
             Open the draft kit

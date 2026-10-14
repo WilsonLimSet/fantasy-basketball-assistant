@@ -37,9 +37,13 @@ export interface EspnAuth { s2: string; swid: string }
  * used for this one request to ESPN and never stored or logged.
  */
 export function requestAuth(req: Request): EspnAuth | null {
-  const s2 = req.headers.get("x-espn-s2")?.trim() ?? "";
-  const swid = req.headers.get("x-espn-swid")?.trim() ?? "";
-  if (!s2 || !swid) return null;
+  return checkAuth(req.headers.get("x-espn-s2") ?? "", req.headers.get("x-espn-swid") ?? "");
+}
+
+/** Validate pasted ESPN cookies (null when both are blank). */
+export function checkAuth(rawS2: string, rawSwid: string): EspnAuth | null {
+  const s2 = rawS2.trim(), swid = rawSwid.trim();
+  if (!s2 && !swid) return null;
   const s2ok = /^[A-Za-z0-9%+/=]{40,1000}$/.test(s2);
   const swidOk = /^\{?[0-9A-Fa-f-]{36}\}?$/.test(swid);
   if (!s2ok || !swidOk) throw new EspnLeagueError("Those don't look like ESPN cookies. espn_s2 is a long string; SWID looks like {XXXXXXXX-XXXX-...}.", 400);

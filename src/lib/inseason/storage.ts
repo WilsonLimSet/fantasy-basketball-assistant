@@ -4,14 +4,17 @@
  * row-level security), JSON files under .data/ in local development.
  */
 
-import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'fs';
+import { readFileSync, writeFileSync, existsSync, mkdirSync, readdirSync, unlinkSync } from 'fs';
 import { join } from 'path';
 import type { LeagueSnapshot, SnapshotDiff, InjuryHistoryIndex, Watchlist } from '@/types';
 import { SUPABASE_URL } from '@/lib/supabase/env';
 
-interface KV {
+export interface KV {
   get<T>(key: string): Promise<T | null>;
   set<T>(key: string, value: T): Promise<void>;
+  delete(key: string): Promise<void>;
+  /** Values of every key starting with prefix. */
+  list<T>(prefix: string): Promise<T[]>;
 }
 
 // ============ Supabase (production) ============
@@ -34,6 +37,16 @@ function supabaseKV(url: string, secret: string): KV {
       });
       if (!r.ok) throw new Error(`inseason_kv write ${key}: ${r.status} ${await r.text()}`);
     },
+    async delete(key: string) {
+      const r = await fetch(`${rest}?key=eq.${encodeURIComponent(key)}`, { method: 'DELETE', headers });
+      if (!r.ok) throw new Error(`inseason_kv delete ${key}: ${r.status}`);
+    },
+    async list<T>(prefix: string) {
+      const like = encodeURIComponent(`${prefix.replace(/[%_*]/g, '')}*`);
+      const r = await fetch(`${rest}?key=like.${like}&select=value`, { headers, cache: 'no-store' });
+      if (!r.ok) throw new Error(`inseason_kv list ${prefix}: ${r.status}`);
+      return ((await r.json()) as { value: T }[]).map((row) => row.value);
+    },
   };
 }
 
@@ -41,15 +54,27 @@ function supabaseKV(url: string, secret: string): KV {
 
 const DATA_DIR = join(process.cwd(), '.data');
 
+const filePath = (key: string) => join(DATA_DIR, `${key.replace(/[^\w.-]/g, '_')}.json`);
+
 const fileKV: KV = {
   async get<T>(key: string) {
-    const path = join(DATA_DIR, `${key.replace(/[^\w.-]/g, '_')}.json`);
+    const path = filePath(key);
     if (!existsSync(path)) return null;
     try { return JSON.parse(readFileSync(path, 'utf-8')) as T; } catch { return null; }
   },
   async set<T>(key: string, value: T) {
     if (!existsSync(DATA_DIR)) mkdirSync(DATA_DIR, { recursive: true });
-    writeFileSync(join(DATA_DIR, `${key.replace(/[^\w.-]/g, '_')}.json`), JSON.stringify(value), 'utf-8');
+    writeFileSync(filePath(key), JSON.stringify(value), 'utf-8');
+  },
+  async delete(key: string) {
+    if (existsSync(filePath(key))) unlinkSync(filePath(key));
+  },
+  async list<T>(prefix: string) {
+    if (!existsSync(DATA_DIR)) return [];
+    const start = prefix.replace(/[^\w.-]/g, '_');
+    return readdirSync(DATA_DIR)
+      .filter((f) => f.startsWith(start) && f.endsWith('.json'))
+      .map((f) => JSON.parse(readFileSync(join(DATA_DIR, f), 'utf-8')) as T);
   },
 };
 
@@ -67,9 +92,9 @@ export interface StorageAdapter {
   getWatchlist(leagueId: number, seasonId: number): Promise<Watchlist | null>;
 }
 
-const k = (leagueId: number, seasonId: number, name: string) => `${leagueId}:${seasonId}:${name}`;
-
-function adapter(kv: KV): StorageAdapter {
+function adapter(kv: KV, scope: string): StorageAdapter {
+  // The owner's league keeps its original unscoped keys; each user's copy lives under their scope.
+  const k = (leagueId: number, seasonId: number, name: string) => `${scope}${leagueId}:${seasonId}:${name}`;
   return {
     // Only the latest and previous snapshots are ever read, so that's all we keep.
     async storeSnapshot(snapshot) {
@@ -89,8 +114,15 @@ function adapter(kv: KV): StorageAdapter {
 }
 
 /** Supabase when SUPABASE_SECRET_KEY is set (production), local files otherwise. */
-export async function createStorageAdapter(): Promise<StorageAdapter> {
+export function kvStore(): KV {
   const secret = process.env.SUPABASE_SECRET_KEY;
-  if (SUPABASE_URL && secret) return adapter(supabaseKV(SUPABASE_URL, secret));
-  return adapter(fileKV);
+  return SUPABASE_URL && secret ? supabaseKV(SUPABASE_URL, secret) : fileKV;
+}
+
+/**
+ * League data storage. Each user gets their own scope, since a snapshot is built around one team
+ * (two users in the same league see different "my team" views). No scope = the owner's env league.
+ */
+export async function createStorageAdapter(scope = ''): Promise<StorageAdapter> {
+  return adapter(kvStore(), scope ? `${scope}:` : '');
 }

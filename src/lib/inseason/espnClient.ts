@@ -5,6 +5,8 @@
  * SECURITY: Cookies are never logged. All secrets are server-side only.
  */
 
+import { AsyncLocalStorage } from 'node:async_hooks';
+
 import type {
   ESPNLeagueResponse,
   ESPNFreeAgentResponse,
@@ -40,11 +42,12 @@ export const ESPN_VIEWS = {
   positionAgainstOpponent: 'kona_playercard',
 } as const;
 
-interface ESPNClientConfig {
+export interface ESPNClientConfig {
   leagueId: string;
   seasonId: number;
-  espnS2: string;
-  swid: string;
+  /** ESPN login cookies; only needed for private leagues. */
+  espnS2?: string;
+  swid?: string;
 }
 
 interface FetchOptions {
@@ -54,23 +57,33 @@ interface FetchOptions {
   params?: Record<string, string>;
 }
 
+// A user's league for the duration of one call (see withLeague); the owner's env league otherwise.
+const leagueScope = new AsyncLocalStorage<ESPNClientConfig>();
+
+/** Run fn with every ESPN call in it pointed at this league. */
+export function withLeague<T>(config: ESPNClientConfig, fn: () => Promise<T>): Promise<T> {
+  return leagueScope.run(config, fn);
+}
+
 function getConfig(): ESPNClientConfig {
+  const scoped = leagueScope.getStore();
+  if (scoped) return scoped;
+
   const leagueId = process.env.ESPN_LEAGUE_ID;
   const seasonId = parseInt(process.env.ESPN_SEASON || '2026', 10);
-  const espnS2 = process.env.ESPN_S2;
-  const swid = process.env.ESPN_SWID;
-
   if (!leagueId) {
     throw new Error('ESPN_LEAGUE_ID environment variable is required');
   }
-  if (!espnS2) {
-    throw new Error('ESPN_S2 environment variable is required');
-  }
-  if (!swid) {
-    throw new Error('ESPN_SWID environment variable is required');
-  }
+  return { leagueId, seasonId, espnS2: process.env.ESPN_S2, swid: process.env.ESPN_SWID };
+}
 
-  return { leagueId, seasonId, espnS2, swid };
+/** Cookie header for the league's login, if it has one. SECURITY: never logged. */
+function authHeaders(config: ESPNClientConfig): Record<string, string> {
+  return config.espnS2 && config.swid ? { Cookie: `espn_s2=${config.espnS2}; SWID=${config.swid}` } : {};
+}
+
+export class ESPNHttpError extends Error {
+  constructor(public status: number, message: string) { super(message); }
 }
 
 async function sleep(ms: number): Promise<void> {
@@ -99,12 +112,16 @@ async function fetchWithRetry(
 
       if (!response.ok) {
         const text = await response.text().catch(() => 'No response body');
-        throw new Error(`ESPN API error ${response.status}: ${text.substring(0, 200)}`);
+        const err = new ESPNHttpError(response.status, `ESPN API error ${response.status}: ${text.substring(0, 200)}`);
+        // A private league or a bad league id won't fix itself on retry.
+        if (response.status >= 400 && response.status < 500) throw Object.assign(err, { final: true });
+        throw err;
       }
 
       return response;
     } catch (error) {
       lastError = error instanceof Error ? error : new Error(String(error));
+      if ((error as { final?: boolean }).final) throw error;
       if (attempt < retries) {
         console.warn(`ESPN API fetch failed (attempt ${attempt + 1}/${retries + 1}): ${lastError.message}`);
         await sleep(delay);
@@ -149,7 +166,7 @@ async function espnFetch<T>(endpoint: string, options: FetchOptions = {}): Promi
     method: 'GET',
     headers: {
       'Accept': 'application/json',
-      'Cookie': `espn_s2=${config.espnS2}; SWID=${config.swid}`,
+      ...authHeaders(config),
     },
     cache: 'no-store',
   });
@@ -195,7 +212,7 @@ async function espnFetchFreeAgents(options: {
     method: 'GET',
     headers: {
       'Accept': 'application/json',
-      'Cookie': `espn_s2=${config.espnS2}; SWID=${config.swid}`,
+      ...authHeaders(config),
       'x-fantasy-filter': JSON.stringify(filter),
     },
     cache: 'no-store',
@@ -301,6 +318,28 @@ export async function getLeagueTeams(): Promise<ESPNTeam[]> {
   return response.teams || [];
 }
 
+/** League name and teams with their managers, for picking "which team is mine". */
+export async function getLeagueInfo(): Promise<{
+  name: string;
+  teams: Array<{ id: number; name: string; abbrev: string; owners: string[]; managers: string[] }>;
+}> {
+  const response = await espnFetch<ESPNLeagueResponse & {
+    members?: Array<{ id: string; displayName?: string; firstName?: string; lastName?: string }>;
+    settings?: { name?: string };
+  }>('', { views: [ESPN_VIEWS.teams, ESPN_VIEWS.settings] });
+  const members = new Map((response.members ?? []).map((m) => [m.id, m.displayName || `${m.firstName ?? ''} ${m.lastName ?? ''}`.trim()]));
+  return {
+    name: response.settings?.name ?? '',
+    teams: (response.teams ?? []).map((t) => ({
+      id: t.id,
+      name: `${t.name || ''} ${t.nickname || ''}`.trim() || t.abbrev,
+      abbrev: t.abbrev,
+      owners: t.owners ?? [],
+      managers: (t.owners ?? []).map((o) => members.get(o) ?? '').filter(Boolean),
+    })),
+  };
+}
+
 /**
  * Get rosters for all teams
  */
@@ -358,7 +397,7 @@ export async function getNBAProTeamSchedule(): Promise<Array<{
       method: 'GET',
       headers: {
         'Accept': 'application/json',
-        'Cookie': `espn_s2=${config.espnS2}; SWID=${config.swid}`,
+        ...authHeaders(config),
       },
       cache: 'no-store',
     });
@@ -606,10 +645,26 @@ export async function getLeagueSnapshot(): Promise<{
   const [teams, matchups, freeAgents, nbaSchedule, rawTransactions] = await Promise.all([
     getLeagueRosters(scoringPeriodId),
     getMatchups(settings.currentMatchupPeriod),
-    getFreeAgents({ limit: 50, scoringPeriodId }),
+    getFreeAgents({ limit: 100, scoringPeriodId }),
     getNBAProTeamSchedule(),
     getRecentTransactions(),
   ]);
+
+  // Watchlisted players are often deeper than the top free agents, so fetch them by id too.
+  const watchIds = [...new Set(teams.flatMap((t) => t.watchList ?? []))];
+  if (watchIds.length) {
+    try {
+      const watched = await espnFetchFreeAgents({
+        limit: watchIds.length,
+        scoringPeriodId,
+        filter: { filterIds: { value: watchIds } },
+      });
+      const have = new Set(freeAgents.players.map((p) => p.id));
+      freeAgents.players.push(...(watched.players ?? []).filter((p) => !have.has(p.id)));
+    } catch (e) {
+      console.warn('Watchlist player fetch failed:', e instanceof Error ? e.message : e);
+    }
+  }
 
   // Build a player lookup map from rosters and free agents (which have full stats)
   const playerLookup = new Map<number, { name: string; seasonAvg: number; teamAbbrev: string }>();

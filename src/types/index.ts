@@ -70,6 +70,8 @@ export interface FreeAgentEntry {
   gamesNext7?: number;
   recentTrend?: number;
   reasonCodes: string[];
+  /** On waivers (claim clears later) rather than a free agent you can add right away. */
+  onWaivers?: boolean;
 }
 
 // Matchup info
@@ -185,6 +187,12 @@ export interface LeagueSnapshot {
   matchupWeek?: MatchupWeekSchedule;
   /** Starting lineup spots (everything except bench and IR). */
   startingSlots?: number;
+  /** ESPN lineup slot id -> how many the league has. */
+  lineupSlots?: Record<string, number>;
+  /** Pickups allowed this matchup (null = unlimited) and how many my team has used. */
+  acquisitions?: { limit: number | null; used: number };
+  /** Points (H2H_POINTS etc.) or categories league. */
+  scoringType?: string;
 }
 
 export interface MatchupWeekSchedule {

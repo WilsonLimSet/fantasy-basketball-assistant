@@ -4,8 +4,7 @@
  */
 
 import { NextResponse } from 'next/server';
-import { isOwner } from '@/lib/auth';
-import { createStorageAdapter } from '@/lib/inseason/storage';
+import { requireLeague } from '@/lib/inseason/routeContext';
 import { getWaiverRecommendations, getDropRecommendations } from '@/lib/inseason/optimizer';
 import type { WaiverRecommendation, Player } from '@/types';
 
@@ -21,23 +20,16 @@ interface WaiversResponse {
 }
 
 export async function GET(request: Request) {
-  if (!(await isOwner())) return NextResponse.json({ error: 'Sign in as the league owner' }, { status: 401 });
+  const { ctx, error } = await requireLeague();
+  if (error) return error;
   try {
-    const leagueId = parseInt(process.env.ESPN_LEAGUE_ID || '0', 10);
-    const seasonId = parseInt(process.env.ESPN_SEASON || '2026', 10);
-
-    if (!leagueId) {
-      return NextResponse.json(
-        { success: false, error: 'ESPN_LEAGUE_ID not configured' },
-        { status: 500 }
-      );
-    }
+    const { leagueId, seasonId } = ctx;
 
     // Parse query params
     const url = new URL(request.url);
     const limit = parseInt(url.searchParams.get('limit') || '10', 10);
 
-    const storage = await createStorageAdapter();
+    const { storage } = ctx;
 
     // Get latest snapshot
     const snapshot = await storage.getLatestSnapshot(leagueId, seasonId);

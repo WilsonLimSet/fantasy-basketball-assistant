@@ -1,176 +1,123 @@
 /**
  * API Route: /api/inseason/refresh
- * Fetches latest ESPN data, computes diff, stores snapshot, sends alerts
- * Used by Vercel Cron (every 6 hours) and manual refresh
+ *  GET  (Vercel Cron, with CRON_SECRET) -> refresh the owner's env league (Telegram alerts) and every
+ *       connected league; the morning run also sends each user's daily move email.
+ *  POST (signed-in user)                -> refresh that user's league now (at most every 5 minutes).
  */
 
 import { NextResponse } from 'next/server';
-import { getLeagueSnapshot } from '@/lib/inseason/espnClient';
-import { buildLeagueSnapshot, calculateSnapshotDiff } from '@/lib/inseason/dataTransform';
-import { createStorageAdapter } from '@/lib/inseason/storage';
+import { createHash } from 'node:crypto';
+import { currentAccount } from '@/lib/auth';
 import { sendSmartAlerts } from '@/lib/inseason/telegram';
-import { updateInjuryHistory } from '@/lib/inseason/injuryTracker';
 import { generateSmartAlerts, hasActionableAlerts } from '@/lib/inseason/smartAlerts';
-import type { SnapshotDiff, LeagueTransaction } from '@/types';
+import { refreshLeague } from '@/lib/inseason/refreshLeague';
+import { getProfile, listProfiles, ownerContext, profileContext, saveProfile, type InseasonProfile } from '@/lib/inseason/profile';
+import { requireLeague } from '@/lib/inseason/routeContext';
+import { buildStreamingPlan } from '@/lib/inseason/streaming';
+import { compareMatchupGames } from '@/lib/inseason/matchupGames';
+import { dailyEmail, EMAIL_ON, sendEmail } from '@/lib/inseason/email';
+import type { LeagueSnapshot } from '@/types';
 
 export const dynamic = 'force-dynamic';
-export const maxDuration = 60; // Allow up to 60 seconds for this route
+export const maxDuration = 300;
 
-interface RefreshResult {
-  success: boolean;
-  fetchedAt: number;
-  leagueId: number;
-  week: number;
-  diff: SnapshotDiff | null;
-  alertSent: boolean;
-  error?: string;
+/** The cron's morning run (UTC hour) sends the daily emails: 11:00 UTC is 7am in New York. */
+const EMAIL_HOUR_UTC = 11;
+const USER_REFRESH_GAP_MS = 5 * 60 * 1000;
+
+async function refreshOwnerLeague() {
+  const ctx = await ownerContext('owner');
+  if (!ctx) return null;
+  const { snapshot, diff, watchlist, transactions } = await refreshLeague(ctx);
+  const alerts = generateSmartAlerts(snapshot, diff, watchlist, transactions);
+  let alertSent = false;
+  try {
+    if (hasActionableAlerts(alerts)) alertSent = await sendSmartAlerts(alerts, snapshot.week);
+  } catch (e) {
+    console.error('[Refresh] Telegram failed:', e);
+  }
+  return { leagueId: snapshot.leagueId, week: snapshot.week, alertSent };
+}
+
+/** Email today's moves, unless the same advice already went out today. */
+async function emailMoves(profile: InseasonProfile, snapshot: LeagueSnapshot, watchIds: number[]): Promise<boolean> {
+  const plan = buildStreamingPlan(snapshot, profile.core, watchIds);
+  if (!plan) return false;
+  const date = new Date().toISOString().slice(0, 10);
+  const key = createHash('sha256')
+    .update(JSON.stringify(plan.moves.map((m) => [m.add.id, m.drop.id])))
+    .digest('hex')
+    .slice(0, 12);
+  if (profile.lastAlert?.date === date) return false;
+  // No moves and nothing new on the watchlist: don't email just to say so.
+  if (!plan.moves.length && !plan.watchlist.some((w) => w.bestMove)) return false;
+  const msg = dailyEmail({
+    teamName: profile.teamName ?? 'Your team',
+    leagueId: profile.leagueId,
+    teamId: profile.teamId,
+    plan,
+    matchup: compareMatchupGames(snapshot),
+  });
+  const sent = await sendEmail(profile.email, msg);
+  if (sent) await saveProfile({ ...profile, lastAlert: { date, key } });
+  return sent;
 }
 
 export async function GET(request: Request) {
-  const startTime = Date.now();
+  const cronSecret = process.env.CRON_SECRET;
+  if (!cronSecret || request.headers.get('authorization') !== `Bearer ${cronSecret}`) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+  const started = Date.now();
+  const sendEmails = EMAIL_ON && (new Date().getUTCHours() === EMAIL_HOUR_UTC || new URL(request.url).searchParams.get('emails') === '1');
 
+  let owner = null;
   try {
-    // Only Vercel Cron (which sends CRON_SECRET) may trigger a refresh: it calls ESPN with the
-    // server's league cookies and can send Telegram alerts.
-    const authHeader = request.headers.get('authorization');
-    const cronSecret = process.env.CRON_SECRET;
-    if (!cronSecret || authHeader !== `Bearer ${cronSecret}`) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
+    owner = await refreshOwnerLeague();
+  } catch (e) {
+    console.error('[Refresh] owner league failed:', e);
+  }
 
-    // Get league configuration
-    const leagueId = parseInt(process.env.ESPN_LEAGUE_ID || '0', 10);
-    const seasonId = parseInt(process.env.ESPN_SEASON || '2026', 10);
-
-    if (!leagueId) {
-      return NextResponse.json(
-        { error: 'ESPN_LEAGUE_ID not configured' },
-        { status: 500 }
-      );
-    }
-
-    // Determine my team ID (from env or first team as fallback)
-    const myTeamId = parseInt(process.env.ESPN_MY_TEAM_ID || '1', 10);
-
-    console.log(`[Refresh] Starting refresh for league ${leagueId}, season ${seasonId}`);
-
-    // Fetch latest data from ESPN (includes NBA schedule)
-    const espnData = await getLeagueSnapshot();
-    console.log(`[Refresh] ESPN data fetched in ${Date.now() - startTime}ms`);
-    console.log(`[Refresh] NBA schedule: ${espnData.nbaSchedule?.length || 0} teams`);
-
-    // Build normalized snapshot with real schedule data
-    const snapshot = buildLeagueSnapshot({
-      settings: espnData.settings,
-      teams: espnData.teams,
-      matchups: espnData.matchups,
-      freeAgents: espnData.freeAgents,
-      nbaSchedule: espnData.nbaSchedule,
-      myTeamId,
-    });
-
-    // Get storage adapter
-    const storage = await createStorageAdapter();
-
-    // Get previous snapshot for diff
-    const previousSnapshot = await storage.getLatestSnapshot(leagueId, seasonId);
-
-    // Calculate diff
-    const diff = calculateSnapshotDiff(previousSnapshot, snapshot);
-
-    // Store new snapshot
-    await storage.storeSnapshot(snapshot);
-    await storage.storeLastDiff(leagueId, seasonId, diff);
-
-    // Update injury history tracking
-    const previousInjuryHistory = await storage.getInjuryHistory(leagueId, seasonId);
-    const updatedInjuryHistory = updateInjuryHistory(snapshot, previousInjuryHistory);
-    await storage.storeInjuryHistory(leagueId, seasonId, updatedInjuryHistory);
-
-    const injuredCount = Object.values(updatedInjuryHistory).filter(h => h.currentlyInjured).length;
-    console.log(`[Refresh] Injury history updated. ${injuredCount} players currently injured`);
-
-    console.log(`[Refresh] Snapshot stored. Significant changes: ${diff.significantChanges}`);
-
-    // Get ESPN watchlist from the team data (synced automatically!)
-    const myEspnTeam = espnData.teams.find(t => t.id === myTeamId);
-    const espnWatchlistIds = myEspnTeam?.watchList || [];
-    const watchlist = espnWatchlistIds.length > 0
-      ? { playerIds: espnWatchlistIds, lastUpdated: Date.now() }
-      : null;
-
-    console.log(`[Refresh] ESPN Watchlist: ${espnWatchlistIds.length} players`);
-
-    // Convert recent transactions to the expected format (now enriched with player info)
-    const leagueTransactions: LeagueTransaction[] = (espnData.recentTransactions || []).map(tx => ({
-      teamId: tx.teamId,
-      type: tx.type,
-      playerId: tx.playerId,
-      playerName: tx.playerName,
-      playerSeasonAvg: tx.playerSeasonAvg,
-      playerTeamAbbrev: tx.playerTeamAbbrev,
-      timestamp: tx.timestamp,
-    }));
-
-    console.log(`[Refresh] Recent transactions: ${leagueTransactions.length}`);
-
-    const smartAlerts = generateSmartAlerts(snapshot, diff, watchlist, leagueTransactions);
-
-    console.log(`[Refresh] Generated ${smartAlerts.length} smart alerts`);
-
-    // Log alert details for debugging (useful when Telegram is down)
-    for (const alert of smartAlerts) {
-      console.log(`[Alert] ${alert.priority} - ${alert.title}: ${alert.details}`)
-    }
-
-    // Send Telegram alerts only if there are actionable ones
-    let alertSent = false;
-    try {
-      if (hasActionableAlerts(smartAlerts)) {
-        alertSent = await sendSmartAlerts(smartAlerts, snapshot.week);
-        console.log(`[Refresh] Smart alerts sent: ${alertSent}`);
-      }
-    } catch (alertError) {
-      console.error('[Refresh] Failed to send alert:', alertError);
-    }
-
-    const result: RefreshResult = {
-      success: true,
-      fetchedAt: snapshot.fetchedAt,
-      leagueId: snapshot.leagueId,
-      week: snapshot.week,
-      diff,
-      alertSent,
-    };
-
-    console.log(`[Refresh] Complete in ${Date.now() - startTime}ms`);
-
-    return NextResponse.json(result);
-  } catch (error) {
-    console.error('[Refresh] Error:', error);
-
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-
-    return NextResponse.json(
-      {
-        success: false,
-        error: errorMessage,
-        fetchedAt: Date.now(),
-        leagueId: 0,
-        week: 0,
-        diff: null,
-        alertSent: false,
-      } satisfies RefreshResult,
-      { status: 500 }
+  const profiles = await listProfiles();
+  let refreshed = 0, failed = 0, emailed = 0;
+  // A few at a time keeps ESPN happy and stays well inside the function's time limit.
+  for (let i = 0; i < profiles.length; i += 5) {
+    await Promise.all(
+      profiles.slice(i, i + 5).map(async (profile) => {
+        try {
+          const ctx = await profileContext(profile);
+          const { snapshot, watchlist } = await refreshLeague(ctx);
+          refreshed++;
+          const fresh = { ...profile, lastRefreshAt: Date.now() };
+          await saveProfile(fresh);
+          if (sendEmails && profile.alerts.email && (await emailMoves(fresh, snapshot, watchlist?.playerIds ?? []))) emailed++;
+        } catch (e) {
+          failed++;
+          console.error(`[Refresh] league ${profile.leagueId} failed:`, e instanceof Error ? e.message : e);
+        }
+      })
     );
   }
+
+  console.log(`[Refresh] ${refreshed} leagues, ${failed} failed, ${emailed} emails, ${Date.now() - started}ms`);
+  return NextResponse.json({ success: true, owner, refreshed, failed, emailed });
 }
 
-// POST also supported for manual refresh
-export async function POST(request: Request) {
-  // Add manual refresh header
-  const headers = new Headers(request.headers);
-  headers.set('x-manual-refresh', 'true');
-
-  return GET(new Request(request.url, { headers }));
+export async function POST() {
+  const account = await currentAccount();
+  if (!account) return NextResponse.json({ success: false, error: 'Sign in first.' }, { status: 401 });
+  const { ctx, error } = await requireLeague();
+  if (error) return error;
+  const profile = ctx.profile ? await getProfile(account.email) : null;
+  if (profile?.lastRefreshAt && Date.now() - profile.lastRefreshAt < USER_REFRESH_GAP_MS) {
+    return NextResponse.json({ success: true, skipped: true });
+  }
+  try {
+    const { snapshot } = await refreshLeague(ctx);
+    if (profile) await saveProfile({ ...profile, lastRefreshAt: Date.now() });
+    return NextResponse.json({ success: true, fetchedAt: snapshot.fetchedAt });
+  } catch (e) {
+    console.error('[Refresh] manual refresh failed:', e);
+    return NextResponse.json({ success: false, error: 'Could not reach ESPN. Try again in a minute.' }, { status: 502 });
+  }
 }

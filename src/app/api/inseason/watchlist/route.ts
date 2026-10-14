@@ -4,8 +4,7 @@
  */
 
 import { NextResponse } from 'next/server';
-import { isOwner } from '@/lib/auth';
-import { createStorageAdapter } from '@/lib/inseason/storage';
+import { requireLeague } from '@/lib/inseason/routeContext';
 import type { Watchlist } from '@/types';
 
 export const dynamic = 'force-dynamic';
@@ -18,19 +17,12 @@ interface WatchlistResponse {
 
 // GET - Get current watchlist
 export async function GET() {
-  if (!(await isOwner())) return NextResponse.json({ error: 'Sign in as the league owner' }, { status: 401 });
+  const { ctx, error } = await requireLeague();
+  if (error) return error;
   try {
-    const leagueId = parseInt(process.env.ESPN_LEAGUE_ID || '0', 10);
-    const seasonId = parseInt(process.env.ESPN_SEASON || '2026', 10);
+    const { leagueId, seasonId } = ctx;
 
-    if (!leagueId) {
-      return NextResponse.json(
-        { success: false, error: 'ESPN_LEAGUE_ID not configured' },
-        { status: 500 }
-      );
-    }
-
-    const storage = await createStorageAdapter();
+    const { storage } = ctx;
     const watchlist = await storage.getWatchlist(leagueId, seasonId);
 
     return NextResponse.json({
@@ -51,17 +43,10 @@ export async function GET() {
 
 // POST - Add player to watchlist
 export async function POST(request: Request) {
-  if (!(await isOwner())) return NextResponse.json({ error: 'Sign in as the league owner' }, { status: 401 });
+  const { ctx, error } = await requireLeague();
+  if (error) return error;
   try {
-    const leagueId = parseInt(process.env.ESPN_LEAGUE_ID || '0', 10);
-    const seasonId = parseInt(process.env.ESPN_SEASON || '2026', 10);
-
-    if (!leagueId) {
-      return NextResponse.json(
-        { success: false, error: 'ESPN_LEAGUE_ID not configured' },
-        { status: 500 }
-      );
-    }
+    const { leagueId, seasonId } = ctx;
 
     const body = await request.json();
     const { playerId } = body;
@@ -73,7 +58,7 @@ export async function POST(request: Request) {
       );
     }
 
-    const storage = await createStorageAdapter();
+    const { storage } = ctx;
     const existing = await storage.getWatchlist(leagueId, seasonId);
     const watchlist: Watchlist = existing || { playerIds: [], lastUpdated: Date.now() };
 
@@ -99,17 +84,10 @@ export async function POST(request: Request) {
 
 // DELETE - Remove player from watchlist
 export async function DELETE(request: Request) {
-  if (!(await isOwner())) return NextResponse.json({ error: 'Sign in as the league owner' }, { status: 401 });
+  const { ctx, error } = await requireLeague();
+  if (error) return error;
   try {
-    const leagueId = parseInt(process.env.ESPN_LEAGUE_ID || '0', 10);
-    const seasonId = parseInt(process.env.ESPN_SEASON || '2026', 10);
-
-    if (!leagueId) {
-      return NextResponse.json(
-        { success: false, error: 'ESPN_LEAGUE_ID not configured' },
-        { status: 500 }
-      );
-    }
+    const { leagueId, seasonId } = ctx;
 
     const url = new URL(request.url);
     const playerId = parseInt(url.searchParams.get('playerId') || '0', 10);
@@ -121,7 +99,7 @@ export async function DELETE(request: Request) {
       );
     }
 
-    const storage = await createStorageAdapter();
+    const { storage } = ctx;
     const existing = await storage.getWatchlist(leagueId, seasonId);
 
     if (!existing) {

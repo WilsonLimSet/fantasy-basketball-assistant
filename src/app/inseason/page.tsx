@@ -2,6 +2,8 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import type { DailyBriefing, StatusChange, WaiverRecommendation, InjuryOpportunity } from '@/types';
+import { MovesPanel, type MovesResponse } from './MovesPanel';
+import { Gate, useMe } from './useMe';
 
 interface BriefingResponse {
   success: boolean;
@@ -165,10 +167,16 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [moves, setMoves] = useState<MovesResponse | null>(null);
+  const { me } = useMe();
 
   const fetchBriefing = useCallback(async () => {
     try {
-      const res = await fetch('/api/inseason/briefing');
+      const [movesData, res] = await Promise.all([
+        fetch('/api/inseason/moves').then((r) => r.json()).catch(() => null),
+        fetch('/api/inseason/briefing'),
+      ]);
+      setMoves(movesData);
       const data: BriefingResponse = await res.json();
 
       if (data.success && data.briefing) {
@@ -216,6 +224,11 @@ export default function DashboardPage() {
     );
   }
 
+  const needs = moves?.needs;
+  if (needs === 'signin' || needs === 'pro' || needs === 'connect') {
+    return <Gate needs={needs} me={me} />;
+  }
+
   if (error && !briefing) {
     return (
       <div>
@@ -258,6 +271,8 @@ export default function DashboardPage() {
           {error}
         </div>
       )}
+
+      {moves?.success && <MovesPanel data={moves} />}
 
       {/* Stats Overview */}
       <div className="card">

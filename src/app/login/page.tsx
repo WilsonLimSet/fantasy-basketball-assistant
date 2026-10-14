@@ -7,7 +7,12 @@ import { LogoMark } from "@/components/Logo";
 import { supabaseBrowser } from "@/lib/supabase/browser";
 import { AUTH_ON } from "@/lib/supabase/env";
 
-const callback = () => `${location.origin}/auth/callback?next=/draft`;
+/** Back to where sign-in started (?next=/inseason), checked again by the callback. */
+const callback = () => {
+  const next = new URLSearchParams(location.search).get("next");
+  const dest = next && next.startsWith("/") && !next.startsWith("//") ? next : "/draft";
+  return `${location.origin}/auth/callback?next=${encodeURIComponent(dest)}`;
+};
 
 /** Sign in with Google or a one-time email link. No passwords. */
 export default function Login() {

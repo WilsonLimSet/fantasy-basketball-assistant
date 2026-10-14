@@ -134,6 +134,9 @@ export default function App() {
                 {t.label}
               </button>
             ))}
+            <Link href="/inseason" className="whitespace-nowrap rounded-full px-3 py-1 text-sm text-muted hover:text-fg">
+              In-season
+            </Link>
           </nav>
           <div className="ml-auto flex items-center gap-3 text-xs text-muted">
             <span>
