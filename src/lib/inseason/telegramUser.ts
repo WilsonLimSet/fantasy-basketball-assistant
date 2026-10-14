@@ -9,7 +9,9 @@ import type { MatchupGamesComparison } from '@/types';
 import type { StreamingPlan } from './streaming';
 import { espnAddUrl } from './email';
 import { kvStore } from './storage';
-import { getProfile, saveProfile } from './profile';
+import { getProfile, profileContext, saveProfile } from './profile';
+import { buildStreamingPlan } from './streaming';
+import { compareMatchupGames } from './matchupGames';
 import { createHash } from 'node:crypto';
 
 const API = 'https://api.telegram.org';
@@ -75,13 +77,39 @@ export async function completeLink(code: string, chat: { id: number; username?: 
   });
   await kv.delete(linkKey(code));
   const team = profile.teamName ?? 'your team';
-  await sendTelegramTo(chat.id, `You're connected. Each morning we'll send <b>${esc(team)}</b>'s best add/drops here, only when there's a move worth making.`);
+  await sendTelegramTo(
+    chat.id,
+    `You're connected. Each morning we'll send <b>${esc(team)}</b>'s best add/drops here, only when there's a move worth making.\n\nSend /moves any time for this week's moves, or /stop to pause.`
+  );
+  // Show them what they signed up for right away.
+  const moves = await movesMessage(pending.email);
+  if (moves) await sendTelegramTo(chat.id, moves);
   return team;
+}
+
+/** This week's moves for an account, as a Telegram message (null if the league isn't loaded yet). */
+export async function movesMessage(email: string): Promise<string | null> {
+  const profile = await getProfile(email);
+  if (!profile) return null;
+  const ctx = await profileContext(profile);
+  const snapshot = await ctx.storage.getLatestSnapshot(ctx.leagueId, ctx.seasonId);
+  if (!snapshot) return null;
+  const watch = await ctx.storage.getWatchlist(ctx.leagueId, ctx.seasonId);
+  const plan = buildStreamingPlan(snapshot, profile.core, watch?.playerIds ?? []);
+  if (!plan) return null;
+  return dailyTelegram({
+    teamName: profile.teamName ?? 'Your team',
+    leagueId: profile.leagueId,
+    teamId: profile.teamId,
+    plan,
+    matchup: compareMatchupGames(snapshot),
+  });
 }
 
 /** Pull a link code out of a message: the deep link's "/start CODE", or the code typed on its own. */
 export function codeFrom(text: string | undefined): string | null {
-  return text?.trim().match(/^(?:\/start\s+)?([A-Za-z0-9_-]{6,64})$/)?.[1] ?? null;
+  // Codes are 8 letters/digits (see telegram-link); accept them typed in lowercase too.
+  return text?.trim().match(/^(?:\/start\s+)?([A-Za-z0-9]{8})$/)?.[1]?.toUpperCase() ?? null;
 }
 
 /** Remember a pending link code so its /start can be matched later (30 minutes). */
