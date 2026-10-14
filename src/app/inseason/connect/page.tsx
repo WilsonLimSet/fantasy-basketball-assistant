@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { Headshot, InjuryBadge } from '@/components/ui';
-import { ErrorBox, Gate, Loading, Panel, useMeContext } from '../useMe';
+import { ErrorBox, Gate, Loading, Panel, useMeContext, type Me, type MeProfile } from '../useMe';
 
 interface LookupTeam { id: number; name: string; abbrev: string; managers: string[] }
 interface RosterPlayer { id: number; name: string; nbaTeamAbbrev?: string; positions: string[]; status: string; fppg: number; injuredReserve: boolean }
@@ -155,21 +155,81 @@ function CorePicker({ core: savedCore }: { core: number[] }) {
   );
 }
 
-function Alerts({ on, available }: { on: boolean; available: boolean }) {
-  const [email, setEmail] = useState(on);
-  const set = async (v: boolean) => {
-    setEmail(v);
-    await post('PATCH', { alerts: { email: v } });
+function Alerts({ profile, me, reload }: { profile: MeProfile; me: Me; reload: () => Promise<void> }) {
+  const [email, setEmail] = useState(profile.alerts.email);
+  const [telegram, setTelegram] = useState(!!profile.alerts.telegram);
+  const [linking, setLinking] = useState<'idle' | 'ready' | 'waiting' | 'expired'>('idle');
+  const [linkUrl, setLinkUrl] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  const setChannel = async (channel: 'email' | 'telegram', v: boolean) => {
+    if (channel === 'email') setEmail(v); else setTelegram(v);
+    await post('PATCH', { alerts: { [channel]: v } });
   };
+
+  // After they open Telegram, check every few seconds for their /start (for up to 3 minutes).
+  useEffect(() => {
+    if (linking !== 'waiting') return;
+    let tries = 0;
+    const t = setInterval(async () => {
+      tries++;
+      const j = await post('POST', { action: 'telegram-check' });
+      if (j.linked) { clearInterval(t); setLinking('idle'); setTelegram(true); await reload(); }
+      else if (!j.success || tries > 60) { clearInterval(t); setLinking('expired'); }
+    }, 3000);
+    return () => clearInterval(t);
+  }, [linking, reload]);
+
+  const startLink = async () => {
+    setError(null);
+    const j = await post('POST', { action: 'telegram-link' });
+    if (!j.success) { setError(j.error); return; }
+    setLinkUrl(j.url);
+    setLinking('ready');
+  };
+  const unlink = async () => {
+    await post('POST', { action: 'telegram-unlink' });
+    setTelegram(false);
+    await reload();
+  };
+
   return (
-    <Panel title="Morning email">
-      <label className="flex cursor-pointer items-start gap-2.5 text-sm">
-        <input type="checkbox" className="mt-0.5" checked={email} onChange={(e) => set(e.target.checked)} />
-        <span>
-          Email me the day’s best add/drops around 7am New York time, only when there’s a move worth making.
-          {!available && <span className="block text-xs text-muted">Emails start once sending is switched on.</span>}
-        </span>
-      </label>
+    <Panel title="Daily alerts" sub="Around 7am New York time, only when there’s a move worth making. Pick one or both.">
+      <ul className="-my-1 text-sm">
+        <li className="flex items-start gap-2.5 py-2">
+          <input type="checkbox" className="mt-0.5" checked={email} onChange={(e) => setChannel('email', e.target.checked)} id="al-email" />
+          <label htmlFor="al-email" className="flex-1 cursor-pointer">
+            Email <span className="text-muted">to {me.email}</span>
+            {!me.emailAlerts && <span className="block text-xs text-muted">Email sending isn’t switched on yet.</span>}
+          </label>
+        </li>
+        <li className="flex items-start gap-2.5 border-t border-line py-2">
+          <input type="checkbox" className="mt-0.5" checked={telegram} disabled={!profile.telegram} onChange={(e) => setChannel('telegram', e.target.checked)} id="al-tg" />
+          <div className="flex-1">
+            <label htmlFor="al-tg" className={profile.telegram ? 'cursor-pointer' : ''}>
+              Telegram{' '}
+              {profile.telegram && <span className="text-muted">as {profile.telegram.username ? `@${profile.telegram.username}` : 'your account'}</span>}
+            </label>
+            {!me.telegramBot ? (
+              <span className="block text-xs text-muted">Telegram alerts aren’t switched on yet.</span>
+            ) : profile.telegram ? (
+              <button onClick={unlink} className="ml-2 text-xs text-muted underline hover:text-fg">Unlink</button>
+            ) : linking === 'ready' && linkUrl ? (
+              <div className="mt-1.5">
+                <a href={linkUrl} target="_blank" rel="noopener noreferrer" onClick={() => setLinking('waiting')} className="btn-accent">Open Telegram</a>
+              </div>
+            ) : linking === 'waiting' ? (
+              <span className="block text-xs text-muted">Press <b>Start</b> in Telegram. This updates by itself once you do…</span>
+            ) : (
+              <div className="mt-1.5">
+                <button onClick={startLink} className="btn-ghost">Connect Telegram</button>
+                {linking === 'expired' && <span className="ml-2 text-xs text-muted">Didn’t see your Start. Try again.</span>}
+              </div>
+            )}
+            {error && <span className="block text-xs text-red-700">{error}</span>}
+          </div>
+        </li>
+      </ul>
     </Panel>
   );
 }
@@ -216,7 +276,7 @@ export default function MyLeaguePage() {
         <p className="text-sm text-muted">Signed in as {me.email}. We refresh your league twice a day; hit Refresh on This week for the latest.</p>
       </Panel>
       {me.pro ? <CorePicker key={`${profile.leagueId}-${profile.teamId}`} core={profile.core} /> : <Gate needs="pro" />}
-      <Alerts on={profile.alerts.email} available={!!me.emailAlerts} />
+      <Alerts profile={profile} me={me} reload={reload} />
     </div>
   );
 }

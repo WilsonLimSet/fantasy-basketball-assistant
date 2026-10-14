@@ -1,7 +1,7 @@
 /**
  * API Route: /api/inseason/refresh
  *  GET  (Vercel Cron, with CRON_SECRET) -> refresh the owner's env league (Telegram alerts) and every
- *       connected league; the morning run also sends each user's daily move email.
+ *       connected league; the morning run also sends each user's daily moves by email and/or Telegram.
  *  POST (signed-in user)                -> refresh that user's league now (at most every 5 minutes).
  */
 
@@ -16,12 +16,13 @@ import { requireLeague } from '@/lib/inseason/routeContext';
 import { buildStreamingPlan } from '@/lib/inseason/streaming';
 import { compareMatchupGames } from '@/lib/inseason/matchupGames';
 import { dailyEmail, EMAIL_ON, sendEmail } from '@/lib/inseason/email';
+import { dailyTelegram, sendTelegramTo, TELEGRAM_ON } from '@/lib/inseason/telegramUser';
 import type { LeagueSnapshot } from '@/types';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 300;
 
-/** The cron's morning run (UTC hour) sends the daily emails: 11:00 UTC is 7am in New York. */
+/** The cron's morning run (UTC hour) sends the daily alerts: 11:00 UTC is 7am in New York. */
 const EMAIL_HOUR_UTC = 11;
 const USER_REFRESH_GAP_MS = 5 * 60 * 1000;
 
@@ -39,28 +40,32 @@ async function refreshOwnerLeague() {
   return { leagueId: snapshot.leagueId, week: snapshot.week, alertSent };
 }
 
-/** Email today's moves, unless the same advice already went out today. */
-async function emailMoves(profile: InseasonProfile, snapshot: LeagueSnapshot, watchIds: number[]): Promise<boolean> {
-  const plan = buildStreamingPlan(snapshot, profile.core, watchIds);
-  if (!plan) return false;
+/** Send today's moves to the user's channels (email, Telegram), at most once a day. */
+async function sendMoves(profile: InseasonProfile, snapshot: LeagueSnapshot, watchIds: number[]): Promise<{ email: boolean; telegram: boolean }> {
+  const none = { email: false, telegram: false };
   const date = new Date().toISOString().slice(0, 10);
-  const key = createHash('sha256')
-    .update(JSON.stringify(plan.moves.map((m) => [m.add.id, m.drop.id])))
-    .digest('hex')
-    .slice(0, 12);
-  if (profile.lastAlert?.date === date) return false;
-  // No moves and nothing new on the watchlist: don't email just to say so.
-  if (!plan.moves.length && !plan.watchlist.some((w) => w.bestMove)) return false;
-  const msg = dailyEmail({
+  if (profile.lastAlert?.date === date) return none;
+  const plan = buildStreamingPlan(snapshot, profile.core, watchIds);
+  if (!plan) return none;
+  // No moves and nothing on the watchlist worth a move: don't message just to say so.
+  if (!plan.moves.length && !plan.watchlist.some((w) => w.bestMove)) return none;
+
+  const opts = {
     teamName: profile.teamName ?? 'Your team',
     leagueId: profile.leagueId,
     teamId: profile.teamId,
     plan,
     matchup: compareMatchupGames(snapshot),
-  });
-  const sent = await sendEmail(profile.email, msg);
-  if (sent) await saveProfile({ ...profile, lastAlert: { date, key } });
-  return sent;
+  };
+  const [email, telegram] = await Promise.all([
+    EMAIL_ON && profile.alerts.email ? sendEmail(profile.email, dailyEmail(opts)) : false,
+    TELEGRAM_ON && profile.alerts.telegram && profile.telegram ? sendTelegramTo(profile.telegram.chatId, dailyTelegram(opts)) : false,
+  ]);
+  if (email || telegram) {
+    const key = createHash('sha256').update(JSON.stringify(plan.moves.map((m) => [m.add.id, m.drop.id]))).digest('hex').slice(0, 12);
+    await saveProfile({ ...profile, lastAlert: { date, key } });
+  }
+  return { email, telegram };
 }
 
 export async function GET(request: Request) {
@@ -69,7 +74,7 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
   const started = Date.now();
-  const sendEmails = EMAIL_ON && (new Date().getUTCHours() === EMAIL_HOUR_UTC || new URL(request.url).searchParams.get('emails') === '1');
+  const sendAlerts = (EMAIL_ON || TELEGRAM_ON) && (new Date().getUTCHours() === EMAIL_HOUR_UTC || new URL(request.url).searchParams.get('alerts') === '1');
 
   let owner = null;
   try {
@@ -79,7 +84,7 @@ export async function GET(request: Request) {
   }
 
   const profiles = await listProfiles();
-  let refreshed = 0, failed = 0, emailed = 0;
+  let refreshed = 0, failed = 0, emailed = 0, telegrammed = 0;
   // A few at a time keeps ESPN happy and stays well inside the function's time limit.
   for (let i = 0; i < profiles.length; i += 5) {
     await Promise.all(
@@ -90,7 +95,11 @@ export async function GET(request: Request) {
           refreshed++;
           const fresh = { ...profile, lastRefreshAt: Date.now() };
           await saveProfile(fresh);
-          if (sendEmails && profile.alerts.email && (await emailMoves(fresh, snapshot, watchlist?.playerIds ?? []))) emailed++;
+          if (sendAlerts) {
+            const sent = await sendMoves(fresh, snapshot, watchlist?.playerIds ?? []);
+            if (sent.email) emailed++;
+            if (sent.telegram) telegrammed++;
+          }
         } catch (e) {
           failed++;
           console.error(`[Refresh] league ${profile.leagueId} failed:`, e instanceof Error ? e.message : e);
@@ -99,8 +108,8 @@ export async function GET(request: Request) {
     );
   }
 
-  console.log(`[Refresh] ${refreshed} leagues, ${failed} failed, ${emailed} emails, ${Date.now() - started}ms`);
-  return NextResponse.json({ success: true, owner, refreshed, failed, emailed });
+  console.log(`[Refresh] ${refreshed} leagues, ${failed} failed, ${emailed} emails, ${telegrammed} telegrams, ${Date.now() - started}ms`);
+  return NextResponse.json({ success: true, owner, refreshed, failed, emailed, telegrammed });
 }
 
 export async function POST() {

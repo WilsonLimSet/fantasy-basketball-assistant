@@ -22,7 +22,12 @@ export interface InseasonProfile {
   auth?: string;
   /** Players the user always keeps; the add/drop engine never drops them. */
   core: number[];
-  alerts: { email: boolean };
+  /** Which channels get the daily moves. */
+  alerts: { email: boolean; telegram?: boolean };
+  /** The user's Telegram chat with our bot, once linked. */
+  telegram?: { chatId: number; username?: string; linkedAt: number };
+  /** One-time code for the t.me/<bot>?start=<code> link while they're linking. */
+  telegramLink?: { code: string; expires: number };
   createdAt: number;
   updatedAt: number;
   lastRefreshAt?: number;
