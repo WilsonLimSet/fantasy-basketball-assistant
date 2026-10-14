@@ -1,13 +1,14 @@
 /**
  * Telegram alerts for each user, through one bot (TELEGRAM_BOT_TOKEN).
  * Linking: the user opens t.me/<bot>?start=<code> and presses Start; we find that /start message
- * with getUpdates and save their chat id. No webhook to set up. (getUpdates stops working if a
- * webhook is ever set on the bot, so don't set one.)
+ * with getUpdates (marking updates read as we go) and save their chat id. No webhook to set up.
+ * (getUpdates stops working if a webhook is ever set on the bot, so don't set one.)
  */
 
 import type { MatchupGamesComparison } from '@/types';
 import type { StreamingPlan } from './streaming';
 import { espnAddUrl } from './email';
+import { kvStore } from './storage';
 
 const API = 'https://api.telegram.org';
 const SITE = process.env.NEXT_PUBLIC_SITE_URL || 'https://takeoverfantasy.com';
@@ -43,17 +44,56 @@ export async function botUsername(): Promise<string | null> {
   return botName;
 }
 
-/** The chat that sent "/start <code>" in the last day, if any. */
-export async function findStartChat(code: string): Promise<{ chatId: number; username?: string } | null> {
-  const updates = (await call('getUpdates', { allowed_updates: ['message'], limit: 100 })) as Array<{
-    message?: { text?: string; chat?: { id: number; username?: string; first_name?: string } };
-  }>;
-  for (const u of updates.reverse()) {
-    if (u.message?.text?.trim() === `/start ${code}` && u.message.chat) {
-      return { chatId: u.message.chat.id, username: u.message.chat.username ?? u.message.chat.first_name };
+const linkKey = (code: string) => `tglink:${code}`;
+const startKey = (code: string) => `tgstart:${code}`;
+const OFFSET_KEY = 'tg:offset';
+const PAGES = 10;
+
+/** Remember a pending link code so its /start can be matched later (30 minutes). */
+export async function rememberLinkCode(code: string, email: string) {
+  await kvStore().set(linkKey(code), { email, expires: Date.now() + 30 * 60 * 1000 });
+}
+
+/**
+ * Read every pending update, keep the /start messages that match a pending link code, and mark
+ * them all read (offset). Telegram only hands out 100 updates at a time and keeps unread ones, so
+ * without confirming, a pile of messages to the bot would hide new /starts and break linking.
+ */
+async function drainStarts(): Promise<void> {
+  const kv = kvStore();
+  let offset = (await kv.get<number>(OFFSET_KEY)) ?? 0;
+  for (let page = 0; page < PAGES; page++) {
+    const updates = (await call('getUpdates', { offset, limit: 100, timeout: 0, allowed_updates: ['message'] })) as Array<{
+      update_id: number;
+      message?: { text?: string; chat?: { id: number; username?: string; first_name?: string } };
+    }>;
+    if (!updates.length) break;
+    for (const u of updates) {
+      const code = u.message?.text?.trim().match(/^\/start ([A-Za-z0-9_-]{8,64})$/)?.[1];
+      const chat = u.message?.chat;
+      if (!code || !chat) continue;
+      const pending = await kv.get<{ email: string; expires: number }>(linkKey(code));
+      if (pending && pending.expires > Date.now()) {
+        await kv.set(startKey(code), { chatId: chat.id, username: chat.username ?? chat.first_name });
+      }
     }
+    offset = updates[updates.length - 1].update_id + 1;
+    await kv.set(OFFSET_KEY, offset);
+    if (updates.length < 100) break;
   }
-  return null;
+  // Confirm the last batch so Telegram drops it.
+  await call('getUpdates', { offset, limit: 1, timeout: 0 }).catch(() => {});
+}
+
+/** The chat that pressed Start on this link code, if it has. */
+export async function findStartChat(code: string): Promise<{ chatId: number; username?: string } | null> {
+  await drainStarts();
+  const found = await kvStore().get<{ chatId: number; username?: string }>(startKey(code));
+  if (found) {
+    await kvStore().delete(startKey(code));
+    await kvStore().delete(linkKey(code));
+  }
+  return found;
 }
 
 export async function sendTelegramTo(chatId: number, html: string): Promise<boolean> {

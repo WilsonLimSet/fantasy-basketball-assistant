@@ -24,7 +24,7 @@ import {
 } from '@/lib/inseason/profile';
 import { refreshLeague } from '@/lib/inseason/refreshLeague';
 import { EMAIL_ON } from '@/lib/inseason/email';
-import { botUsername, findStartChat, sendTelegramTo, TELEGRAM_ON } from '@/lib/inseason/telegramUser';
+import { botUsername, findStartChat, rememberLinkCode, sendTelegramTo, TELEGRAM_ON } from '@/lib/inseason/telegramUser';
 import { randomBytes } from 'node:crypto';
 import { ownLeagueIds } from '@/lib/espnLeague';
 
@@ -136,6 +136,7 @@ export async function POST(req: Request) {
     if (body.action === 'telegram-link') {
       const code = randomBytes(9).toString('base64url');
       await saveProfile({ ...profile, telegramLink: { code, expires: Date.now() + 30 * 60 * 1000 } });
+      await rememberLinkCode(code, account.email);
       return NextResponse.json({ success: true, url: `https://t.me/${bot}?start=${code}` });
     }
     if (body.action === 'telegram-check') {
