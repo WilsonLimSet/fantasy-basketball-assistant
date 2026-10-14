@@ -1,151 +1,81 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import type { WaiverRecommendation, Player } from '@/types';
+import { useEffect, useState } from 'react';
+import { Headshot, InjuryBadge, TeamLogo } from '@/components/ui';
+import type { MovesResponse } from '../MovesPanel';
+import { Gate, Loading, Panel } from '../useMe';
 
-interface WaiversResponse {
-  success: boolean;
-  week?: number;
-  recommendations?: WaiverRecommendation[];
-  dropCandidates?: Array<{ player: Player; reasons: string[] }>;
-  snapshotAge?: number;
-  error?: string;
-}
-
-function formatAge(ms: number): string {
-  const minutes = Math.floor(ms / 60000);
-  const hours = Math.floor(minutes / 60);
-  if (hours > 0) {
-    return `${hours}h ${minutes % 60}m ago`;
-  }
-  return `${minutes}m ago`;
-}
-
-export default function WaiversPage() {
-  const [data, setData] = useState<WaiversResponse | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+/** Free agents ranked by what each would add to this week's lineup, not just by projection. */
+export default function FreeAgentsPage() {
+  const [data, setData] = useState<MovesResponse | null>(null);
+  const [hideWaivers, setHideWaivers] = useState(false);
 
   useEffect(() => {
-    async function fetchWaivers() {
-      try {
-        const res = await fetch('/api/inseason/waivers?limit=10');
-        const json: WaiversResponse = await res.json();
-
-        if (json.success) {
-          setData(json);
-        } else {
-          setError(json.error || 'Failed to load waivers');
-        }
-      } catch (err) {
-        setError(err instanceof Error ? err.message : 'Network error');
-      } finally {
-        setLoading(false);
-      }
-    }
-
-    fetchWaivers();
+    fetch('/api/inseason/moves', { cache: 'no-store' })
+      .then((r) => r.json())
+      .then(setData)
+      .catch(() => setData({ success: false, error: 'Network error' }));
   }, []);
 
-  if (loading) {
-    return (
-      <div className="loading">
-        <div className="spinner" />
-        Loading waiver recommendations...
-      </div>
-    );
-  }
+  if (!data) return <Loading what="free agents" />;
+  if (data.needs === 'signin' || data.needs === 'pro' || data.needs === 'connect') return <Gate needs={data.needs} />;
+  if (!data.plan) return <Panel title="Free agents"><p className="text-sm text-muted">{data.error ?? 'No league data yet.'}</p></Panel>;
 
-  if (error || !data) {
-    return (
-      <div className="alert alert-danger">
-        {error || 'Failed to load data'}
-      </div>
-    );
-  }
-
+  const rows = data.plan.freeAgents.filter((f) => !hideWaivers || !f.player.onWaivers);
   return (
-    <div>
-      <div style={{ marginBottom: '1.5rem' }}>
-        <h1 style={{ fontSize: '1.5rem', fontWeight: 'bold' }}>
-          Waiver Wire Scout
-        </h1>
-        <p style={{ color: 'var(--muted)', fontSize: '0.875rem' }}>
-          Week {data.week} • Updated {formatAge(data.snapshotAge || 0)}
-        </p>
+    <Panel
+      title="Free agents"
+      sub={`Ranked by the points each adds to your lineup over the ${data.plan.daysLeft} days left, swapped for your weakest streaming spot.`}
+      right={
+        <label className="flex cursor-pointer items-center gap-1.5">
+          <input type="checkbox" checked={hideWaivers} onChange={(e) => setHideWaivers(e.target.checked)} />
+          Free agents only (no waiver claims)
+        </label>
+      }
+    >
+      <div className="overflow-x-auto">
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="text-left text-[11px] uppercase tracking-wide text-muted">
+              <th className="pb-2 font-medium">Player</th>
+              <th className="pb-2 pl-2 text-right font-medium" title="Games left this week">Left</th>
+              <th className="hidden pb-2 pl-2 text-right font-medium sm:table-cell" title="Games he'd start in your lineup">Starts</th>
+              <th className="pb-2 pl-2 text-right font-medium">Pts/g</th>
+              <th className="hidden pb-2 pl-2 text-right font-medium sm:table-cell">Owned</th>
+              <th className="pb-2 pl-2 text-right font-medium" title="Points his best swap adds this week">Adds</th>
+              <th className="hidden pb-2 pl-4 font-medium sm:table-cell">Drop</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((f) => (
+              <tr key={f.player.id} className="border-t border-line">
+                <td className="max-w-[11rem] py-2 pr-2 sm:max-w-none">
+                  <div className="flex min-w-0 items-center gap-2.5">
+                    <Headshot id={f.player.id} name={f.player.name} size={28} />
+                    <div className="min-w-0">
+                      <div className="truncate">
+                        {f.player.name}
+                        <InjuryBadge s={f.player.status} />
+                        {f.player.onWaivers && <span className="ml-1.5 rounded bg-sunken px-1 text-[10px] font-semibold text-muted">WAIVERS</span>}
+                      </div>
+                      <div className="flex items-center gap-1 text-xs text-muted">
+                        {f.player.nbaTeamAbbrev && <TeamLogo team={f.player.nbaTeamAbbrev} size={12} />}
+                        {f.player.nbaTeamAbbrev} · {f.player.positions.join('/')}
+                      </div>
+                    </div>
+                  </div>
+                </td>
+                <td className={`py-2 text-right tabular-nums ${f.player.gamesLeft >= 4 ? 'font-medium text-accent' : ''}`}>{f.player.gamesLeft}</td>
+                <td className="hidden py-2 text-right tabular-nums sm:table-cell">{f.player.usableLeft}</td>
+                <td className="py-2 text-right tabular-nums">{f.player.fppg}</td>
+                <td className="hidden py-2 text-right tabular-nums text-muted sm:table-cell">{f.player.percentOwned !== undefined ? `${Math.round(f.player.percentOwned)}%` : '–'}</td>
+                <td className="py-2 text-right font-medium tabular-nums">{f.pointsGain > 0 ? `+${Math.round(f.pointsGain)}` : <span className="font-normal text-muted">–</span>}</td>
+                <td className="hidden max-w-[10rem] truncate py-2 pl-4 text-muted sm:table-cell">{f.dropFor ?? ''}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
       </div>
-
-      {/* Scoring explanation */}
-      <div className="alert alert-info" style={{ marginBottom: '1rem' }}>
-        <strong>Scoring Formula:</strong> 55% Projected Points × 25% Games Next 7 Days × 20% Recent Trend
-      </div>
-
-      {/* Top Recommendations */}
-      <div className="card">
-        <div className="card-header">
-          <h2 className="card-title">Top Waiver Adds</h2>
-          <span className="card-subtitle">Top 10</span>
-        </div>
-
-        {data.recommendations?.map((rec) => (
-          <div key={rec.player.id} className="player-row">
-            <div className="player-rank">#{rec.rank}</div>
-            <div className="player-info">
-              <div className="player-name">
-                {rec.player.name}
-                <span
-                  className={`confidence confidence-${rec.confidence.toLowerCase()}`}
-                  style={{ marginLeft: '0.5rem' }}
-                >
-                  {rec.confidence}
-                </span>
-              </div>
-              <div className="player-meta">
-                {rec.player.nbaTeamAbbrev} • {rec.player.positions.join('/')}
-              </div>
-              <div className="player-reasons">
-                {rec.reasons.map((reason, idx) => (
-                  <span key={idx} className="reason-tag">{reason}</span>
-                ))}
-              </div>
-            </div>
-            <div style={{ textAlign: 'right' }}>
-              <div className="player-score">{rec.score.toFixed(1)}</div>
-              <div style={{ fontSize: '0.75rem', color: 'var(--muted)' }}>
-                {rec.gamesNext7} games • {rec.projectedPointsNext7.toFixed(1)} pts
-              </div>
-            </div>
-          </div>
-        ))}
-      </div>
-
-      {/* Drop Candidates */}
-      {data.dropCandidates && data.dropCandidates.length > 0 && (
-        <div className="card">
-          <div className="card-header">
-            <h2 className="card-title">Consider Dropping</h2>
-            <span className="card-subtitle">Potential cuts</span>
-          </div>
-
-          {data.dropCandidates.map((candidate) => (
-            <div key={candidate.player.id} className="player-row">
-              <div className="player-info">
-                <div className="player-name">{candidate.player.name}</div>
-                <div className="player-meta">
-                  {candidate.player.nbaTeamAbbrev} • {candidate.player.positions.join('/')}
-                </div>
-                <div className="player-reasons">
-                  {candidate.reasons.map((reason, idx) => (
-                    <span key={idx} className="reason-tag" style={{ background: 'rgba(239, 68, 68, 0.2)' }}>
-                      {reason}
-                    </span>
-                  ))}
-                </div>
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
-    </div>
+    </Panel>
   );
 }

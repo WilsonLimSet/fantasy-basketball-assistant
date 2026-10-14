@@ -1,342 +1,144 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
-import type { DailyBriefing, StatusChange, WaiverRecommendation, InjuryOpportunity } from '@/types';
-import { MovesPanel, type MovesResponse } from './MovesPanel';
-import { Gate, useMe } from './useMe';
+import Link from 'next/link';
+import { useCallback, useEffect, useState } from 'react';
+import type { DailyBriefing } from '@/types';
+import { InjuryBadge } from '@/components/ui';
+import { MatchupGamesPanel, MoveRow, StatStrip, WatchlistPanel, type MovesResponse } from './MovesPanel';
+import { ErrorBox, formatAge, Gate, Loading, Panel, useMeContext } from './useMe';
 
-interface BriefingResponse {
-  success: boolean;
-  briefing?: DailyBriefing;
-  snapshotAge?: number;
-  error?: string;
-}
-
-function StatusBadge({ status }: { status: string }) {
-  const statusClass = {
-    ACTIVE: 'status-active',
-    DAY_TO_DAY: 'status-dtd',
-    OUT: 'status-out',
-    INJURY_RESERVE: 'status-ir',
-    QUESTIONABLE: 'status-dtd',
-    DOUBTFUL: 'status-out',
-    PROBABLE: 'status-active',
-    SUSPENSION: 'status-out',
-  }[status] || 'status-dtd';
-
+function RosterAlerts({ briefing }: { briefing: DailyBriefing }) {
+  const changes = briefing.statusChanges.filter((c) => c.isMyPlayer);
+  const hurt = (briefing.myTeam.roster ?? []).filter((r) => r.player.status !== 'ACTIVE');
   return (
-    <span className={`status ${statusClass}`}>
-      {status.replace('_', ' ')}
-    </span>
-  );
-}
-
-function formatAge(ms: number): string {
-  const minutes = Math.floor(ms / 60000);
-  const hours = Math.floor(minutes / 60);
-  if (hours > 0) {
-    return `${hours}h ${minutes % 60}m ago`;
-  }
-  return `${minutes}m ago`;
-}
-
-function StatusChangeCard({ changes }: { changes: StatusChange[] }) {
-  const myChanges = changes.filter((c) => c.isMyPlayer);
-
-  if (myChanges.length === 0) {
-    return (
-      <div className="card">
-        <div className="card-header">
-          <h2 className="card-title">Status Changes</h2>
-        </div>
-        <p style={{ color: 'var(--muted)' }}>No status changes for your players</p>
-      </div>
-    );
-  }
-
-  return (
-    <div className="card">
-      <div className="card-header">
-        <h2 className="card-title">🔴 Roster Alerts</h2>
-        <span className="card-subtitle">{myChanges.length} change(s)</span>
-      </div>
-      {myChanges.map((change) => (
-        <div key={change.playerId} className="action-item">
-          <div>
-            <strong>{change.playerName}</strong>
-            <div style={{ marginTop: '0.25rem' }}>
-              <StatusBadge status={change.previousStatus} />
-              <span style={{ margin: '0 0.5rem', color: 'var(--muted)' }}>→</span>
-              <StatusBadge status={change.currentStatus} />
-            </div>
-          </div>
-        </div>
-      ))}
-    </div>
-  );
-}
-
-function ActionItemsCard({ items }: { items: string[] }) {
-  if (items.length === 0) {
-    return null;
-  }
-
-  return (
-    <div className="card">
-      <div className="card-header">
-        <h2 className="card-title">Action Items</h2>
-      </div>
-      {items.map((item, idx) => (
-        <div key={idx} className="action-item">
-          {item}
-        </div>
-      ))}
-    </div>
-  );
-}
-
-function TopAddsCard({ recommendations }: { recommendations: WaiverRecommendation[] }) {
-  return (
-    <div className="card">
-      <div className="card-header">
-        <h2 className="card-title">Top Waiver Adds</h2>
-        <a href="/inseason/waivers" style={{ fontSize: '0.875rem' }}>View All →</a>
-      </div>
-      {recommendations.slice(0, 3).map((rec) => (
-        <div key={rec.player.id} className="player-row">
-          <div className="player-rank">#{rec.rank}</div>
-          <div className="player-info">
-            <div className="player-name">
-              {rec.player.name}
-              <span className={`confidence confidence-${rec.confidence.toLowerCase()}`} style={{ marginLeft: '0.5rem' }}>
-                {rec.confidence}
-              </span>
-            </div>
-            <div className="player-meta">
-              {rec.player.nbaTeamAbbrev} • {rec.player.positions.join('/')} • {rec.gamesNext7} games
-            </div>
-            <div className="player-reasons">
-              {rec.reasons.slice(0, 2).map((reason, idx) => (
-                <span key={idx} className="reason-tag">{reason}</span>
-              ))}
-            </div>
-          </div>
-          <div className="player-score">{rec.score.toFixed(1)}</div>
-        </div>
-      ))}
-    </div>
-  );
-}
-
-function InjuryOpportunityCard({ opportunities }: { opportunities: InjuryOpportunity[] }) {
-  if (opportunities.length === 0) {
-    return null;
-  }
-
-  return (
-    <div className="card">
-      <div className="card-header">
-        <h2 className="card-title">🏥 Injury Opportunities</h2>
-      </div>
-      {opportunities.map((opp) => (
-        <div key={opp.injuredPlayer.id} style={{ marginBottom: '1rem' }}>
-          <div style={{ marginBottom: '0.5rem' }}>
-            <strong>{opp.injuredPlayer.name}</strong> ({opp.injuredPlayer.nbaTeamAbbrev})
-            <StatusBadge status={opp.injuryStatus} />
-          </div>
-          <div style={{ fontSize: '0.875rem', color: 'var(--muted)', marginBottom: '0.5rem' }}>
-            Consider adding:
-          </div>
-          {opp.beneficiaries.map((ben) => (
-            <div key={ben.player.id} style={{ paddingLeft: '1rem', marginBottom: '0.25rem' }}>
-              → <strong>{ben.player.name}</strong>
-              <span className={`confidence confidence-${ben.confidence.toLowerCase()}`} style={{ marginLeft: '0.5rem' }}>
-                {ben.confidence}
-              </span>
-            </div>
+    <Panel title="Roster alerts">
+      {changes.length === 0 && hurt.length === 0 ? (
+        <p className="text-sm text-muted">Everyone on your roster is healthy.</p>
+      ) : (
+        <ul className="-my-1 text-sm">
+          {changes.map((c) => (
+            <li key={`c${c.playerId}`} className="border-t border-line py-2 first:border-t-0">
+              <span className="font-medium">{c.playerName}</span>
+              <span className="text-muted"> {c.previousStatus.replace(/_/g, ' ').toLowerCase()} → </span>
+              <InjuryBadge s={c.currentStatus} />
+              {c.currentStatus === 'ACTIVE' && <span className="text-accent">active</span>}
+            </li>
           ))}
-        </div>
-      ))}
-    </div>
+          {hurt
+            .filter((r) => !changes.some((c) => c.playerId === r.playerId))
+            .map((r) => (
+              <li key={`h${r.playerId}`} className="border-t border-line py-2 first:border-t-0">
+                {r.player.name}
+                <InjuryBadge s={r.player.status} />
+                {r.lineupSlotId === 13 && <span className="ml-1.5 text-xs text-muted">on IR</span>}
+              </li>
+            ))}
+        </ul>
+      )}
+    </Panel>
   );
 }
 
-export default function DashboardPage() {
+export default function ThisWeekPage() {
+  const { me } = useMeContext();
+  const [moves, setMoves] = useState<MovesResponse | null>(null);
   const [briefing, setBriefing] = useState<DailyBriefing | null>(null);
-  const [snapshotAge, setSnapshotAge] = useState<number>(0);
-  const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [moves, setMoves] = useState<MovesResponse | null>(null);
-  const { me } = useMe();
 
-  const fetchBriefing = useCallback(async () => {
-    try {
-      const [movesData, res] = await Promise.all([
-        fetch('/api/inseason/moves').then((r) => r.json()).catch(() => null),
-        fetch('/api/inseason/briefing'),
-      ]);
-      setMoves(movesData);
-      const data: BriefingResponse = await res.json();
-
-      if (data.success && data.briefing) {
-        setBriefing(data.briefing);
-        setSnapshotAge(data.snapshotAge || 0);
-        setError(null);
-      } else {
-        setError(data.error || 'Failed to load briefing');
-      }
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Network error');
-    } finally {
-      setLoading(false);
-    }
+  const load = useCallback(async () => {
+    const [m, b] = await Promise.all([
+      fetch('/api/inseason/moves', { cache: 'no-store' }).then((r) => r.json()).catch(() => null),
+      fetch('/api/inseason/briefing', { cache: 'no-store' }).then((r) => r.json()).catch(() => null),
+    ]);
+    setMoves(m ?? { success: false, error: 'Network error' });
+    setBriefing(b?.success ? b.briefing : null);
   }, []);
 
-  const handleRefresh = async () => {
-    setRefreshing(true);
-    try {
-      const res = await fetch('/api/inseason/refresh', { method: 'POST' });
-      const data = await res.json();
+  useEffect(() => { load(); }, [load]);
 
-      if (data.success) {
-        await fetchBriefing();
-      } else {
-        setError(data.error || 'Refresh failed');
-      }
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Refresh failed');
+  const refresh = async () => {
+    setRefreshing(true);
+    setError(null);
+    try {
+      const j = await fetch('/api/inseason/refresh', { method: 'POST' }).then((r) => r.json());
+      if (!j.success) setError(j.error ?? 'Refresh failed');
+      await load();
     } finally {
       setRefreshing(false);
     }
   };
 
-  useEffect(() => {
-    fetchBriefing();
-  }, [fetchBriefing]);
+  if (!moves) return <Loading what="your week" />;
+  const needs = moves.needs;
+  if (needs === 'signin' || needs === 'pro' || needs === 'connect') return <Gate needs={needs} />;
 
-  if (loading) {
-    return (
-      <div className="loading">
-        <div className="spinner" />
-        Loading briefing...
-      </div>
-    );
-  }
+  const refreshButton = (
+    <button onClick={refresh} disabled={refreshing} className="btn-ghost">
+      {refreshing ? 'Refreshing…' : 'Refresh'}
+    </button>
+  );
 
-  const needs = moves?.needs;
-  if (needs === 'signin' || needs === 'pro' || needs === 'connect') {
-    return <Gate needs={needs} me={me} />;
-  }
-
-  if (error && !briefing) {
+  if (!moves.success || !moves.plan) {
     return (
       <div>
-        <div className="alert alert-warning">
-          <strong>No data available.</strong> {error}
-        </div>
-        <button className="btn btn-primary" onClick={handleRefresh} disabled={refreshing}>
-          {refreshing ? 'Refreshing...' : 'Fetch Data Now'}
-        </button>
+        {error && <ErrorBox>{error}</ErrorBox>}
+        <Panel title="No league data yet">
+          <p className="mb-3 text-sm text-muted">{moves.error ?? 'We couldn’t build this week’s plan yet.'}</p>
+          {refreshButton}
+        </Panel>
       </div>
     );
   }
 
-  if (!briefing) {
-    return null;
-  }
-
+  const { plan, matchupGames: mg } = moves;
   return (
     <div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+      {error && <ErrorBox>{error}</ErrorBox>}
+      <div className="mb-5 grid gap-6 lg:grid-cols-[1fr_auto] lg:items-end">
         <div>
-          <h1 style={{ fontSize: '1.5rem', fontWeight: 'bold' }}>
-            Week {briefing.week} Briefing
+          <h1 className="text-3xl font-medium leading-tight tracking-[-0.03em]">
+            Week {plan.week}
+            <span className="text-muted"> · {plan.daysLeft} {plan.daysLeft === 1 ? 'day' : 'days'} left</span>
           </h1>
-          <p style={{ color: 'var(--muted)', fontSize: '0.875rem' }}>
-            Updated {formatAge(snapshotAge)}
+          <p className="mt-2 flex flex-wrap items-center gap-3 text-sm text-muted">
+            <span>{moves.teamName ?? me?.profile?.teamName}{mg?.opponent ? ` vs ${mg.opponent.name}` : ''}</span>
+            <span>Updated {formatAge(moves.snapshotAge ?? 0)}</span>
+            {refreshButton}
           </p>
         </div>
-        <button
-          className="btn btn-primary"
-          onClick={handleRefresh}
-          disabled={refreshing}
-        >
-          {refreshing ? 'Refreshing...' : 'Refresh Now'}
-        </button>
+        <StatStrip plan={plan} mg={mg} />
       </div>
 
-      {error && (
-        <div className="alert alert-danger" style={{ marginBottom: '1rem' }}>
-          {error}
+      <div className="grid gap-5 lg:grid-cols-[1fr_340px]">
+        <div className="space-y-5">
+          <Panel
+            title="Moves for this week"
+            sub={plan.moves.length ? 'Best first. Each one assumes the ones above it are made.' : undefined}
+            right={
+              moves.espnUrl && plan.moves.length > 0 ? (
+                <a href={moves.espnUrl} target="_blank" rel="noopener noreferrer" className="btn-accent">Make moves on ESPN</a>
+              ) : undefined
+            }
+          >
+            {plan.moves.length ? (
+              plan.moves.map((m) => <MoveRow key={m.add.id} m={m} />)
+            ) : (
+              <p className="text-sm text-muted">No add/drop beats your current roster this week. Sit tight.</p>
+            )}
+            <p className="mt-4 border-t border-line pt-3 text-xs text-muted">
+              Streaming spots: {plan.droppable.map((p) => p.name).join(', ') || 'none'}.{' '}
+              <Link href="/inseason/connect" className="underline hover:text-fg">
+                {plan.coreIsDefault ? 'Pick your core players' : 'Edit core players'}
+              </Link>
+            </p>
+          </Panel>
+          {mg && <MatchupGamesPanel data={mg} />}
         </div>
-      )}
-
-      {moves?.success && <MovesPanel data={moves} />}
-
-      {/* Stats Overview */}
-      <div className="card">
-        <div className="grid grid-3">
-          <div className="stat">
-            <div className="stat-value">{briefing.myTeam.roster?.length || 0}</div>
-            <div className="stat-label">Roster Size</div>
-          </div>
-          <div className="stat">
-            <div className="stat-value">
-              {briefing.myTeam.record?.wins || 0}-{briefing.myTeam.record?.losses || 0}
-            </div>
-            <div className="stat-label">Record</div>
-          </div>
-          <div className="stat">
-            <div className="stat-value">{briefing.topWaiverAdds.length}</div>
-            <div className="stat-label">Top Waiver Adds</div>
-          </div>
+        <div className="space-y-5">
+          {briefing && <RosterAlerts briefing={briefing} />}
+          <WatchlistPanel notes={plan.watchlist} />
         </div>
-      </div>
-
-      {/* Action Items */}
-      <ActionItemsCard items={briefing.actionItems} />
-
-      {/* Status Changes */}
-      <StatusChangeCard changes={briefing.statusChanges} />
-
-      {/* Grid Layout */}
-      <div className="grid grid-2">
-        {/* Top Adds */}
-        <TopAddsCard recommendations={briefing.topWaiverAdds} />
-
-        {/* Injury Opportunities */}
-        <InjuryOpportunityCard opportunities={briefing.injuryOpportunities} />
-      </div>
-
-      {/* Roster Overview */}
-      <div className="card">
-        <div className="card-header">
-          <h2 className="card-title">My Roster</h2>
-          <span className="card-subtitle">{briefing.myTeam.name}</span>
-        </div>
-        <table className="table">
-          <thead>
-            <tr>
-              <th>Player</th>
-              <th>Team</th>
-              <th>Pos</th>
-              <th>Status</th>
-              <th>Slot</th>
-            </tr>
-          </thead>
-          <tbody>
-            {briefing.myTeam.roster?.map((entry) => (
-              <tr key={entry.playerId}>
-                <td><strong>{entry.player.name}</strong></td>
-                <td>{entry.player.nbaTeamAbbrev}</td>
-                <td>{entry.player.positions.join('/')}</td>
-                <td><StatusBadge status={entry.player.status} /></td>
-                <td style={{ color: 'var(--muted)' }}>{entry.lineupSlot}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
       </div>
     </div>
   );

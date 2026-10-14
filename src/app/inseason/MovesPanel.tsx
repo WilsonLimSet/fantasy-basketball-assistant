@@ -1,8 +1,9 @@
 'use client';
 
-import Link from 'next/link';
-import type { MatchupGamesComparison } from '@/types';
-import type { StreamingPlan, StreamMove } from '@/lib/inseason/streaming';
+import type { MatchupGamesComparison, MatchupSideGames } from '@/types';
+import type { StreamingPlan, StreamMove, WatchlistNote } from '@/lib/inseason/streaming';
+import { Headshot, InjuryBadge, TeamLogo } from '@/components/ui';
+import { Panel } from './useMe';
 
 export interface MovesResponse {
   success: boolean;
@@ -15,112 +16,171 @@ export interface MovesResponse {
   needs?: 'signin' | 'pro' | 'connect' | 'refresh';
 }
 
-function MoveRow({ m, i }: { m: StreamMove; i?: number }) {
+const dayLabel = (date: string) =>
+  new Date(`${date}T12:00:00Z`).toLocaleDateString('en-US', { weekday: 'short', timeZone: 'UTC' });
+
+function Who({ id, name, team, meta, tone }: { id: number; name: string; team?: string; meta: string; tone: 'add' | 'drop' }) {
   return (
-    <div className="action-item" style={{ display: 'block' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', gap: '1rem', alignItems: 'baseline', flexWrap: 'wrap' }}>
-        <div>
-          {i !== undefined && <span style={{ color: 'var(--muted)', marginRight: '0.4rem' }}>{i + 1}.</span>}
-          <strong style={{ color: 'var(--success)' }}>Add {m.add.name}</strong>
-          <span style={{ color: 'var(--muted)' }}> {m.add.nbaTeamAbbrev} · {m.add.positions.join('/')}</span>
-          <span style={{ margin: '0 0.4rem', color: 'var(--muted)' }}>for</span>
-          <strong style={{ color: 'var(--danger)' }}>{m.drop.name}</strong>
-          {m.add.onWaivers && <span className="reason-tag" style={{ marginLeft: '0.5rem' }}>Waivers</span>}
+    <div className="flex min-w-0 items-center gap-2.5">
+      <Headshot id={id} name={name} size={36} />
+      <div className="min-w-0">
+        <div className="flex items-center gap-1.5 truncate text-sm">
+          <span className={`text-[10px] font-semibold uppercase tracking-wide ${tone === 'add' ? 'text-accent' : 'text-red-700'}`}>
+            {tone === 'add' ? 'Add' : 'Drop'}
+          </span>
+          <span className="truncate font-medium">{name}</span>
         </div>
-        <div style={{ fontWeight: 700 }}>+{Math.round(m.pointsGain)} pts</div>
-      </div>
-      <div style={{ color: 'var(--muted)', fontSize: '0.85rem', marginTop: '0.3rem' }}>{m.reason}</div>
-      <div style={{ color: 'var(--muted)', fontSize: '0.8rem', marginTop: '0.2rem' }}>
-        {m.add.name}: {m.add.fppg} pts/game · {m.drop.name}: {m.drop.fppg} pts/game
+        <div className="flex items-center gap-1 text-xs text-muted">
+          {team && <TeamLogo team={team} size={12} />}
+          <span className="truncate">{meta}</span>
+        </div>
       </div>
     </div>
   );
 }
 
-export function MovesPanel({ data }: { data: MovesResponse }) {
-  const { plan, matchupGames: mg, espnUrl } = data;
-  if (!plan) return null;
-  const gain = plan.after.points - plan.baseline.points;
-  const watchHits = plan.watchlist.filter((w) => !w.rostered);
-
+export function MoveRow({ m }: { m: StreamMove }) {
   return (
-    <>
-      <div className="card">
-        <div className="card-header">
-          <h2 className="card-title">This week&apos;s moves</h2>
-          <span className="card-subtitle">
-            {plan.daysLeft} days left{plan.addsLeft !== null ? ` · ${plan.addsLeft} pickups left` : ''}
-          </span>
+    <div className="border-t border-line py-3 first:border-t-0 first:pt-0 last:pb-0">
+      <div className="grid grid-cols-[1fr_auto] items-center gap-3 sm:grid-cols-[1fr_1fr_auto]">
+        <div className="col-start-1 row-start-1 min-w-0">
+        <Who
+          id={m.add.id}
+          name={m.add.name}
+          team={m.add.nbaTeamAbbrev}
+          tone="add"
+          meta={`${m.add.nbaTeamAbbrev ?? ''} · ${m.add.gamesLeft} games left · ${m.add.fppg} pts/g${m.add.onWaivers ? ' · waivers' : ''}`}
+        />
         </div>
-
-        <div className="grid grid-3" style={{ marginBottom: '1rem' }}>
-          <div className="stat">
-            <div className="stat-value">
-              {mg?.me.usableGames ?? plan.baseline.usableGames}
-              {mg?.opponent && <span style={{ color: 'var(--muted)' }}> – {mg.opponent.usableGames}</span>}
-            </div>
-            <div className="stat-label">Usable games{mg?.opponent ? ` vs ${mg.opponent.name}` : ''}</div>
-          </div>
-          <div className="stat">
-            <div className="stat-value" style={{ color: gain > 0 ? 'var(--success)' : undefined }}>
-              {gain > 0 ? `+${gain}` : '0'}
-            </div>
-            <div className="stat-label">{plan.pointsLeague ? 'Points from these moves' : 'Games from these moves'}</div>
-          </div>
-          <div className="stat">
-            <div className="stat-value">{plan.after.usableGames - plan.baseline.usableGames >= 0 ? '+' : ''}{plan.after.usableGames - plan.baseline.usableGames}</div>
-            <div className="stat-label">Usable games added</div>
-          </div>
+        <div className="col-span-2 col-start-1 row-start-2 min-w-0 sm:col-span-1 sm:col-start-2 sm:row-start-1">
+          <Who
+            id={m.drop.id}
+            name={m.drop.name}
+            team={m.drop.nbaTeamAbbrev}
+            tone="drop"
+            meta={`${m.drop.nbaTeamAbbrev ?? ''} · ${m.drop.gamesLeft} games left · ${m.drop.fppg} pts/g`}
+          />
         </div>
-
-        {plan.moves.length ? (
-          plan.moves.map((m, i) => <MoveRow key={m.add.id} m={m} i={plan.moves.length > 1 ? i : undefined} />)
-        ) : (
-          <p style={{ color: 'var(--muted)' }}>No add/drop beats your current roster this week. Sit tight.</p>
-        )}
-
-        <div style={{ display: 'flex', gap: '0.5rem', marginTop: '1rem', flexWrap: 'wrap', alignItems: 'center' }}>
-          {espnUrl && plan.moves.length > 0 && (
-            <a className="btn btn-primary" href={espnUrl} target="_blank" rel="noopener noreferrer">Make moves on ESPN</a>
-          )}
-          <span style={{ color: 'var(--muted)', fontSize: '0.8rem' }}>
-            Streaming spots: {plan.droppable.map((p) => p.name).join(', ') || 'none'}.{' '}
-            <Link href="/inseason/connect" style={{ color: 'inherit' }}>
-              {plan.coreIsDefault ? 'Pick your core players' : 'Edit core players'}
-            </Link>
-          </span>
+        <div className="col-start-2 row-start-1 text-right sm:col-start-3">
+          <div className="text-lg font-medium tabular-nums tracking-tight">+{Math.round(m.pointsGain)}</div>
+          <div className="text-[11px] uppercase tracking-wide text-muted">pts</div>
         </div>
       </div>
+      <p className="mt-2 text-xs text-muted">{m.reason}</p>
+    </div>
+  );
+}
 
-      {watchHits.length > 0 && (
-        <div className="card">
-          <div className="card-header">
-            <h2 className="card-title">Watchlist</h2>
-            <span className="card-subtitle">Synced from your ESPN watchlist</span>
-          </div>
-          {watchHits.map((w) => (
-            <div key={w.player.id} className="player-row">
-              <div className="player-info">
-                <div className="player-name">{w.player.name}</div>
-                <div className="player-meta">
-                  {w.player.nbaTeamAbbrev} · {w.player.gamesLeft} games left · {w.player.fppg} pts/game
-                  {w.player.onWaivers ? ' · waivers' : ''}
-                </div>
-              </div>
-              <div style={{ textAlign: 'right', fontSize: '0.85rem' }}>
-                {w.bestMove ? (
-                  <>
-                    <div style={{ fontWeight: 700 }}>+{Math.round(w.bestMove.pointsGain)} pts</div>
-                    <div style={{ color: 'var(--muted)' }}>for {w.bestMove.drop.name}</div>
-                  </>
-                ) : (
-                  <span style={{ color: 'var(--muted)' }}>Not worth a move this week</span>
-                )}
+export function StatStrip({ plan, mg }: { plan: StreamingPlan; mg?: MatchupGamesComparison }) {
+  const gain = plan.after.points - plan.baseline.points;
+  const items = [
+    {
+      k: mg?.opponent ? `Usable games vs ${mg.opponent.name}` : 'Usable games left',
+      v: mg?.opponent ? `${mg.me.usableGames}–${mg.opponent.usableGames}` : String(plan.baseline.usableGames),
+    },
+    { k: plan.pointsLeague ? 'Points from moves' : 'Games from moves', v: gain > 0 ? `+${gain}` : '0' },
+    { k: 'Pickups left', v: plan.addsLeft === null ? 'No limit' : String(plan.addsLeft) },
+  ];
+  return (
+    <dl className="grid grid-cols-3 divide-x divide-line rounded-xl border border-line bg-panel text-center shadow-[0_1px_2px_rgba(25,25,25,0.04)]">
+      {items.map((x) => (
+        <div key={x.k} className="px-2 py-4 sm:px-6">
+          <dd className="text-2xl font-medium tracking-tight tabular-nums">{x.v}</dd>
+          <dt className="mt-0.5 text-[11px] uppercase leading-tight tracking-wide text-muted">{x.k}</dt>
+        </div>
+      ))}
+    </dl>
+  );
+}
+
+function SideTable({ side, days, today }: { side: MatchupSideGames; days: MatchupGamesComparison['days']; today: number }) {
+  return (
+    <div className="overflow-x-auto">
+      <table className="w-full text-sm">
+        <thead>
+          <tr className="text-left text-[11px] uppercase tracking-wide text-muted">
+            <th className="pb-2 font-medium">{side.name}</th>
+            <th className="pb-2 text-right font-medium">G</th>
+            {days.map((d) => (
+              <th key={d.scoringPeriodId} className={`w-8 pb-2 text-center font-medium ${d.scoringPeriodId < today ? 'opacity-40' : ''}`}>
+                {dayLabel(d.date).slice(0, 2)}
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {side.players.map((p) => (
+            <tr key={p.playerId} className={`border-t border-line ${p.injured ? 'opacity-40' : ''}`}>
+              <td className="max-w-[10rem] truncate py-1.5 pr-2">
+                {p.name}
+                <InjuryBadge s={p.status} />
+              </td>
+              <td className={`py-1.5 text-right tabular-nums font-medium ${p.games >= 4 ? 'text-accent' : p.games <= 2 ? 'text-red-700' : ''}`}>{p.games}</td>
+              {p.playsByDay.map((plays, i) => (
+                <td key={i} className="py-1.5 text-center">
+                  {plays ? <span className="inline-block h-1.5 w-1.5 rounded-full bg-fg" /> : <span className="text-line">·</span>}
+                </td>
+              ))}
+            </tr>
+          ))}
+          <tr className="border-t border-line text-xs text-muted">
+            <td className="py-1.5">Healthy playing</td>
+            <td className="py-1.5 text-right tabular-nums font-medium text-fg">{side.totalGames}</td>
+            {side.playingByDay.map((n, i) => (
+              <td key={i} className="py-1.5 text-center tabular-nums">{n}</td>
+            ))}
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+export function MatchupGamesPanel({ data }: { data: MatchupGamesComparison }) {
+  const { me, opponent, days, today, startingSlots } = data;
+  const range = days.length ? `${dayLabel(days[0].date)} ${days[0].date.slice(5)} – ${dayLabel(days[days.length - 1].date)} ${days[days.length - 1].date.slice(5)}` : '';
+  return (
+    <Panel
+      title="Games this week"
+      sub={`Usable games cap each day at your ${startingSlots} starters. Injured and IR players don’t count.`}
+      right={range}
+    >
+      <div className={`grid gap-6 ${opponent ? 'lg:grid-cols-2' : ''}`}>
+        <SideTable side={me} days={days} today={today} />
+        {opponent && <SideTable side={opponent} days={days} today={today} />}
+      </div>
+    </Panel>
+  );
+}
+
+export function WatchlistPanel({ notes }: { notes: WatchlistNote[] }) {
+  const list = notes.filter((w) => !w.rostered).slice(0, 12);
+  if (!list.length) return null;
+  return (
+    <Panel title="Watchlist" sub="Synced from your ESPN watchlist">
+      <ul className="-my-1">
+        {list.map((w) => (
+          <li key={w.player.id} className="flex items-center gap-2.5 border-t border-line py-2 first:border-t-0">
+            <Headshot id={w.player.id} name={w.player.name} size={28} />
+            <div className="min-w-0 flex-1">
+              <div className="truncate text-sm">{w.player.name}<InjuryBadge s={w.player.status} /></div>
+              <div className="truncate text-xs text-muted">
+                {w.player.nbaTeamAbbrev} · {w.player.gamesLeft} left · {w.player.fppg} pts/g{w.player.onWaivers ? ' · waivers' : ''}
               </div>
             </div>
-          ))}
-        </div>
-      )}
-    </>
+            <div className="text-right text-xs">
+              {w.bestMove ? (
+                <>
+                  <div className="font-medium tabular-nums text-fg">+{Math.round(w.bestMove.pointsGain)}</div>
+                  <div className="text-muted">for {w.bestMove.drop.name}</div>
+                </>
+              ) : (
+                <span className="text-muted">Hold</span>
+              )}
+            </div>
+          </li>
+        ))}
+      </ul>
+    </Panel>
   );
 }

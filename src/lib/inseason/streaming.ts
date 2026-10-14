@@ -70,6 +70,15 @@ export interface StreamingPlan {
   coreIsDefault: boolean;
   droppable: StreamPlayer[];
   watchlist: WatchlistNote[];
+  /** Every free agent with games left, ranked by what he'd add in your best swap this week. */
+  freeAgents: FreeAgentNote[];
+}
+
+export interface FreeAgentNote {
+  player: StreamPlayer & { onWaivers: boolean; percentOwned?: number };
+  /** Points his best swap adds this week (0 if none helps). */
+  pointsGain: number;
+  dropFor?: string;
 }
 
 interface Candidate {
@@ -277,6 +286,21 @@ export function buildStreamingPlan(snapshot: LeagueSnapshot, core: number[], wat
     }
   }
 
+  const faNotes: FreeAgentNote[] = freeAgents.map((c) => {
+    const s = bestSwap(roster, droppable, [c]);
+    const fa = pool.get(c.player.id);
+    return {
+      player: {
+        ...describe(c.player, c.value, week, today, s?.result.usableById.get(c.player.id) ?? 0, c.from),
+        onWaivers: !!fa?.onWaivers,
+        percentOwned: fa?.player.ownership?.percentOwned,
+      },
+      pointsGain: s && s.gain > 0 ? Math.round(s.gain * 10) / 10 : 0,
+      dropFor: s && s.gain > 0 ? s.drop.player.name : undefined,
+    };
+  });
+  faNotes.sort((a, b) => b.pointsGain - a.pointsGain || b.player.fppg * b.player.gamesLeft - a.player.fppg * a.player.gamesLeft);
+
   // Worth-a-move players first, biggest gain on top; rostered ones last.
   const rank = (w: WatchlistNote) => (w.rostered ? -2 : w.bestMove ? w.bestMove.pointsGain : -1);
   watchlist.sort((a, b) => rank(b) - rank(a));
@@ -294,5 +318,6 @@ export function buildStreamingPlan(snapshot: LeagueSnapshot, core: number[], wat
     coreIsDefault,
     droppable: droppable.map((c) => describe(c.player, c.value, week, today, baseline.usableById.get(c.player.id) ?? 0)),
     watchlist,
+    freeAgents: faNotes.slice(0, 40),
   };
 }
