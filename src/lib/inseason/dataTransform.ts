@@ -12,6 +12,7 @@ import type {
   ESPNLeagueSettings,
   PlayerStatus,
 } from '@/types/espn';
+import { buildMatchupWeek, countStartingSlots } from './matchupGames';
 import type {
   Player,
   Team,
@@ -64,28 +65,34 @@ function getPositionsFromSlots(eligibleSlots: number[]): string[] {
   return Array.from(positions);
 }
 
+/**
+ * Stat entries are keyed "<split><season>": split 00 = season, 01/02/03 = last 7/15/30 days,
+ * 10 = projection. ESPN returns last season's entries too, so only the newest season is read.
+ */
 function extractPlayerStats(espnPlayer: ESPNPlayer): Player['stats'] {
   if (!espnPlayer.stats || espnPlayer.stats.length === 0) {
     return undefined;
   }
 
+  const season = Math.max(...espnPlayer.stats.map((s) => Number(String(s.id).slice(2)) || 0));
   const stats: Player['stats'] = {};
 
   for (const stat of espnPlayer.stats) {
-    // Season stats (statSourceId: 0)
-    if (stat.statSourceId === 0 && stat.appliedAverage !== undefined) {
-      stats.seasonAvg = stat.appliedAverage;
-      stats.gamesPlayed = stat.stats?.['40']; // Games played stat
+    const id = String(stat.id);
+    if (Number(id.slice(2)) !== season || stat.appliedAverage === undefined) continue;
+    const split = id.slice(0, 2);
+    if (stat.statSourceId === 0) {
+      if (split === '00') {
+        stats.seasonAvg = stat.appliedAverage;
+        stats.gamesPlayed = stat.stats?.['42']; // GP
+      }
+      if (split === '01') stats.last7Avg = stat.appliedAverage;
+      if (split === '02') stats.last15Avg = stat.appliedAverage;
+      if (split === '03') stats.last30Avg = stat.appliedAverage;
     }
-
-    // Projected stats (statSourceId: 1)
-    if (stat.statSourceId === 1) {
-      if (stat.appliedAverage !== undefined) {
-        stats.projectedAvg = stat.appliedAverage;
-      }
-      if (stat.appliedTotal !== undefined) {
-        stats.projectedTotal = stat.appliedTotal;
-      }
+    if (stat.statSourceId === 1 && split === '10') {
+      stats.projectedAvg = stat.appliedAverage;
+      if (stat.appliedTotal !== undefined) stats.projectedTotal = stat.appliedTotal;
     }
   }
 
@@ -227,6 +234,7 @@ export function transformFreeAgents(
       gamesNext7,
       recentTrend,
       reasonCodes,
+      onWaivers: entry.status === 'WAIVERS',
     });
   }
 
@@ -350,7 +358,8 @@ export function buildLeagueSnapshot(input: SnapshotInput): LeagueSnapshot {
 
   const teams = input.teams.map((t) => transformTeam(t, input.myTeamId));
   const matchups = input.matchups.map((m) => transformMatchup(m, input.myTeamId));
-  const freeAgentsTopN = transformFreeAgents(input.freeAgents, scheduleIndex).slice(0, 50);
+  // Top free agents plus any watchlisted ones (fetched by id), so the pool can exceed 50.
+  const freeAgentsTopN = transformFreeAgents(input.freeAgents, scheduleIndex).slice(0, 150);
   const statusIndex = buildStatusIndex(teams);
 
   return {
@@ -365,7 +374,29 @@ export function buildLeagueSnapshot(input: SnapshotInput): LeagueSnapshot {
     freeAgentsTopN,
     statusIndex,
     scheduleIndex,
+    matchupWeek: buildMatchupWeek(
+      input.nbaSchedule || [],
+      input.settings.settings?.scheduleSettings?.matchupPeriods,
+      input.settings.currentMatchupPeriod,
+      input.settings.scoringPeriodId
+    ),
+    startingSlots: countStartingSlots(input.settings.settings?.rosterSettings?.lineupSlotCounts),
+    lineupSlots: input.settings.settings?.rosterSettings?.lineupSlotCounts,
+    acquisitions: acquisitionsThisWeek(input),
+    scoringType: input.settings.settings?.scoringSettings?.scoringType,
   };
+}
+
+/** Pickup limit for this matchup and how many my team has used. */
+function acquisitionsThisWeek(input: SnapshotInput): { limit: number | null; used: number } {
+  const acq = input.settings.settings?.acquisitionSettings;
+  const period = input.settings.currentMatchupPeriod;
+  const days = Math.max(1, input.settings.settings?.scheduleSettings?.matchupPeriods?.[String(period)]?.length ?? 7);
+  const raw = acq?.matchupAcquisitionLimit ?? -1;
+  let limit: number | null = null;
+  if (raw > 0) limit = acq?.matchupLimitPerScoringPeriod ? Math.round(raw * (days > 1 ? days : 7)) : Math.round(raw);
+  const me = input.teams.find((t) => t.id === input.myTeamId);
+  return { limit, used: me?.transactionCounter?.matchupAcquisitionTotals?.[String(period)] ?? 0 };
 }
 
 // ============ Diff Calculation ============

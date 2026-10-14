@@ -109,6 +109,7 @@ export interface ESPNTeam {
   playoffSeed?: number;
   rankCalculatedFinal?: number;
   watchList?: number[]; // Player IDs the team owner is watching
+  transactionCounter?: { acquisitions?: number; matchupAcquisitionTotals?: Record<string, number> };
 }
 
 export interface ESPNMatchup {
@@ -151,6 +152,8 @@ export interface ESPNLeagueSettings {
       acquisitionLimit: number;
       acquisitionType: string;
       matchupAcquisitionLimit: number;
+      /** When true, matchupAcquisitionLimit is per day and scales with the matchup's length. */
+      matchupLimitPerScoringPeriod?: boolean;
     };
     rosterSettings: {
       lineupSlotCounts: Record<string, number>;

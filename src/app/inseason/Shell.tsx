@@ -1,0 +1,95 @@
+'use client';
+
+import Link from 'next/link';
+import { usePathname } from 'next/navigation';
+import { LogoMark } from '@/components/Logo';
+import { MeProvider, useMeContext } from './useMe';
+
+/** Draft kit tabs live inside /draft, so remember which one to open before going there. */
+const DRAFT_TABS = [
+  { id: 'kit', label: 'Rankings' },
+  { id: 'mock', label: 'Mock Draft' },
+  { id: 'draft', label: 'Live Draft' },
+  { id: 'news', label: 'News' },
+];
+
+const VIEWS = [
+  { href: '/inseason', label: 'This week' },
+  { href: '/inseason/waivers', label: 'Free agents' },
+  { href: '/inseason/weekly', label: 'Schedule' },
+  { href: '/inseason/connect', label: 'My league' },
+];
+
+function Header() {
+  const { me } = useMeContext();
+  const openDraftTab = (id: string) => {
+    try { localStorage.setItem('cv.tab', JSON.stringify(id)); } catch { /* ignore */ }
+  };
+  return (
+    <header className="sticky top-0 z-20 border-b border-line bg-bg/90 backdrop-blur print:hidden">
+      <div className="mx-auto flex max-w-7xl flex-wrap items-center gap-x-6 gap-y-2 px-4 py-3">
+        <Link href="/" className="flex items-center gap-2" title="Takeover Fantasy home">
+          <LogoMark size={22} />
+          <span className="text-base font-semibold tracking-tight">Takeover Fantasy</span>
+        </Link>
+        <nav className="no-scrollbar -mx-1 flex max-w-full gap-1 overflow-x-auto px-1">
+          {DRAFT_TABS.map((t) => (
+            <Link
+              key={t.id}
+              href="/draft"
+              onClick={() => openDraftTab(t.id)}
+              className="whitespace-nowrap rounded-full px-3 py-1 text-sm text-muted hover:text-fg"
+            >
+              {t.label}
+            </Link>
+          ))}
+          <span className="whitespace-nowrap rounded-full bg-sunken px-3 py-1 text-sm font-medium text-fg">In-season</span>
+        </nav>
+        <div className="ml-auto flex items-center gap-3 text-xs text-muted">
+          {me?.profile && <span className="hidden sm:inline">{me.profile.teamName}</span>}
+          {me?.signedIn ? (
+            <form action="/auth/signout" method="post" className="flex items-center gap-2">
+              <span className="hidden max-w-[12rem] truncate sm:inline" title={me.email}>{me.email}</span>
+              <button className="hover:text-fg">Sign out</button>
+            </form>
+          ) : me ? (
+            <Link href="/login?next=/inseason" className="shrink-0 whitespace-nowrap rounded-full border border-line px-3 py-1 font-medium text-fg hover:border-fg/30 hover:bg-sunken">
+              Sign in
+            </Link>
+          ) : null}
+        </div>
+      </div>
+    </header>
+  );
+}
+
+function SubNav() {
+  const path = usePathname();
+  return (
+    <div className="no-scrollbar mb-5 inline-flex max-w-full overflow-x-auto rounded-full border border-line bg-panel p-0.5 text-sm">
+      {VIEWS.map((v) => (
+        <Link
+          key={v.href}
+          href={v.href}
+          className={`whitespace-nowrap rounded-full px-3 py-1 ${path === v.href ? 'bg-sunken font-medium text-fg' : 'text-muted hover:text-fg'}`}
+        >
+          {v.label}
+        </Link>
+      ))}
+    </div>
+  );
+}
+
+export function InseasonShell({ children }: { children: React.ReactNode }) {
+  return (
+    <MeProvider>
+      <div className="min-h-screen">
+        <Header />
+        <main className="mx-auto max-w-7xl px-4 py-5">
+          <SubNav />
+          {children}
+        </main>
+      </div>
+    </MeProvider>
+  );
+}
