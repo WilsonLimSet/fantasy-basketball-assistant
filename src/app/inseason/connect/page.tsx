@@ -155,81 +155,121 @@ function CorePicker({ core: savedCore }: { core: number[] }) {
   );
 }
 
+type Channel = 'email' | 'telegram' | 'both' | 'off';
+const CHANNELS: { id: Channel; label: string }[] = [
+  { id: 'email', label: 'Email' },
+  { id: 'telegram', label: 'Telegram' },
+  { id: 'both', label: 'Both' },
+  { id: 'off', label: 'Off' },
+];
+
 function Alerts({ profile, me, reload }: { profile: MeProfile; me: Me; reload: () => Promise<void> }) {
-  const [email, setEmail] = useState(profile.alerts.email);
-  const [telegram, setTelegram] = useState(!!profile.alerts.telegram);
+  const linked = !!profile.telegram;
+  const current: Channel =
+    profile.alerts.email && profile.alerts.telegram && linked ? 'both'
+      : profile.alerts.telegram && linked ? 'telegram'
+        : profile.alerts.email ? 'email' : 'off';
+  const [choice, setChoice] = useState<Channel>(current);
   const [linking, setLinking] = useState<'idle' | 'ready' | 'waiting' | 'expired'>('idle');
-  const [linkUrl, setLinkUrl] = useState<string | null>(null);
+  const [link, setLink] = useState<{ url: string; code: string } | null>(null);
+  const [saved, setSaved] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const setChannel = async (channel: 'email' | 'telegram', v: boolean) => {
-    if (channel === 'email') setEmail(v); else setTelegram(v);
-    await post('PATCH', { alerts: { [channel]: v } });
+  const apply = async (c: Channel) => {
+    await post('PATCH', { alerts: { email: c === 'email' || c === 'both', telegram: c === 'telegram' || c === 'both' } });
+    setSaved(true);
+    await reload();
   };
-
-  // After they open Telegram, check every few seconds for their /start (for up to 3 minutes).
-  useEffect(() => {
-    if (linking !== 'waiting') return;
-    let tries = 0;
-    const t = setInterval(async () => {
-      tries++;
-      const j = await post('POST', { action: 'telegram-check' });
-      if (j.linked) { clearInterval(t); setLinking('idle'); setTelegram(true); await reload(); }
-      else if (!j.success || tries > 60) { clearInterval(t); setLinking('expired'); }
-    }, 3000);
-    return () => clearInterval(t);
-  }, [linking, reload]);
 
   const startLink = async () => {
     setError(null);
     const j = await post('POST', { action: 'telegram-link' });
     if (!j.success) { setError(j.error); return; }
-    setLinkUrl(j.url);
+    setLink({ url: j.url, code: j.code });
     setLinking('ready');
   };
+
+  const pick = async (c: Channel) => {
+    setChoice(c);
+    setSaved(false);
+    setError(null);
+    if ((c === 'telegram' || c === 'both') && !linked) {
+      if (!me.telegramBot) { setError('Telegram alerts aren’t switched on yet.'); return; }
+      await startLink(); // saved once Telegram is linked
+      return;
+    }
+    await apply(c);
+  };
+
+  // While they're in Telegram, check every few seconds (for up to 3 minutes) whether the link went through.
+  useEffect(() => {
+    if (linking !== 'ready' && linking !== 'waiting') return;
+    let tries = 0;
+    const t = setInterval(async () => {
+      tries++;
+      const j = await post('POST', { action: 'telegram-check' });
+      if (j.linked) { clearInterval(t); setLinking('idle'); setLink(null); await apply(choice); }
+      else if (!j.success || tries > 60) { clearInterval(t); setLinking('expired'); }
+    }, 3000);
+    return () => clearInterval(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [linking]);
+
   const unlink = async () => {
     await post('POST', { action: 'telegram-unlink' });
-    setTelegram(false);
+    setChoice(profile.alerts.email ? 'email' : 'off');
     await reload();
   };
 
   return (
-    <Panel title="Daily alerts" sub="Around 7am New York time, only when there’s a move worth making. Pick one or both.">
-      <ul className="-my-1 text-sm">
-        <li className="flex items-start gap-2.5 py-2">
-          <input type="checkbox" className="mt-0.5" checked={email} onChange={(e) => setChannel('email', e.target.checked)} id="al-email" />
-          <label htmlFor="al-email" className="flex-1 cursor-pointer">
-            Email <span className="text-muted">to {me.email}</span>
-            {!me.emailAlerts && <span className="block text-xs text-muted">Email sending isn’t switched on yet.</span>}
-          </label>
-        </li>
-        <li className="flex items-start gap-2.5 border-t border-line py-2">
-          <input type="checkbox" className="mt-0.5" checked={telegram} disabled={!profile.telegram} onChange={(e) => setChannel('telegram', e.target.checked)} id="al-tg" />
-          <div className="flex-1">
-            <label htmlFor="al-tg" className={profile.telegram ? 'cursor-pointer' : ''}>
-              Telegram{' '}
-              {profile.telegram && <span className="text-muted">as {profile.telegram.username ? `@${profile.telegram.username}` : 'your account'}</span>}
-            </label>
-            {!me.telegramBot ? (
-              <span className="block text-xs text-muted">Telegram alerts aren’t switched on yet.</span>
-            ) : profile.telegram ? (
-              <button onClick={unlink} className="ml-2 text-xs text-muted underline hover:text-fg">Unlink</button>
-            ) : linking === 'ready' && linkUrl ? (
-              <div className="mt-1.5">
-                <a href={linkUrl} target="_blank" rel="noopener noreferrer" onClick={() => setLinking('waiting')} className="btn-accent">Open Telegram</a>
-              </div>
-            ) : linking === 'waiting' ? (
-              <span className="block text-xs text-muted">Press <b>Start</b> in Telegram. This updates by itself once you do…</span>
-            ) : (
-              <div className="mt-1.5">
-                <button onClick={startLink} className="btn-ghost">Connect Telegram</button>
-                {linking === 'expired' && <span className="ml-2 text-xs text-muted">Didn’t see your Start. Try again.</span>}
-              </div>
-            )}
-            {error && <span className="block text-xs text-red-700">{error}</span>}
-          </div>
-        </li>
-      </ul>
+    <Panel title="Daily alerts" sub="Your best add/drops around 7am New York time, only when there’s a move worth making.">
+      <div className="inline-flex rounded-full border border-line bg-panel p-0.5 text-sm">
+        {CHANNELS.map((c) => (
+          <button
+            key={c.id}
+            onClick={() => pick(c.id)}
+            className={`rounded-full px-3 py-1 ${choice === c.id ? 'bg-sunken font-medium text-fg' : 'text-muted hover:text-fg'}`}
+          >
+            {c.label}
+          </button>
+        ))}
+      </div>
+
+      <div className="mt-3 space-y-1.5 text-sm">
+        {(choice === 'email' || choice === 'both') && (
+          <p className="text-muted">
+            Email to <span className="text-fg">{me.email}</span>
+            {!me.emailAlerts && ' (sending isn’t switched on yet)'}
+          </p>
+        )}
+        {(choice === 'telegram' || choice === 'both') && (
+          linked ? (
+            <p className="text-muted">
+              Telegram as <span className="text-fg">{profile.telegram?.username ? `@${profile.telegram.username}` : 'your account'}</span>
+              <button onClick={unlink} className="ml-2 text-xs underline hover:text-fg">Unlink</button>
+            </p>
+          ) : link && (linking === 'ready' || linking === 'waiting') ? (
+            <div className="rounded-lg border border-line bg-sunken p-3">
+              <p className="mb-2">Connect Telegram in one tap:</p>
+              <a href={link.url} target="_blank" rel="noopener noreferrer" onClick={() => setLinking('waiting')} className="btn-accent inline-block px-4 py-1.5 text-sm">
+                Open Telegram
+              </a>
+              <p className="mt-2 text-xs text-muted">
+                It opens our bot. Press <b>Start</b> and this page updates by itself. Already chatting with the bot? Send it this
+                code: <b className="font-mono text-fg">{link.code}</b>
+              </p>
+            </div>
+          ) : (
+            <p className="text-muted">
+              {linking === 'expired' ? 'Didn’t see your Start. ' : ''}
+              <button onClick={startLink} className="btn-ghost">Connect Telegram</button>
+            </p>
+          )
+        )}
+        {choice === 'off' && <p className="text-muted">No alerts. You can still check This week any time.</p>}
+        {saved && <p className="text-xs text-accent">Saved.</p>}
+        {error && <p className="text-xs text-red-700">{error}</p>}
+      </div>
     </Panel>
   );
 }

@@ -24,7 +24,7 @@ import {
 } from '@/lib/inseason/profile';
 import { refreshLeague } from '@/lib/inseason/refreshLeague';
 import { EMAIL_ON } from '@/lib/inseason/email';
-import { botUsername, findStartChat, rememberLinkCode, sendTelegramTo, TELEGRAM_ON } from '@/lib/inseason/telegramUser';
+import { botUsername, drainUpdates, rememberLinkCode, TELEGRAM_ON } from '@/lib/inseason/telegramUser';
 import { randomBytes } from 'node:crypto';
 import { ownLeagueIds } from '@/lib/espnLeague';
 
@@ -134,25 +134,21 @@ export async function POST(req: Request) {
     if (!bot) return fail('Telegram alerts aren’t switched on yet.', 503);
 
     if (body.action === 'telegram-link') {
-      const code = randomBytes(9).toString('base64url');
+      // Short and easy to type, in case they open the bot without the link: 8 letters/digits.
+      const code = Array.from(randomBytes(8), (b) => 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'[b % 32]).join('');
       await saveProfile({ ...profile, telegramLink: { code, expires: Date.now() + 30 * 60 * 1000 } });
       await rememberLinkCode(code, account.email);
-      return NextResponse.json({ success: true, url: `https://t.me/${bot}?start=${code}` });
+      return NextResponse.json({ success: true, url: `https://t.me/${bot}?start=${code}`, code, bot });
     }
     if (body.action === 'telegram-check') {
-      const link = profile.telegramLink;
-      if (!link || link.expires < Date.now()) return fail('That link expired. Start again.', 410);
-      const chat = await findStartChat(link.code).catch(() => null);
-      if (!chat) return NextResponse.json({ success: true, linked: false });
-      const linked = {
-        ...profile,
-        telegram: { chatId: chat.chatId, username: chat.username, linkedAt: Date.now() },
-        telegramLink: undefined,
-        alerts: { ...profile.alerts, telegram: true },
-      };
-      await saveProfile(linked);
-      await sendTelegramTo(chat.chatId, `You're connected. Each morning we'll send <b>${profile.teamName ?? 'your team'}</b>'s best add/drops here, only when there's a move worth making.`);
-      return NextResponse.json({ success: true, linked: true, profile: publicProfile(linked) });
+      if (!profile.telegram) {
+        // The webhook links people as their message arrives; without one (local dev), read updates now.
+        await drainUpdates().catch(() => {});
+      }
+      const fresh = await getProfile(account.email);
+      if (fresh?.telegram) return NextResponse.json({ success: true, linked: true, profile: publicProfile(fresh) });
+      if (!profile.telegramLink || profile.telegramLink.expires < Date.now()) return fail('That link expired. Start again.', 410);
+      return NextResponse.json({ success: true, linked: false });
     }
     if (body.action === 'telegram-unlink') {
       const unlinked = { ...profile, telegram: undefined, telegramLink: undefined, alerts: { ...profile.alerts, telegram: false } };
