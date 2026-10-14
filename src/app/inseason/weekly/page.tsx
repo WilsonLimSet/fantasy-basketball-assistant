@@ -1,13 +1,14 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import type { WeeklyStreamingPlan, NBATeamSchedule, WaiverRecommendation } from '@/types';
+import type { WeeklyStreamingPlan, NBATeamSchedule, WaiverRecommendation, MatchupGamesComparison, MatchupSideGames } from '@/types';
 
 interface WeeklyPlanResponse {
   success: boolean;
   plan?: WeeklyStreamingPlan;
   scheduleIndex?: Record<number, NBATeamSchedule>;
   topPicksByGames?: WaiverRecommendation[];
+  matchupGames?: MatchupGamesComparison;
   snapshotAge?: number;
   error?: string;
 }
@@ -19,6 +20,97 @@ function formatAge(ms: number): string {
     return `${hours}h ${minutes % 60}m ago`;
   }
   return `${minutes}m ago`;
+}
+
+function gamesColor(games: number): string {
+  if (games >= 4) return 'var(--success)';
+  if (games <= 2) return 'var(--danger)';
+  return 'inherit';
+}
+
+function dayLabel(date: string): string {
+  return new Date(`${date}T12:00:00Z`).toLocaleDateString('en-US', { weekday: 'short', timeZone: 'UTC' });
+}
+
+function MatchupSide({ side, days, today }: { side: MatchupSideGames; days: MatchupGamesComparison['days']; today: number }) {
+  return (
+    <div style={{ overflowX: 'auto' }}>
+      <table className="table">
+        <thead>
+          <tr>
+            <th>{side.name}</th>
+            <th>Games</th>
+            {days.map((d) => (
+              <th key={d.scoringPeriodId} style={{ textAlign: 'center', minWidth: '2.5rem', opacity: d.scoringPeriodId < today ? 0.5 : 1 }}>
+                {dayLabel(d.date)}
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {side.players.map((p) => (
+            <tr key={p.playerId} style={{ opacity: p.injured ? 0.5 : 1 }}>
+              <td>
+                <strong>{p.name}</strong>
+                <span style={{ color: 'var(--muted)', marginLeft: '0.4rem', fontSize: '0.8rem' }}>
+                  {p.nbaTeamAbbrev}
+                  {p.status !== 'ACTIVE' && ` · ${p.status.replace(/_/g, ' ')}`}
+                </span>
+              </td>
+              <td style={{ fontWeight: 600, color: gamesColor(p.games) }}>{p.games}</td>
+              {p.playsByDay.map((plays, i) => (
+                <td key={i} style={{ textAlign: 'center' }}>
+                  {plays ? <span style={{ fontWeight: 600 }}>●</span> : <span style={{ color: 'var(--card-border)' }}>-</span>}
+                </td>
+              ))}
+            </tr>
+          ))}
+          <tr>
+            <td style={{ color: 'var(--muted)' }}>Healthy players playing</td>
+            <td style={{ fontWeight: 600 }}>{side.totalGames}</td>
+            {side.playingByDay.map((n, i) => (
+              <td key={i} style={{ textAlign: 'center', fontWeight: 600 }}>{n}</td>
+            ))}
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+function MatchupGamesCard({ data }: { data: MatchupGamesComparison }) {
+  const { me, opponent, days, today, startingSlots } = data;
+  const fourPlus = me.players.filter((p) => p.games >= 4 && !p.injured).length;
+  const three = me.players.filter((p) => p.games === 3 && !p.injured).length;
+  const range = days.length ? `${dayLabel(days[0].date)} ${days[0].date.slice(5)} – ${dayLabel(days[days.length - 1].date)} ${days[days.length - 1].date.slice(5)}` : '';
+  return (
+    <div className="card">
+      <div className="card-header">
+        <h2 className="card-title">Your matchup: games this week</h2>
+        <span className="card-subtitle">{range}</span>
+      </div>
+      <div className="grid grid-3" style={{ marginBottom: '1rem' }}>
+        <div className="stat">
+          <div className="stat-value">{me.usableGames}{opponent && <span style={{ color: 'var(--muted)' }}> – {opponent.usableGames}</span>}</div>
+          <div className="stat-label">Usable games{opponent ? ' (you – them)' : ''}</div>
+        </div>
+        <div className="stat">
+          <div className="stat-value" style={{ color: 'var(--success)' }}>{fourPlus}</div>
+          <div className="stat-label">Your 4+ game players</div>
+        </div>
+        <div className="stat">
+          <div className="stat-value">{three}</div>
+          <div className="stat-label">Your 3-game players</div>
+        </div>
+      </div>
+      <p style={{ color: 'var(--muted)', fontSize: '0.85rem', marginBottom: '1rem' }}>
+        Usable games cap each day at your {startingSlots} starting spots, so extra players on a busy day don&apos;t count.
+        Injured and IR players are left out of the totals.
+      </p>
+      <MatchupSide side={me} days={days} today={today} />
+      {opponent && <div style={{ marginTop: '1.5rem' }}><MatchupSide side={opponent} days={days} today={today} /></div>}
+    </div>
+  );
 }
 
 export default function WeeklyPlanPage() {
@@ -95,6 +187,8 @@ export default function WeeklyPlanPage() {
           Week {data?.plan?.week || '-'} • Updated {formatAge(data?.snapshotAge || 0)}
         </p>
       </div>
+
+      {data?.matchupGames && <MatchupGamesCard data={data.matchupGames} />}
 
       {/* Summary Stats */}
       <div className="card">

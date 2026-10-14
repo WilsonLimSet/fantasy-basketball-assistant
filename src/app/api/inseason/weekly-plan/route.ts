@@ -7,7 +7,8 @@ import { NextResponse } from 'next/server';
 import { isOwner } from '@/lib/auth';
 import { createStorageAdapter } from '@/lib/inseason/storage';
 import { generateWeeklyStreamingPlan, getWaiverRecommendations } from '@/lib/inseason/optimizer';
-import type { WeeklyStreamingPlan, NBATeamSchedule, WaiverRecommendation } from '@/types';
+import { compareMatchupGames } from '@/lib/inseason/matchupGames';
+import type { WeeklyStreamingPlan, NBATeamSchedule, WaiverRecommendation, MatchupGamesComparison } from '@/types';
 
 export const dynamic = 'force-dynamic';
 
@@ -16,6 +17,7 @@ interface WeeklyPlanResponse {
   plan?: WeeklyStreamingPlan;
   scheduleIndex?: Record<number, NBATeamSchedule>;
   topPicksByGames?: WaiverRecommendation[];
+  matchupGames?: MatchupGamesComparison;
   snapshotAge?: number;
   error?: string;
 }
@@ -69,6 +71,7 @@ export async function GET(request: Request) {
       plan,
       scheduleIndex: snapshot.scheduleIndex,
       topPicksByGames,
+      matchupGames: compareMatchupGames(snapshot),
       snapshotAge,
     };
 

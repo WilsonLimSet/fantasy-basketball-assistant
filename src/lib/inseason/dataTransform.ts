@@ -12,6 +12,7 @@ import type {
   ESPNLeagueSettings,
   PlayerStatus,
 } from '@/types/espn';
+import { buildMatchupWeek, countStartingSlots } from './matchupGames';
 import type {
   Player,
   Team,
@@ -365,6 +366,13 @@ export function buildLeagueSnapshot(input: SnapshotInput): LeagueSnapshot {
     freeAgentsTopN,
     statusIndex,
     scheduleIndex,
+    matchupWeek: buildMatchupWeek(
+      input.nbaSchedule || [],
+      input.settings.settings?.scheduleSettings?.matchupPeriods,
+      input.settings.currentMatchupPeriod,
+      input.settings.scoringPeriodId
+    ),
+    startingSlots: countStartingSlots(input.settings.settings?.rosterSettings?.lineupSlotCounts),
   };
 }
 

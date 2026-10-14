@@ -181,6 +181,50 @@ export interface LeagueSnapshot {
   freeAgentsTopN: FreeAgentEntry[];
   statusIndex: Record<number, { status: PlayerStatus; injuryNote?: string }>;
   scheduleIndex: Record<number, NBATeamSchedule>;
+  /** The current matchup week: its days and which days each NBA team plays. */
+  matchupWeek?: MatchupWeekSchedule;
+  /** Starting lineup spots (everything except bench and IR). */
+  startingSlots?: number;
+}
+
+export interface MatchupWeekSchedule {
+  /** Every day of the matchup, in order. */
+  days: Array<{ scoringPeriodId: number; date: string }>;
+  /** NBA team id -> scoring periods this week the team plays. */
+  teamGames: Record<number, number[]>;
+}
+
+export interface MatchupPlayerGames {
+  playerId: number;
+  name: string;
+  nbaTeamAbbrev?: string;
+  status: PlayerStatus;
+  injured: boolean;
+  games: number;
+  gamesLeft: number;
+  /** One flag per matchup day. */
+  playsByDay: boolean[];
+}
+
+export interface MatchupSideGames {
+  teamId: number;
+  name: string;
+  players: MatchupPlayerGames[];
+  /** Players with a game each day (injured/IR players left out). */
+  playingByDay: number[];
+  totalGames: number;
+  /** Games that can count once each day is capped at the starting lineup size. */
+  usableGames: number;
+  gamesLeft: number;
+}
+
+export interface MatchupGamesComparison {
+  week: number;
+  days: Array<{ scoringPeriodId: number; date: string }>;
+  today: number;
+  startingSlots: number;
+  me: MatchupSideGames;
+  opponent?: MatchupSideGames;
 }
 
 // Snapshot diff
