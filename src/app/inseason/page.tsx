@@ -133,6 +133,12 @@ export default function ThisWeekPage() {
               </Link>
             </p>
           </Panel>
+          {me?.profile && !me.profile.telegram && me.telegramBot && (
+            <Link href="/inseason/connect#alerts" className="flex items-center justify-between gap-3 rounded-xl border border-line bg-panel px-4 py-3 text-sm shadow-[0_1px_2px_rgba(25,25,25,0.04)] hover:border-fg/30">
+              <span><span className="font-medium">Get these moves on Telegram each morning.</span> <span className="text-muted">Takes 10 seconds.</span></span>
+              <span className="btn-ghost shrink-0">Set up</span>
+            </Link>
+          )}
           {mg && <MatchupGamesPanel data={mg} />}
         </div>
         <div className="space-y-5">

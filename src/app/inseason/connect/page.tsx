@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { Headshot, InjuryBadge } from '@/components/ui';
+import { qrMatrix } from '@/lib/qr';
 import { ErrorBox, Gate, Loading, Panel, useMeContext, type Me, type MeProfile } from '../useMe';
 
 interface LookupTeam { id: number; name: string; abbrev: string; managers: string[] }
@@ -155,6 +156,17 @@ function CorePicker({ core: savedCore }: { core: number[] }) {
   );
 }
 
+/** A QR code as crisp SVG squares. */
+function QrCode({ value, size = 132 }: { value: string; size?: number }) {
+  const m = qrMatrix(value);
+  const n = m.length + 8; // 4-module quiet zone on each side
+  return (
+    <svg viewBox={`0 0 ${n} ${n}`} width={size} height={size} role="img" aria-label="QR code for the Telegram link" shapeRendering="crispEdges" className="rounded-md bg-white">
+      {m.flatMap((row, y) => row.map((dark, x) => (dark ? <rect key={`${x}-${y}`} x={x + 4} y={y + 4} width={1} height={1} fill="#191919" /> : null)))}
+    </svg>
+  );
+}
+
 type Channel = 'email' | 'telegram' | 'both' | 'off';
 const CHANNELS: { id: Channel; label: string }[] = [
   { id: 'email', label: 'Email' },
@@ -222,7 +234,7 @@ function Alerts({ profile, me, reload }: { profile: MeProfile; me: Me; reload: (
   };
 
   return (
-    <Panel title="Daily alerts" sub="Your best add/drops around 7am New York time, only when there’s a move worth making.">
+    <Panel title="Where should we send your daily moves?" sub="Your best add/drops around 7am New York time, only when there’s a move worth making.">
       <div className="inline-flex rounded-full border border-line bg-panel p-0.5 text-sm">
         {CHANNELS.map((c) => (
           <button
@@ -249,15 +261,25 @@ function Alerts({ profile, me, reload }: { profile: MeProfile; me: Me; reload: (
               <button onClick={unlink} className="ml-2 text-xs underline hover:text-fg">Unlink</button>
             </p>
           ) : link && (linking === 'ready' || linking === 'waiting') ? (
-            <div className="rounded-lg border border-line bg-sunken p-3">
-              <p className="mb-2">Connect Telegram in one tap:</p>
-              <a href={link.url} target="_blank" rel="noopener noreferrer" onClick={() => setLinking('waiting')} className="btn-accent inline-block px-4 py-1.5 text-sm">
-                Open Telegram
-              </a>
-              <p className="mt-2 text-xs text-muted">
-                It opens our bot. Press <b>Start</b> and this page updates by itself. Already chatting with the bot? Send it this
-                code: <b className="font-mono text-fg">{link.code}</b>
-              </p>
+            <div className="flex flex-wrap items-start gap-5 rounded-lg border border-line bg-sunken p-4">
+              <div className="min-w-0 flex-1 basis-60">
+                <p className="font-medium">Connect Telegram</p>
+                <ol className="mt-1.5 list-decimal space-y-1 pl-4 text-muted">
+                  <li>Tap <b className="text-fg">Open Telegram</b> (or scan the code with your phone).</li>
+                  <li>Press <b className="text-fg">Start</b> in the chat with @{me.telegramBot}.</li>
+                  <li>That’s it. This page updates by itself and the bot sends this week’s moves.</li>
+                </ol>
+                <a href={link.url} target="_blank" rel="noopener noreferrer" onClick={() => setLinking('waiting')} className="btn-accent mt-3 inline-block px-4 py-1.5 text-sm">
+                  Open Telegram
+                </a>
+                <p className="mt-3 text-xs text-muted">
+                  Already chatting with the bot, or no Start button? Send it this code: <b className="font-mono text-fg">{link.code}</b>
+                </p>
+              </div>
+              <div className="hidden text-center sm:block">
+                <QrCode value={link.url} />
+                <p className="mt-1 text-[11px] text-muted">Scan with your phone</p>
+              </div>
             </div>
           ) : (
             <p className="text-muted">
@@ -315,8 +337,8 @@ export default function MyLeaguePage() {
       >
         <p className="text-sm text-muted">Signed in as {me.email}. We refresh your league twice a day; hit Refresh on This week for the latest.</p>
       </Panel>
+      <div id="alerts"><Alerts profile={profile} me={me} reload={reload} /></div>
       {me.pro ? <CorePicker key={`${profile.leagueId}-${profile.teamId}`} core={profile.core} /> : <Gate needs="pro" />}
-      <Alerts profile={profile} me={me} reload={reload} />
     </div>
   );
 }
