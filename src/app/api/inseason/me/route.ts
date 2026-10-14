@@ -24,6 +24,8 @@ import {
 } from '@/lib/inseason/profile';
 import { refreshLeague } from '@/lib/inseason/refreshLeague';
 import { EMAIL_ON } from '@/lib/inseason/email';
+import { botUsername, drainUpdates, rememberLinkCode, TELEGRAM_ON } from '@/lib/inseason/telegramUser';
+import { randomBytes } from 'node:crypto';
 import { ownLeagueIds } from '@/lib/espnLeague';
 
 export const dynamic = 'force-dynamic';
@@ -43,8 +45,8 @@ function parseLink(link: string): { leagueId: string; teamId?: number } | null {
 
 function publicProfile(p: InseasonProfile | null) {
   if (!p) return null;
-  const { auth, lastAlert: _lastAlert, ...rest } = p;
-  return { ...rest, hasLogin: !!auth };
+  const { auth, lastAlert: _lastAlert, telegramLink: _link, telegram, ...rest } = p;
+  return { ...rest, hasLogin: !!auth, telegram: telegram ? { username: telegram.username } : null };
 }
 
 /** Turn ESPN errors into something a user can act on. */
@@ -75,6 +77,7 @@ export async function GET() {
     pro: !PAYWALL_ON || !!pass || isOwnerEmail(account.email),
     profile: publicProfile(profile),
     emailAlerts: EMAIL_ON,
+    telegramBot: TELEGRAM_ON ? await botUsername() : null,
     paymentLink: process.env.STRIPE_PAYMENT_LINK
       ? `${process.env.STRIPE_PAYMENT_LINK}?prefilled_email=${encodeURIComponent(account.email)}`
       : null,
@@ -124,6 +127,36 @@ export async function POST(req: Request) {
     }
   }
 
+  if (body.action?.startsWith('telegram-')) {
+    const profile = await getProfile(account.email);
+    if (!profile) return fail('Connect your ESPN league first.', 404);
+    const bot = TELEGRAM_ON ? await botUsername() : null;
+    if (!bot) return fail('Telegram alerts aren’t switched on yet.', 503);
+
+    if (body.action === 'telegram-link') {
+      // Short and easy to type, in case they open the bot without the link: 8 letters/digits.
+      const code = Array.from(randomBytes(8), (b) => 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'[b % 32]).join('');
+      await saveProfile({ ...profile, telegramLink: { code, expires: Date.now() + 30 * 60 * 1000 } });
+      await rememberLinkCode(code, account.email);
+      return NextResponse.json({ success: true, url: `https://t.me/${bot}?start=${code}`, code, bot });
+    }
+    if (body.action === 'telegram-check') {
+      if (!profile.telegram) {
+        // The webhook links people as their message arrives; without one (local dev), read updates now.
+        await drainUpdates().catch(() => {});
+      }
+      const fresh = await getProfile(account.email);
+      if (fresh?.telegram) return NextResponse.json({ success: true, linked: true, profile: publicProfile(fresh) });
+      if (!profile.telegramLink || profile.telegramLink.expires < Date.now()) return fail('That link expired. Start again.', 410);
+      return NextResponse.json({ success: true, linked: false });
+    }
+    if (body.action === 'telegram-unlink') {
+      const unlinked = { ...profile, telegram: undefined, telegramLink: undefined, alerts: { ...profile.alerts, telegram: false } };
+      await saveProfile(unlinked);
+      return NextResponse.json({ success: true, profile: publicProfile(unlinked) });
+    }
+  }
+
   if (body.action === 'save') {
     const leagueId = String(body.leagueId ?? '');
     const teamId = Number(body.teamId);
@@ -150,7 +183,8 @@ export async function POST(req: Request) {
       // Keep a saved login when reconnecting the same league without pasting cookies again.
       auth: auth ? encryptAuth(auth.s2, auth.swid) : previous?.leagueId === leagueId ? previous.auth : undefined,
       core: sameTeam ? previous!.core : [],
-      alerts: { email: body.alertsEmail ?? previous?.alerts.email ?? true },
+      alerts: { email: body.alertsEmail ?? previous?.alerts.email ?? true, telegram: previous?.alerts.telegram ?? false },
+      telegram: previous?.telegram,
       createdAt: previous?.createdAt ?? Date.now(),
       updatedAt: Date.now(),
     };
@@ -174,7 +208,7 @@ export async function PATCH(req: Request) {
   if (!account) return fail('Sign in first.', 401);
   const profile = await getProfile(account.email);
   if (!profile) return fail('Connect your ESPN league first.', 404);
-  const body = (await req.json().catch(() => ({}))) as { core?: unknown; alerts?: { email?: unknown } };
+  const body = (await req.json().catch(() => ({}))) as { core?: unknown; alerts?: { email?: unknown; telegram?: unknown } };
   if (body.core !== undefined) {
     if (!Array.isArray(body.core) || body.core.length > 20 || !body.core.every((id) => Number.isInteger(id) && id > 0)) {
       return fail('Bad core player list.');
@@ -182,6 +216,10 @@ export async function PATCH(req: Request) {
     profile.core = body.core as number[];
   }
   if (typeof body.alerts?.email === 'boolean') profile.alerts = { ...profile.alerts, email: body.alerts.email };
+  if (typeof body.alerts?.telegram === 'boolean') {
+    if (body.alerts.telegram && !profile.telegram) return fail('Link Telegram first.');
+    profile.alerts = { ...profile.alerts, telegram: body.alerts.telegram };
+  }
   await saveProfile(profile);
   return NextResponse.json({ success: true, profile: publicProfile(profile) });
 }

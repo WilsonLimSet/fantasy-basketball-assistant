@@ -10,7 +10,8 @@ export interface MeProfile {
   teamName?: string;
   leagueName?: string;
   core: number[];
-  alerts: { email: boolean };
+  alerts: { email: boolean; telegram?: boolean };
+  telegram?: { username?: string } | null;
   hasLogin: boolean;
   lastRefreshAt?: number;
 }
@@ -21,6 +22,8 @@ export interface Me {
   pro?: boolean;
   profile?: MeProfile | null;
   emailAlerts?: boolean;
+  /** Our Telegram bot's username, when Telegram alerts are switched on. */
+  telegramBot?: string | null;
   paymentLink?: string | null;
   priceLabel?: string;
 }
