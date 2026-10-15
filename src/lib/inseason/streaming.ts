@@ -25,6 +25,21 @@ const PLAY_CHANCE: Partial<Record<PlayerStatus, number>> = {
   QUESTIONABLE: 0.6,
   DAY_TO_DAY: 0.6,
 };
+/**
+ * Day-to-day, questionable and doubtful tags are about the next game or two. Games further out
+ * count in full, so a minor knock days before the week (or the season) starts doesn't sink a player.
+ */
+const GAME_TIME_TAGS: PlayerStatus[] = ['DOUBTFUL', 'QUESTIONABLE', 'DAY_TO_DAY'];
+const GAME_TIME_DAYS = 2;
+
+/** Today's date in US Eastern time (NBA game days), as YYYY-MM-DD. */
+const easternDate = (ms: number) => new Date(ms).toLocaleDateString('en-CA', { timeZone: 'America/New_York' });
+const daysBetween = (from: string, to: string) => Math.round((Date.parse(to) - Date.parse(from)) / 86_400_000);
+
+function playChance(status: PlayerStatus, daysAhead: number): number {
+  if (GAME_TIME_TAGS.includes(status) && daysAhead >= GAME_TIME_DAYS) return 1;
+  return PLAY_CHANCE[status] ?? 1;
+}
 
 export interface StreamPlayer {
   id: number;
@@ -143,7 +158,7 @@ interface WeekResult {
   usableById: Map<number, number>;
 }
 
-function simulateWeek(roster: Candidate[], week: MatchupWeekSchedule, today: number, slots: number[]): WeekResult {
+function simulateWeek(roster: Candidate[], week: MatchupWeekSchedule, today: number, slots: number[], asOf: string): WeekResult {
   let points = 0;
   let usableGames = 0;
   const usableById = new Map<number, number>();
@@ -152,7 +167,8 @@ function simulateWeek(roster: Candidate[], week: MatchupWeekSchedule, today: num
     const playing = roster.filter(
       (c) => day.scoringPeriodId >= c.from && (week.teamGames[c.player.nbaTeamId] ?? []).includes(day.scoringPeriodId)
     );
-    const { total, started } = fillDay(playing, slots, (c) => c.value * (PLAY_CHANCE[c.player.status] ?? 1));
+    const ahead = daysBetween(asOf, day.date);
+    const { total, started } = fillDay(playing, slots, (c) => c.value * playChance(c.player.status, ahead));
     points += total;
     usableGames += started.size;
     for (const id of started) usableById.set(id, (usableById.get(id) ?? 0) + 1);
@@ -182,6 +198,7 @@ export function buildStreamingPlan(snapshot: LeagueSnapshot, core: number[], wat
   const me = snapshot.teams.find((t) => t.id === snapshot.myTeamId);
   if (!week || !me?.roster) return null;
   const today = snapshot.scoringPeriodId;
+  const asOf = easternDate(snapshot.fetchedAt);
 
   // One entry per starting spot, by ESPN slot id.
   const slots = Object.entries(snapshot.lineupSlots ?? {}).flatMap(([slot, n]) =>
@@ -216,18 +233,18 @@ export function buildStreamingPlan(snapshot: LeagueSnapshot, core: number[], wat
     .map(toCandidate)
     .filter((c) => gamesLeft(c.player, week, c.from) > 0);
 
-  const baseline = simulateWeek(roster, week, today, slots);
+  const baseline = simulateWeek(roster, week, today, slots, asOf);
   const minGain = pointsLeague ? MIN_POINTS_GAIN : 1;
   const limit = snapshot.acquisitions?.limit ?? null;
   const addsLeft = limit === null ? null : Math.max(0, limit - (snapshot.acquisitions?.used ?? 0));
 
   function bestSwap(current: Candidate[], drops: Candidate[], adds: Candidate[]) {
-    const before = simulateWeek(current, week!, today, slots);
+    const before = simulateWeek(current, week!, today, slots, asOf);
     let best: { drop: Candidate; add: Candidate; result: WeekResult; gain: number } | null = null;
     for (const drop of drops) {
       const rest = current.filter((c) => c.player.id !== drop.player.id);
       for (const add of adds) {
-        const result = simulateWeek([...rest, add], week!, today, slots);
+        const result = simulateWeek([...rest, add], week!, today, slots, asOf);
         const gain = result.points - before.points;
         if (!best || gain > best.gain) best = { drop, add, result, gain };
       }
@@ -265,7 +282,7 @@ export function buildStreamingPlan(snapshot: LeagueSnapshot, core: number[], wat
     drops = drops.filter((c) => c.player.id !== s.drop.player.id);
     adds = adds.filter((c) => c.player.id !== s.add.player.id);
   }
-  const after = simulateWeek(current, week, today, slots);
+  const after = simulateWeek(current, week, today, slots, asOf);
 
   // Watchlist: where each watched player stands, and his best swap on the current roster.
   const rosterIds = new Set(roster.map((c) => c.player.id));
