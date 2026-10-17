@@ -40,6 +40,7 @@ export default function FreeAgentsPage() {
               <th className="pb-2 font-medium">Player</th>
               <th className="pb-2 pl-2 text-right font-medium" title="Games left this week">Left</th>
               <th className="hidden pb-2 pl-2 text-right font-medium sm:table-cell" title="Games he'd start in your lineup">Starts</th>
+              <th className="pb-2 pl-2 text-right font-medium" title="Games next matchup week">Next</th>
               <th className="pb-2 pl-2 text-right font-medium">Pts/g</th>
               <th className="hidden pb-2 pl-2 text-right font-medium sm:table-cell">Owned</th>
               <th className="pb-2 pl-2 text-right font-medium" title="Points his best swap adds this week">Adds</th>
@@ -67,6 +68,7 @@ export default function FreeAgentsPage() {
                 </td>
                 <td className={`py-2 text-right tabular-nums ${f.player.gamesLeft >= 4 ? 'font-medium text-accent' : ''}`}>{f.player.gamesLeft}</td>
                 <td className="hidden py-2 text-right tabular-nums sm:table-cell">{f.player.usableLeft}</td>
+                <td className={`py-2 text-right tabular-nums ${(f.player.gamesNext ?? 0) >= 4 ? 'font-medium text-accent' : 'text-muted'}`}>{f.player.gamesNext ?? '–'}</td>
                 <td className="py-2 text-right tabular-nums">{f.player.fppg}</td>
                 <td className="hidden py-2 text-right tabular-nums text-muted sm:table-cell">{f.player.percentOwned !== undefined ? `${Math.round(f.player.percentOwned)}%` : '–'}</td>
                 <td className="py-2 text-right font-medium tabular-nums">{f.pointsGain > 0 ? `+${Math.round(f.pointsGain)}` : <span className="font-normal text-muted">–</span>}</td>

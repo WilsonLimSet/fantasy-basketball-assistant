@@ -185,6 +185,8 @@ export interface LeagueSnapshot {
   scheduleIndex: Record<number, NBATeamSchedule>;
   /** The current matchup week: its days and which days each NBA team plays. */
   matchupWeek?: MatchupWeekSchedule;
+  /** The matchup week after this one, so moves can show what they cost or add next week. */
+  nextMatchupWeek?: MatchupWeekSchedule;
   /** Starting lineup spots (everything except bench and IR). */
   startingSlots?: number;
   /** ESPN lineup slot id -> how many the league has. */

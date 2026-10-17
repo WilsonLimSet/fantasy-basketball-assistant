@@ -169,6 +169,7 @@ export function dailyTelegram(opts: {
     plan.moves.forEach((m, i) => {
       lines.push(`${i + 1}. <b>Add ${esc(m.add.name)}</b>, drop ${esc(m.drop.name)}: <b>+${Math.round(m.pointsGain)} pts</b>${m.add.onWaivers ? ' (waivers)' : ''}`);
       lines.push(`   ${esc(m.reason)}`);
+      if (m.nextWeekWarning) lines.push(`   ⚠️ ${esc(m.nextWeekWarning)}`);
     });
   } else {
     lines.push('No add/drop beats your roster this week. Sit tight.');

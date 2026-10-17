@@ -20,39 +20,23 @@ function easternDate(ms: number): string {
   return new Date(ms).toLocaleDateString('en-CA', { timeZone: 'America/New_York' });
 }
 
-/**
- * Days of the current matchup week and which of them each NBA team plays.
- * Uses the league's matchup period mapping. Before the season ESPN maps every matchup period to a
- * single day, so in that case the week runs from today through Sunday (ESPN weeks end on Sunday).
- */
-export function buildMatchupWeek(
-  nbaSchedule: Array<{ id: number; proGamesByScoringPeriod?: Record<string, Array<{ date: number }>> }>,
-  matchupPeriods: Record<string, number[]> | undefined,
-  currentMatchupPeriod: number,
-  currentScoringPeriod: number
-): MatchupWeekSchedule | undefined {
-  // Find the date of one scoring period; the rest follow a day apart.
-  let anchor: { period: number; date: string } | undefined;
+type ProTeamSchedule = Array<{ id: number; proGamesByScoringPeriod?: Record<string, Array<{ date: number }>> }>;
+
+/** The calendar date of each scoring period, anchored on any game in the schedule. */
+function periodDates(nbaSchedule: ProTeamSchedule): ((period: number) => string) | undefined {
   for (const team of nbaSchedule) {
     for (const [period, games] of Object.entries(team.proGamesByScoringPeriod ?? {})) {
       if (games[0]) {
-        anchor = { period: Number(period), date: easternDate(games[0].date) };
-        break;
+        const anchorMs = Date.parse(`${easternDate(games[0].date)}T12:00:00Z`);
+        const anchorPeriod = Number(period);
+        return (p: number) => new Date(anchorMs + (p - anchorPeriod) * DAY_MS).toISOString().slice(0, 10);
       }
     }
-    if (anchor) break;
   }
-  if (!anchor) return undefined;
-  const anchorMs = Date.parse(`${anchor.date}T12:00:00Z`);
-  const dateOf = (period: number) => new Date(anchorMs + (period - anchor!.period) * DAY_MS).toISOString().slice(0, 10);
+  return undefined;
+}
 
-  let periods = matchupPeriods?.[String(currentMatchupPeriod)] ?? [];
-  if (periods.length <= 1) {
-    const dow = new Date(`${dateOf(currentScoringPeriod)}T12:00:00Z`).getUTCDay(); // 0 = Sunday
-    const daysToSunday = (7 - dow) % 7;
-    periods = Array.from({ length: daysToSunday + 1 }, (_, i) => currentScoringPeriod + i);
-  }
-
+function scheduleFor(nbaSchedule: ProTeamSchedule, periods: number[], dateOf: (p: number) => string): MatchupWeekSchedule {
   const inWeek = new Set(periods);
   const teamGames: Record<number, number[]> = {};
   for (const team of nbaSchedule) {
@@ -61,8 +45,47 @@ export function buildMatchupWeek(
       .map(([period]) => Number(period))
       .sort((a, b) => a - b);
   }
-
   return { days: periods.map((p) => ({ scoringPeriodId: p, date: dateOf(p) })), teamGames };
+}
+
+/**
+ * Days of the current matchup week and which of them each NBA team plays.
+ * Uses the league's matchup period mapping. Before the season ESPN maps every matchup period to a
+ * single day, so in that case the week runs from today through Sunday (ESPN weeks end on Sunday).
+ */
+export function buildMatchupWeek(
+  nbaSchedule: ProTeamSchedule,
+  matchupPeriods: Record<string, number[]> | undefined,
+  currentMatchupPeriod: number,
+  currentScoringPeriod: number
+): MatchupWeekSchedule | undefined {
+  const dateOf = periodDates(nbaSchedule);
+  if (!dateOf) return undefined;
+  let periods = matchupPeriods?.[String(currentMatchupPeriod)] ?? [];
+  if (periods.length <= 1) {
+    const dow = new Date(`${dateOf(currentScoringPeriod)}T12:00:00Z`).getUTCDay(); // 0 = Sunday
+    const daysToSunday = (7 - dow) % 7;
+    periods = Array.from({ length: daysToSunday + 1 }, (_, i) => currentScoringPeriod + i);
+  }
+  return scheduleFor(nbaSchedule, periods, dateOf);
+}
+
+/**
+ * The matchup week after this one: the league's next matchup period, or (when ESPN hasn't mapped
+ * it to real days yet, as before the season) the Monday-to-Sunday week after this one ends.
+ */
+export function buildNextMatchupWeek(
+  nbaSchedule: ProTeamSchedule,
+  matchupPeriods: Record<string, number[]> | undefined,
+  currentMatchupPeriod: number,
+  thisWeek: MatchupWeekSchedule | undefined
+): MatchupWeekSchedule | undefined {
+  const dateOf = periodDates(nbaSchedule);
+  const last = thisWeek?.days[thisWeek.days.length - 1]?.scoringPeriodId;
+  if (!dateOf || last === undefined) return undefined;
+  let periods = matchupPeriods?.[String(currentMatchupPeriod + 1)] ?? [];
+  if (periods.length <= 1 || periods[0] <= last) periods = Array.from({ length: 7 }, (_, i) => last + 1 + i);
+  return scheduleFor(nbaSchedule, periods, dateOf);
 }
 
 /** Starting lineup spots: every slot except bench and IR. */

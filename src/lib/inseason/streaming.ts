@@ -52,6 +52,8 @@ export interface StreamPlayer {
   gamesLeft: number;
   /** Games left this week that make the lineup. */
   usableLeft: number;
+  /** Games next matchup week (when we know next week's schedule). */
+  gamesNext?: number;
 }
 
 export interface StreamMove {
@@ -61,6 +63,10 @@ export interface StreamMove {
   pointsGain: number;
   usableGamesGain: number;
   reason: string;
+  /** What the move does to next week, if you kept the added player. */
+  nextWeek?: { pointsChange: number; addGames: number; dropGames: number };
+  /** Set when the move costs points next week, e.g. dropping someone with a big week coming. */
+  nextWeekWarning?: string;
 }
 
 export interface WatchlistNote {
@@ -180,7 +186,7 @@ function gamesLeft(p: Player, week: MatchupWeekSchedule, from: number): number {
   return (week.teamGames[p.nbaTeamId] ?? []).filter((d) => d >= from).length;
 }
 
-function describe(p: Player, value: number, week: MatchupWeekSchedule, today: number, usable: number, from = today): StreamPlayer {
+function describe(p: Player, value: number, week: MatchupWeekSchedule, today: number, usable: number, from = today, next?: MatchupWeekSchedule): StreamPlayer {
   return {
     id: p.id,
     name: p.name,
@@ -190,11 +196,13 @@ function describe(p: Player, value: number, week: MatchupWeekSchedule, today: nu
     fppg: Math.round(value * 10) / 10,
     gamesLeft: gamesLeft(p, week, Math.max(today, from)),
     usableLeft: usable,
+    gamesNext: next ? (next.teamGames[p.nbaTeamId] ?? []).length : undefined,
   };
 }
 
 export function buildStreamingPlan(snapshot: LeagueSnapshot, core: number[], watchIds: number[] = []): StreamingPlan | null {
   const week = snapshot.matchupWeek;
+  const next = snapshot.nextMatchupWeek;
   const me = snapshot.teams.find((t) => t.id === snapshot.myTeamId);
   if (!week || !me?.roster) return null;
   const today = snapshot.scoringPeriodId;
@@ -249,22 +257,36 @@ export function buildStreamingPlan(snapshot: LeagueSnapshot, core: number[], wat
         if (!best || gain > best.gain) best = { drop, add, result, gain };
       }
     }
-    return best && { ...best, before };
+    return best && { ...best, before, current };
   }
 
   function toMove(s: NonNullable<ReturnType<typeof bestSwap>>): StreamMove {
     const fa = pool.get(s.add.player.id);
     const usableGamesGain = s.result.usableGames - s.before.usableGames;
-    const add = describe(s.add.player, s.add.value, week!, today, s.result.usableById.get(s.add.player.id) ?? 0, s.add.from);
-    const drop = describe(s.drop.player, s.drop.value, week!, today, s.before.usableById.get(s.drop.player.id) ?? 0);
+    const add = describe(s.add.player, s.add.value, week!, today, s.result.usableById.get(s.add.player.id) ?? 0, s.add.from, next);
+    const drop = describe(s.drop.player, s.drop.value, week!, today, s.before.usableById.get(s.drop.player.id) ?? 0, today, next);
     const extra = usableGamesGain > 0 ? `+${usableGamesGain} usable game${usableGamesGain === 1 ? '' : 's'}. ` : '';
     const reason = `${extra}${add.name} starts ${add.usableLeft} of his ${add.gamesLeft} games left; ${drop.name} starts ${drop.usableLeft} of ${drop.gamesLeft}.`;
+    let nextWeek: StreamMove['nextWeek'];
+    let nextWeekWarning: string | undefined;
+    if (next) {
+      // Next week with the swap kept, against next week without it.
+      const firstNext = next.days[0]?.scoringPeriodId ?? today;
+      const kept = simulateWeek([...s.current.filter((c) => c.player.id !== s.drop.player.id), s.add], next, firstNext, slots, asOf).points;
+      const without = simulateWeek(s.current, next, firstNext, slots, asOf).points;
+      nextWeek = { pointsChange: Math.round(kept - without), addGames: add.gamesNext ?? 0, dropGames: drop.gamesNext ?? 0 };
+      if (nextWeek.pointsChange <= -minGain) {
+        nextWeekWarning = `Next week ${drop.name} plays ${nextWeek.dropGames} and ${add.name} ${nextWeek.addGames}: keeping ${add.name} would cost ${-nextWeek.pointsChange} pts then.`;
+      }
+    }
     return {
       drop,
       add: { ...add, onWaivers: !!fa?.onWaivers, percentOwned: fa?.player.ownership?.percentOwned },
       pointsGain: Math.round(s.gain * 10) / 10,
       usableGamesGain,
       reason,
+      nextWeek,
+      nextWeekWarning,
     };
   }
 
@@ -291,12 +313,12 @@ export function buildStreamingPlan(snapshot: LeagueSnapshot, core: number[], wat
     const fa = pool.get(id);
     if (rosterIds.has(id)) {
       const c = roster.find((r) => r.player.id === id)!;
-      watchlist.push({ player: { ...describe(c.player, c.value, week, today, baseline.usableById.get(id) ?? 0), onWaivers: false }, rostered: true });
+      watchlist.push({ player: { ...describe(c.player, c.value, week, today, baseline.usableById.get(id) ?? 0, today, next), onWaivers: false }, rostered: true });
     } else if (fa) {
       const c = toCandidate(fa);
       const s = bestSwap(roster, droppable, [c]);
       watchlist.push({
-        player: { ...describe(c.player, c.value, week, today, s?.result.usableById.get(id) ?? 0, c.from), onWaivers: !!fa.onWaivers },
+        player: { ...describe(c.player, c.value, week, today, s?.result.usableById.get(id) ?? 0, c.from, next), onWaivers: !!fa.onWaivers },
         bestMove: s && s.gain > 0 ? toMove(s) : undefined,
         rostered: false,
       });
@@ -308,7 +330,7 @@ export function buildStreamingPlan(snapshot: LeagueSnapshot, core: number[], wat
     const fa = pool.get(c.player.id);
     return {
       player: {
-        ...describe(c.player, c.value, week, today, s?.result.usableById.get(c.player.id) ?? 0, c.from),
+        ...describe(c.player, c.value, week, today, s?.result.usableById.get(c.player.id) ?? 0, c.from, next),
         onWaivers: !!fa?.onWaivers,
         percentOwned: fa?.player.ownership?.percentOwned,
       },
@@ -333,7 +355,7 @@ export function buildStreamingPlan(snapshot: LeagueSnapshot, core: number[], wat
     moves,
     core: [...coreIds],
     coreIsDefault,
-    droppable: droppable.map((c) => describe(c.player, c.value, week, today, baseline.usableById.get(c.player.id) ?? 0)),
+    droppable: droppable.map((c) => describe(c.player, c.value, week, today, baseline.usableById.get(c.player.id) ?? 0, today, next)),
     watchlist,
     freeAgents: faNotes.slice(0, 40),
   };

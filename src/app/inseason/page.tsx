@@ -127,7 +127,7 @@ export default function ThisWeekPage() {
               <p className="text-sm text-muted">No add/drop beats your current roster this week. Sit tight.</p>
             )}
             <p className="mt-4 border-t border-line pt-3 text-xs text-muted">
-              Streaming spots: {plan.droppable.map((p) => p.name).join(', ') || 'none'}.{' '}
+              Streaming spots: {plan.droppable.map((p) => (p.gamesNext !== undefined ? `${p.name} (${p.gamesNext} next wk)` : p.name)).join(', ') || 'none'}.{' '}
               <Link href="/inseason/connect" className="underline hover:text-fg">
                 {plan.coreIsDefault ? 'Pick your core players' : 'Edit core players'}
               </Link>

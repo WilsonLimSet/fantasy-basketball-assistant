@@ -45,9 +45,11 @@ export function dailyEmail(opts: {
       lines.push(
         `<div style="border:1px solid #e5e5e5;border-radius:8px;padding:12px;margin:0 0 8px">` +
           `<div style="font-weight:600">${esc(head)}</div>` +
-          `<div style="color:#666;font-size:14px;margin-top:4px">${esc(m.reason + waivers)}</div></div>`
+          `<div style="color:#666;font-size:14px;margin-top:4px">${esc(m.reason + waivers)}</div>` +
+          (m.nextWeekWarning ? `<div style="color:#b91c1c;font-size:13px;margin-top:4px">${esc(m.nextWeekWarning)}</div>` : '') +
+          `</div>`
       );
-      text.push(`- ${head}. ${m.reason}${waivers}`);
+      text.push(`- ${head}. ${m.reason}${waivers}${m.nextWeekWarning ? ` ${m.nextWeekWarning}` : ''}`);
     }
   } else {
     const line = 'No add/drop beats your current roster this week. Sit tight.';
