@@ -1,11 +1,11 @@
 'use client';
 
 import Link from 'next/link';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useState } from 'react';
 import type { DailyBriefing } from '@/types';
 import { InjuryBadge } from '@/components/ui';
 import { MatchupGamesPanel, MoveRow, StatStrip, WatchlistPanel, type MovesResponse } from './MovesPanel';
-import { ErrorBox, formatAge, Gate, Loading, Panel, useMeContext } from './useMe';
+import { ErrorBox, formatAge, Gate, invalidateCached, Loading, MOVES_URL, Panel, useCached, useMeContext } from './useMe';
 
 function RosterAlerts({ briefing }: { briefing: DailyBriefing }) {
   const changes = briefing.statusChanges.filter((c) => c.isMyPlayer);
@@ -41,21 +41,13 @@ function RosterAlerts({ briefing }: { briefing: DailyBriefing }) {
 
 export default function ThisWeekPage() {
   const { me } = useMeContext();
-  const [moves, setMoves] = useState<MovesResponse | null>(null);
-  const [briefing, setBriefing] = useState<DailyBriefing | null>(null);
+  const { data: moves, reload: reloadMoves } = useCached<MovesResponse>(MOVES_URL);
+  const { data: briefingRes, reload: reloadBriefing } = useCached<{ success: boolean; briefing?: DailyBriefing }>('/api/inseason/briefing');
+  const briefing = briefingRes?.success ? briefingRes.briefing ?? null : null;
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const load = useCallback(async () => {
-    const [m, b] = await Promise.all([
-      fetch('/api/inseason/moves', { cache: 'no-store' }).then((r) => r.json()).catch(() => null),
-      fetch('/api/inseason/briefing', { cache: 'no-store' }).then((r) => r.json()).catch(() => null),
-    ]);
-    setMoves(m ?? { success: false, error: 'Network error' });
-    setBriefing(b?.success ? b.briefing : null);
-  }, []);
-
-  useEffect(() => { load(); }, [load]);
+  const load = useCallback(async () => { await Promise.all([reloadMoves(), reloadBriefing()]); }, [reloadMoves, reloadBriefing]);
 
   const refresh = async () => {
     setRefreshing(true);
@@ -64,6 +56,7 @@ export default function ThisWeekPage() {
       const j = await fetch('/api/inseason/refresh', { method: 'POST' }).then((r) => r.json());
       if (!j.success) setError(j.error ?? 'Refresh failed');
       await load();
+      invalidateCached('/api/inseason/weekly-plan');
     } finally {
       setRefreshing(false);
     }

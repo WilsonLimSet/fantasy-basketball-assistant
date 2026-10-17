@@ -1,10 +1,9 @@
 'use client';
 
-import { useEffect, useState } from 'react';
 import type { MatchupGamesComparison, MatchupWeekSchedule, NBATeamSchedule } from '@/types';
 import { TeamLogo } from '@/components/ui';
 import { MatchupGamesPanel } from '../MovesPanel';
-import { Gate, Loading, Panel } from '../useMe';
+import { Gate, Loading, Panel, useCached } from '../useMe';
 
 interface WeeklyResponse {
   success: boolean;
@@ -20,14 +19,7 @@ const dayLabel = (date: string) =>
   new Date(`${date}T12:00:00Z`).toLocaleDateString('en-US', { weekday: 'short', timeZone: 'UTC' });
 
 export default function SchedulePage() {
-  const [data, setData] = useState<WeeklyResponse | null>(null);
-
-  useEffect(() => {
-    fetch('/api/inseason/weekly-plan', { cache: 'no-store' })
-      .then((r) => r.json())
-      .then(setData)
-      .catch(() => setData({ success: false, error: 'Network error' }));
-  }, []);
+  const { data } = useCached<WeeklyResponse>('/api/inseason/weekly-plan');
 
   if (!data) return <Loading what="the schedule" />;
   if (data.needs) return <Gate needs={data.needs} />;

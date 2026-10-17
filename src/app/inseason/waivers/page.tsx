@@ -1,21 +1,14 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { Headshot, InjuryBadge, TeamLogo } from '@/components/ui';
 import type { MovesResponse } from '../MovesPanel';
-import { Gate, Loading, Panel } from '../useMe';
+import { Gate, Loading, MOVES_URL, Panel, useCached } from '../useMe';
 
 /** Free agents ranked by what each would add to this week's lineup, not just by projection. */
 export default function FreeAgentsPage() {
-  const [data, setData] = useState<MovesResponse | null>(null);
+  const { data } = useCached<MovesResponse>(MOVES_URL);
   const [hideWaivers, setHideWaivers] = useState(false);
-
-  useEffect(() => {
-    fetch('/api/inseason/moves', { cache: 'no-store' })
-      .then((r) => r.json())
-      .then(setData)
-      .catch(() => setData({ success: false, error: 'Network error' }));
-  }, []);
 
   if (!data) return <Loading what="free agents" />;
   if (data.needs === 'signin' || data.needs === 'pro' || data.needs === 'connect') return <Gate needs={data.needs} />;

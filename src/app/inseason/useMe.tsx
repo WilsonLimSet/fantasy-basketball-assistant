@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { createContext, useCallback, useContext, useEffect, useState } from 'react';
+import { createContext, useCallback, useContext, useEffect, useState, useSyncExternalStore } from 'react';
 
 export interface MeProfile {
   leagueId: string;
@@ -42,10 +42,51 @@ export function MeProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
   useEffect(() => { reload(); }, [reload]);
+  useEffect(() => { if (me?.profile) loadCached(MOVES_URL); }, [me?.profile]);
   return <MeContext.Provider value={{ me, reload }}>{children}</MeContext.Provider>;
 }
 
 export const useMeContext = () => useContext(MeContext);
+
+// ============ Shared API cache ============
+// Every tab reads the same league data, so keep each response in memory: switching tabs shows it
+// at once and refetches quietly in the background when it's more than a minute old.
+
+const FRESH_MS = 60_000;
+type Entry = { data?: unknown; at: number; inflight?: Promise<void> };
+const cache = new Map<string, Entry>();
+const listeners = new Set<() => void>();
+const notify = () => listeners.forEach((l) => l());
+const subscribe = (l: () => void) => { listeners.add(l); return () => { listeners.delete(l); }; };
+
+/** Fetch an API response into the cache (one request at a time per URL). */
+export function loadCached(url: string, force = false): Promise<void> {
+  const e = cache.get(url) ?? { at: 0 };
+  cache.set(url, e);
+  if (e.inflight) return e.inflight;
+  if (!force && e.data !== undefined && Date.now() - e.at < FRESH_MS) return Promise.resolve();
+  e.inflight = fetch(url, { cache: 'no-store' })
+    .then((r) => r.json())
+    .catch(() => ({ success: false, error: 'Network error' }))
+    .then((data) => { cache.set(url, { data, at: Date.now() }); notify(); });
+  return e.inflight;
+}
+
+/** Forget cached responses (after a change that alters them, like saving core players). */
+export function invalidateCached(...urls: string[]) {
+  for (const u of urls) cache.delete(u);
+  urls.forEach((u) => loadCached(u, true));
+}
+
+/** The cached response for a URL (null until the first load), revalidated when stale. */
+export function useCached<T>(url: string | null): { data: T | null; reload: () => Promise<void> } {
+  const data = useSyncExternalStore(subscribe, () => (url ? (cache.get(url)?.data as T | undefined) ?? null : null), () => null);
+  useEffect(() => { if (url) loadCached(url); }, [url]);
+  const reload = useCallback(() => (url ? loadCached(url, true) : Promise.resolve()), [url]);
+  return { data, reload };
+}
+
+export const MOVES_URL = '/api/inseason/moves';
 
 // ============ Shared bits, styled like the draft kit ============
 
