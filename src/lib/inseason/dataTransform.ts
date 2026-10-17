@@ -12,7 +12,7 @@ import type {
   ESPNLeagueSettings,
   PlayerStatus,
 } from '@/types/espn';
-import { buildMatchupWeek, countStartingSlots } from './matchupGames';
+import { buildMatchupWeek, buildNextMatchupWeek, countStartingSlots } from './matchupGames';
 import type {
   Player,
   Team,
@@ -361,6 +361,8 @@ export function buildLeagueSnapshot(input: SnapshotInput): LeagueSnapshot {
   // Top free agents plus any watchlisted ones (fetched by id), so the pool can exceed 50.
   const freeAgentsTopN = transformFreeAgents(input.freeAgents, scheduleIndex).slice(0, 150);
   const statusIndex = buildStatusIndex(teams);
+  const matchupPeriods = input.settings.settings?.scheduleSettings?.matchupPeriods;
+  const matchupWeek = buildMatchupWeek(input.nbaSchedule || [], matchupPeriods, input.settings.currentMatchupPeriod, input.settings.scoringPeriodId);
 
   return {
     fetchedAt: Date.now(),
@@ -374,12 +376,8 @@ export function buildLeagueSnapshot(input: SnapshotInput): LeagueSnapshot {
     freeAgentsTopN,
     statusIndex,
     scheduleIndex,
-    matchupWeek: buildMatchupWeek(
-      input.nbaSchedule || [],
-      input.settings.settings?.scheduleSettings?.matchupPeriods,
-      input.settings.currentMatchupPeriod,
-      input.settings.scoringPeriodId
-    ),
+    matchupWeek,
+    nextMatchupWeek: buildNextMatchupWeek(input.nbaSchedule || [], matchupPeriods, input.settings.currentMatchupPeriod, matchupWeek),
     startingSlots: countStartingSlots(input.settings.settings?.rosterSettings?.lineupSlotCounts),
     lineupSlots: input.settings.settings?.rosterSettings?.lineupSlotCounts,
     acquisitions: acquisitionsThisWeek(input),

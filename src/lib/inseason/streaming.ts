@@ -25,6 +25,21 @@ const PLAY_CHANCE: Partial<Record<PlayerStatus, number>> = {
   QUESTIONABLE: 0.6,
   DAY_TO_DAY: 0.6,
 };
+/**
+ * Day-to-day, questionable and doubtful tags are about the next game or two. Games further out
+ * count in full, so a minor knock days before the week (or the season) starts doesn't sink a player.
+ */
+const GAME_TIME_TAGS: PlayerStatus[] = ['DOUBTFUL', 'QUESTIONABLE', 'DAY_TO_DAY'];
+const GAME_TIME_DAYS = 2;
+
+/** Today's date in US Eastern time (NBA game days), as YYYY-MM-DD. */
+const easternDate = (ms: number) => new Date(ms).toLocaleDateString('en-CA', { timeZone: 'America/New_York' });
+const daysBetween = (from: string, to: string) => Math.round((Date.parse(to) - Date.parse(from)) / 86_400_000);
+
+function playChance(status: PlayerStatus, daysAhead: number): number {
+  if (GAME_TIME_TAGS.includes(status) && daysAhead >= GAME_TIME_DAYS) return 1;
+  return PLAY_CHANCE[status] ?? 1;
+}
 
 export interface StreamPlayer {
   id: number;
@@ -37,6 +52,8 @@ export interface StreamPlayer {
   gamesLeft: number;
   /** Games left this week that make the lineup. */
   usableLeft: number;
+  /** Games next matchup week (when we know next week's schedule). */
+  gamesNext?: number;
 }
 
 export interface StreamMove {
@@ -46,6 +63,12 @@ export interface StreamMove {
   pointsGain: number;
   usableGamesGain: number;
   reason: string;
+  /** Set when it's better to wait: make the move after this day's games (US date and label). */
+  swapAfter?: { date: string; label: string };
+  /** What the move does to next week, if you kept the added player. */
+  nextWeek?: { pointsChange: number; addGames: number; dropGames: number };
+  /** Set when the move costs points next week, e.g. dropping someone with a big week coming. */
+  nextWeekWarning?: string;
 }
 
 export interface WatchlistNote {
@@ -86,6 +109,10 @@ interface Candidate {
   value: number;
   /** First scoring period this player can count (pickups on waivers start later). */
   from: number;
+  /** For a player being dropped later in the week: he counts on days before this one. */
+  until?: number;
+  /** Days between making a pickup and the player counting (waiver claims). */
+  delay?: number;
 }
 
 /** Expected fantasy points per game: projection early in the season, recent form once there's a sample. */
@@ -143,16 +170,20 @@ interface WeekResult {
   usableById: Map<number, number>;
 }
 
-function simulateWeek(roster: Candidate[], week: MatchupWeekSchedule, today: number, slots: number[]): WeekResult {
+function simulateWeek(roster: Candidate[], week: MatchupWeekSchedule, today: number, slots: number[], asOf: string): WeekResult {
   let points = 0;
   let usableGames = 0;
   const usableById = new Map<number, number>();
   for (const day of week.days) {
     if (day.scoringPeriodId < today) continue;
     const playing = roster.filter(
-      (c) => day.scoringPeriodId >= c.from && (week.teamGames[c.player.nbaTeamId] ?? []).includes(day.scoringPeriodId)
+      (c) =>
+        day.scoringPeriodId >= c.from &&
+        (c.until === undefined || day.scoringPeriodId < c.until) &&
+        (week.teamGames[c.player.nbaTeamId] ?? []).includes(day.scoringPeriodId)
     );
-    const { total, started } = fillDay(playing, slots, (c) => c.value * (PLAY_CHANCE[c.player.status] ?? 1));
+    const ahead = daysBetween(asOf, day.date);
+    const { total, started } = fillDay(playing, slots, (c) => c.value * playChance(c.player.status, ahead));
     points += total;
     usableGames += started.size;
     for (const id of started) usableById.set(id, (usableById.get(id) ?? 0) + 1);
@@ -164,7 +195,7 @@ function gamesLeft(p: Player, week: MatchupWeekSchedule, from: number): number {
   return (week.teamGames[p.nbaTeamId] ?? []).filter((d) => d >= from).length;
 }
 
-function describe(p: Player, value: number, week: MatchupWeekSchedule, today: number, usable: number, from = today): StreamPlayer {
+function describe(p: Player, value: number, week: MatchupWeekSchedule, today: number, usable: number, from = today, next?: MatchupWeekSchedule): StreamPlayer {
   return {
     id: p.id,
     name: p.name,
@@ -174,14 +205,17 @@ function describe(p: Player, value: number, week: MatchupWeekSchedule, today: nu
     fppg: Math.round(value * 10) / 10,
     gamesLeft: gamesLeft(p, week, Math.max(today, from)),
     usableLeft: usable,
+    gamesNext: next ? (next.teamGames[p.nbaTeamId] ?? []).length : undefined,
   };
 }
 
 export function buildStreamingPlan(snapshot: LeagueSnapshot, core: number[], watchIds: number[] = []): StreamingPlan | null {
   const week = snapshot.matchupWeek;
+  const next = snapshot.nextMatchupWeek;
   const me = snapshot.teams.find((t) => t.id === snapshot.myTeamId);
   if (!week || !me?.roster) return null;
   const today = snapshot.scoringPeriodId;
+  const asOf = easternDate(snapshot.fetchedAt);
 
   // One entry per starting spot, by ESPN slot id.
   const slots = Object.entries(snapshot.lineupSlots ?? {}).flatMap(([slot, n]) =>
@@ -210,44 +244,92 @@ export function buildStreamingPlan(snapshot: LeagueSnapshot, core: number[], wat
     player: fa.player,
     value: valueOf(fa.player),
     from: today + (fa.onWaivers ? WAIVER_DELAY_DAYS : 0),
+    delay: fa.onWaivers ? WAIVER_DELAY_DAYS : 0,
   });
   const freeAgents = [...pool.values()]
     .filter((fa) => (PLAY_CHANCE[fa.player.status] ?? 1) > 0)
     .map(toCandidate)
     .filter((c) => gamesLeft(c.player, week, c.from) > 0);
 
-  const baseline = simulateWeek(roster, week, today, slots);
+  const baseline = simulateWeek(roster, week, today, slots, asOf);
   const minGain = pointsLeague ? MIN_POINTS_GAIN : 1;
   const limit = snapshot.acquisitions?.limit ?? null;
   const addsLeft = limit === null ? null : Math.max(0, limit - (snapshot.acquisitions?.used ?? 0));
 
+  const lastDay = week.days[week.days.length - 1]?.scoringPeriodId ?? today;
+  /** Days a swap could happen: now, or the day after each of the dropped player's games. */
+  const swapDays = (drop: Candidate) => [
+    today,
+    ...(week.teamGames[drop.player.nbaTeamId] ?? []).filter((d) => d >= today && d < lastDay).map((d) => d + 1),
+  ];
+
+  /**
+   * The best add/drop and when to make it. Waiting lets the dropped player use his games first
+   * (say he plays the opener and the pickup doesn't need that day). Waiting only wins if it adds
+   * at least a point, so the default is to move now.
+   */
   function bestSwap(current: Candidate[], drops: Candidate[], adds: Candidate[]) {
-    const before = simulateWeek(current, week!, today, slots);
-    let best: { drop: Candidate; add: Candidate; result: WeekResult; gain: number } | null = null;
+    const before = simulateWeek(current, week!, today, slots, asOf);
+    type Swap = { drop: Candidate; add: Candidate; swapDay: number; roster: Candidate[]; result: WeekResult; gain: number };
+    let best: Swap | null = null;
     for (const drop of drops) {
       const rest = current.filter((c) => c.player.id !== drop.player.id);
+      const days = [...new Set(swapDays(drop))].sort((a, b) => a - b);
       for (const add of adds) {
-        const result = simulateWeek([...rest, add], week!, today, slots);
-        const gain = result.points - before.points;
-        if (!best || gain > best.gain) best = { drop, add, result, gain };
+        let pick: Swap | null = null;
+        for (const day of days) {
+          const timedAdd = day === today ? add : { ...add, from: Math.max(add.from, day + (add.delay ?? 0)) };
+          const roster = day === today ? [...rest, timedAdd] : [...rest, { ...drop, until: day }, timedAdd];
+          const result = simulateWeek(roster, week!, today, slots, asOf);
+          const gain = result.points - before.points;
+          if (!pick || gain > pick.gain + 1) pick = { drop, add: timedAdd, swapDay: day, roster, result, gain };
+        }
+        if (pick && (!best || pick.gain > best.gain)) best = pick;
       }
     }
-    return best && { ...best, before };
+    return best ? { ...best, before, current } : null;
   }
 
   function toMove(s: NonNullable<ReturnType<typeof bestSwap>>): StreamMove {
     const fa = pool.get(s.add.player.id);
     const usableGamesGain = s.result.usableGames - s.before.usableGames;
-    const add = describe(s.add.player, s.add.value, week!, today, s.result.usableById.get(s.add.player.id) ?? 0, s.add.from);
-    const drop = describe(s.drop.player, s.drop.value, week!, today, s.before.usableById.get(s.drop.player.id) ?? 0);
+    const add = describe(s.add.player, s.add.value, week!, today, s.result.usableById.get(s.add.player.id) ?? 0, s.add.from, next);
+    const drop = describe(s.drop.player, s.drop.value, week!, today, s.before.usableById.get(s.drop.player.id) ?? 0, today, next);
     const extra = usableGamesGain > 0 ? `+${usableGamesGain} usable game${usableGamesGain === 1 ? '' : 's'}. ` : '';
-    const reason = `${extra}${add.name} starts ${add.usableLeft} of his ${add.gamesLeft} games left; ${drop.name} starts ${drop.usableLeft} of ${drop.gamesLeft}.`;
+    let reason = `${extra}${add.name} starts ${add.usableLeft} of his ${add.gamesLeft} games left; ${drop.name} starts ${drop.usableLeft} of ${drop.gamesLeft}.`;
+    // Waiting: the dropped player keeps the games before the swap.
+    let swapAfter: StreamMove['swapAfter'];
+    if (s.swapDay > today) {
+      const date = week!.days.find((d) => d.scoringPeriodId === s.swapDay - 1)?.date ?? '';
+      const label = new Date(`${date}T12:00:00Z`).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', timeZone: 'UTC' });
+      const kept = s.result.usableById.get(s.drop.player.id) ?? 0;
+      swapAfter = { date, label };
+      reason =
+        `Wait: keep ${drop.name} through ${label} (${kept} game${kept === 1 ? '' : 's'} he starts), then make this move after that day's games. ` +
+        `${extra}${add.name} starts ${add.usableLeft} of his ${add.gamesLeft} games after that.`;
+    }
+    let nextWeek: StreamMove['nextWeek'];
+    let nextWeekWarning: string | undefined;
+    if (next) {
+      // Next week with the swap kept, against next week without it.
+      const firstNext = next.days[0]?.scoringPeriodId ?? today;
+      const kept = simulateWeek([...s.current.filter((c) => c.player.id !== s.drop.player.id), s.add], next, firstNext, slots, asOf).points;
+      // (a dropped player waiting out the week is gone by next week either way)
+      const without = simulateWeek(s.current, next, firstNext, slots, asOf).points;
+      nextWeek = { pointsChange: Math.round(kept - without), addGames: add.gamesNext ?? 0, dropGames: drop.gamesNext ?? 0 };
+      if (nextWeek.pointsChange <= -minGain) {
+        nextWeekWarning = `Next week ${drop.name} plays ${nextWeek.dropGames} and ${add.name} ${nextWeek.addGames}: keeping ${add.name} would cost ${-nextWeek.pointsChange} pts then.`;
+      }
+    }
     return {
       drop,
       add: { ...add, onWaivers: !!fa?.onWaivers, percentOwned: fa?.player.ownership?.percentOwned },
       pointsGain: Math.round(s.gain * 10) / 10,
       usableGamesGain,
       reason,
+      swapAfter,
+      nextWeek,
+      nextWeekWarning,
     };
   }
 
@@ -261,11 +343,11 @@ export function buildStreamingPlan(snapshot: LeagueSnapshot, core: number[], wat
     const s = bestSwap(current, drops, adds);
     if (!s || s.gain < minGain) break;
     moves.push(toMove(s));
-    current = [...current.filter((c) => c.player.id !== s.drop.player.id), s.add];
+    current = s.roster;
     drops = drops.filter((c) => c.player.id !== s.drop.player.id);
     adds = adds.filter((c) => c.player.id !== s.add.player.id);
   }
-  const after = simulateWeek(current, week, today, slots);
+  const after = simulateWeek(current, week, today, slots, asOf);
 
   // Watchlist: where each watched player stands, and his best swap on the current roster.
   const rosterIds = new Set(roster.map((c) => c.player.id));
@@ -274,12 +356,12 @@ export function buildStreamingPlan(snapshot: LeagueSnapshot, core: number[], wat
     const fa = pool.get(id);
     if (rosterIds.has(id)) {
       const c = roster.find((r) => r.player.id === id)!;
-      watchlist.push({ player: { ...describe(c.player, c.value, week, today, baseline.usableById.get(id) ?? 0), onWaivers: false }, rostered: true });
+      watchlist.push({ player: { ...describe(c.player, c.value, week, today, baseline.usableById.get(id) ?? 0, today, next), onWaivers: false }, rostered: true });
     } else if (fa) {
       const c = toCandidate(fa);
       const s = bestSwap(roster, droppable, [c]);
       watchlist.push({
-        player: { ...describe(c.player, c.value, week, today, s?.result.usableById.get(id) ?? 0, c.from), onWaivers: !!fa.onWaivers },
+        player: { ...describe(c.player, c.value, week, today, s?.result.usableById.get(id) ?? 0, c.from, next), onWaivers: !!fa.onWaivers },
         bestMove: s && s.gain > 0 ? toMove(s) : undefined,
         rostered: false,
       });
@@ -291,7 +373,7 @@ export function buildStreamingPlan(snapshot: LeagueSnapshot, core: number[], wat
     const fa = pool.get(c.player.id);
     return {
       player: {
-        ...describe(c.player, c.value, week, today, s?.result.usableById.get(c.player.id) ?? 0, c.from),
+        ...describe(c.player, c.value, week, today, s?.result.usableById.get(c.player.id) ?? 0, c.from, next),
         onWaivers: !!fa?.onWaivers,
         percentOwned: fa?.player.ownership?.percentOwned,
       },
@@ -316,7 +398,7 @@ export function buildStreamingPlan(snapshot: LeagueSnapshot, core: number[], wat
     moves,
     core: [...coreIds],
     coreIsDefault,
-    droppable: droppable.map((c) => describe(c.player, c.value, week, today, baseline.usableById.get(c.player.id) ?? 0)),
+    droppable: droppable.map((c) => describe(c.player, c.value, week, today, baseline.usableById.get(c.player.id) ?? 0, today, next)),
     watchlist,
     freeAgents: faNotes.slice(0, 40),
   };

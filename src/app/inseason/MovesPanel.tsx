@@ -49,7 +49,7 @@ export function MoveRow({ m }: { m: StreamMove }) {
           name={m.add.name}
           team={m.add.nbaTeamAbbrev}
           tone="add"
-          meta={`${m.add.nbaTeamAbbrev ?? ''} · ${m.add.gamesLeft} games left · ${m.add.fppg} pts/g${m.add.onWaivers ? ' · waivers' : ''}`}
+          meta={`${m.add.nbaTeamAbbrev ?? ''} · ${m.add.gamesLeft} games left${m.add.gamesNext !== undefined ? ` · ${m.add.gamesNext} next wk` : ''} · ${m.add.fppg} pts/g${m.add.onWaivers ? ' · waivers' : ''}`}
         />
         </div>
         <div className="col-span-2 col-start-1 row-start-2 min-w-0 sm:col-span-1 sm:col-start-2 sm:row-start-1">
@@ -58,15 +58,21 @@ export function MoveRow({ m }: { m: StreamMove }) {
             name={m.drop.name}
             team={m.drop.nbaTeamAbbrev}
             tone="drop"
-            meta={`${m.drop.nbaTeamAbbrev ?? ''} · ${m.drop.gamesLeft} games left · ${m.drop.fppg} pts/g`}
+            meta={`${m.drop.nbaTeamAbbrev ?? ''} · ${m.drop.gamesLeft} games left${m.drop.gamesNext !== undefined ? ` · ${m.drop.gamesNext} next wk` : ''} · ${m.drop.fppg} pts/g`}
           />
         </div>
         <div className="col-start-2 row-start-1 text-right sm:col-start-3">
           <div className="text-lg font-medium tabular-nums tracking-tight">+{Math.round(m.pointsGain)}</div>
           <div className="text-[11px] uppercase tracking-wide text-muted">pts</div>
+          {m.swapAfter && (
+            <div className="mt-1 whitespace-nowrap rounded bg-sunken px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-fg">
+              After {m.swapAfter.label.split(',')[0]}
+            </div>
+          )}
         </div>
       </div>
       <p className="mt-2 text-xs text-muted">{m.reason}</p>
+      {m.nextWeekWarning && <p className="mt-1 text-xs font-medium text-red-700">{m.nextWeekWarning}</p>}
     </div>
   );
 }
@@ -165,7 +171,7 @@ export function WatchlistPanel({ notes }: { notes: WatchlistNote[] }) {
             <div className="min-w-0 flex-1">
               <div className="truncate text-sm">{w.player.name}<InjuryBadge s={w.player.status} /></div>
               <div className="truncate text-xs text-muted">
-                {w.player.nbaTeamAbbrev} · {w.player.gamesLeft} left · {w.player.fppg} pts/g{w.player.onWaivers ? ' · waivers' : ''}
+                {w.player.nbaTeamAbbrev} · {w.player.gamesLeft} left{w.player.gamesNext !== undefined ? ` · ${w.player.gamesNext} next wk` : ''} · {w.player.fppg} pts/g{w.player.onWaivers ? ' · waivers' : ''}
               </div>
             </div>
             <div className="text-right text-xs">

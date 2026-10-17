@@ -14,11 +14,13 @@ export const dynamic = 'force-dynamic';
 export async function GET() {
   const { ctx, error } = await requireLeague();
   if (error) return error;
-  const snapshot = await ctx.storage.getLatestSnapshot(ctx.leagueId, ctx.seasonId);
+  const [snapshot, watchlist] = await Promise.all([
+    ctx.storage.getLatestSnapshot(ctx.leagueId, ctx.seasonId),
+    ctx.storage.getWatchlist(ctx.leagueId, ctx.seasonId),
+  ]);
   if (!snapshot) {
     return NextResponse.json({ success: false, error: 'No league data yet. Hit Refresh to load it.', needs: 'refresh' }, { status: 404 });
   }
-  const watchlist = await ctx.storage.getWatchlist(ctx.leagueId, ctx.seasonId);
   const plan = buildStreamingPlan(snapshot, ctx.core, watchlist?.playerIds ?? []);
   const me = snapshot.teams.find((t) => t.id === snapshot.myTeamId);
   const roster = (me?.roster ?? [])

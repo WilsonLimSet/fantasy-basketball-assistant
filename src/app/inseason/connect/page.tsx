@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { Headshot, InjuryBadge } from '@/components/ui';
 import { qrMatrix } from '@/lib/qr';
-import { ErrorBox, Gate, Loading, Panel, useMeContext, type Me, type MeProfile } from '../useMe';
+import { ErrorBox, Gate, invalidateCached, Loading, MOVES_URL, Panel, useCached, useMeContext, type Me, type MeProfile } from '../useMe';
 
 interface LookupTeam { id: number; name: string; abbrev: string; managers: string[] }
 interface RosterPlayer { id: number; name: string; nbaTeamAbbrev?: string; positions: string[]; status: string; fppg: number; injuredReserve: boolean }
@@ -101,34 +101,41 @@ function LeagueForm({ onSaved, onCancel, hasLogin }: { onSaved: () => void; onCa
 }
 
 function CorePicker({ core: savedCore }: { core: number[] }) {
-  const [roster, setRoster] = useState<RosterPlayer[] | null>(null);
-  const [core, setCore] = useState<Set<number>>(new Set(savedCore));
-  const [defaulted, setDefaulted] = useState(false);
+  const { data } = useCached<{ success: boolean; roster?: RosterPlayer[]; plan?: { core: number[] } | null }>(MOVES_URL);
+  const roster = data?.success ? data.roster ?? null : null;
+  const [picked, setPicked] = useState<Set<number> | null>(savedCore.length ? new Set(savedCore) : null);
+  // Until they save a pick, start from the players we'd keep anyway (their best starters).
+  const defaulted = !picked && !savedCore.length;
+  const core = picked ?? new Set(data?.plan?.core ?? []);
   const [state, setState] = useState<'idle' | 'saving' | 'saved'>('idle');
-
-  useEffect(() => {
-    fetch('/api/inseason/moves', { cache: 'no-store' }).then((r) => r.json()).then((j) => {
-      if (!j.success) return;
-      setRoster(j.roster);
-      if (!savedCore.length && j.plan) { setCore(new Set(j.plan.core)); setDefaulted(true); }
-    });
-  }, [savedCore.length]);
 
   const toggle = (id: number) => {
     setState('idle');
-    setCore((c) => { const n = new Set(c); if (n.has(id)) n.delete(id); else n.add(id); return n; });
+    const n = new Set(core);
+    if (n.has(id)) n.delete(id); else n.add(id);
+    setPicked(n);
   };
   const save = async () => {
     setState('saving');
     await post('PATCH', { core: [...core] });
-    setState('saved'); setDefaulted(false);
+    setPicked(new Set(core));
+    setState('saved');
+    // Moves and free agents depend on who can be dropped.
+    invalidateCached(MOVES_URL);
   };
 
-  if (!roster) return null;
+  const sub = 'Ticked players are never suggested as drops. Unticked players are your streaming spots: the moves on This week only ever drop them.';
+  if (!roster) {
+    return (
+      <Panel title="Core players" sub={sub}>
+        <p className="py-6 text-center text-sm text-muted">{data && !data.success ? 'Load your league on This week first.' : 'Loading your roster…'}</p>
+      </Panel>
+    );
+  }
   return (
     <Panel
       title="Core players"
-      sub={`Check the players you keep no matter what. Everyone else is a streaming spot.${defaulted ? ' We started you with your top players by projection.' : ''}`}
+      sub={`${sub}${defaulted ? ' We ticked your top players by projection to start; change them and save.' : ''}`}
       right={`${core.size} kept · ${roster.length - core.size} streaming`}
     >
       <ul className="-my-1 grid gap-x-6 sm:grid-cols-2">
@@ -139,7 +146,7 @@ function CorePicker({ core: savedCore }: { core: number[] }) {
               <Headshot id={p.id} name={p.name} size={28} />
               <div className="min-w-0 flex-1">
                 <div className="truncate text-sm">{p.name}<InjuryBadge s={p.status} />{p.injuredReserve && <span className="ml-1.5 text-xs text-muted">IR</span>}</div>
-                <div className="text-xs text-muted">{p.nbaTeamAbbrev} · {p.positions.join('/')}</div>
+                <div className="text-xs text-muted">{p.nbaTeamAbbrev} · {p.positions.join('/')}{!core.has(p.id) && <span className="text-fg"> · streaming spot</span>}</div>
               </div>
               <span className="text-sm tabular-nums text-muted">{p.fppg}</span>
             </label>

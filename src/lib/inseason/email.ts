@@ -27,7 +27,7 @@ export function dailyEmail(opts: {
   const { plan, matchup } = opts;
   const first = plan.moves[0];
   const subject = first
-    ? `Add ${first.add.name}, drop ${first.drop.name}: +${Math.round(first.pointsGain)} pts this week`
+    ? `${first.swapAfter ? `After ${first.swapAfter.label}'s games: add` : 'Add'} ${first.add.name}, drop ${first.drop.name}: +${Math.round(first.pointsGain)} pts this week`
     : `Week ${plan.week}: ${plan.baseline.usableGames} usable games left`;
 
   const lines: string[] = [];
@@ -40,14 +40,16 @@ export function dailyEmail(opts: {
   if (plan.moves.length) {
     lines.push('<p style="margin:0 0 8px;font-weight:600">Moves for this week</p>');
     for (const m of plan.moves) {
-      const head = `Add ${m.add.name} (${m.add.nbaTeamAbbrev ?? ''}), drop ${m.drop.name}: +${Math.round(m.pointsGain)} pts`;
+      const head = `${m.swapAfter ? `After ${m.swapAfter.label}'s games: add` : 'Add'} ${m.add.name} (${m.add.nbaTeamAbbrev ?? ''}), drop ${m.drop.name}: +${Math.round(m.pointsGain)} pts`;
       const waivers = m.add.onWaivers ? ' He is on waivers, so put in a claim.' : '';
       lines.push(
         `<div style="border:1px solid #e5e5e5;border-radius:8px;padding:12px;margin:0 0 8px">` +
           `<div style="font-weight:600">${esc(head)}</div>` +
-          `<div style="color:#666;font-size:14px;margin-top:4px">${esc(m.reason + waivers)}</div></div>`
+          `<div style="color:#666;font-size:14px;margin-top:4px">${esc(m.reason + waivers)}</div>` +
+          (m.nextWeekWarning ? `<div style="color:#b91c1c;font-size:13px;margin-top:4px">${esc(m.nextWeekWarning)}</div>` : '') +
+          `</div>`
       );
-      text.push(`- ${head}. ${m.reason}${waivers}`);
+      text.push(`- ${head}. ${m.reason}${waivers}${m.nextWeekWarning ? ` ${m.nextWeekWarning}` : ''}`);
     }
   } else {
     const line = 'No add/drop beats your current roster this week. Sit tight.';
