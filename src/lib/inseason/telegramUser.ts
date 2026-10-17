@@ -167,7 +167,8 @@ export function dailyTelegram(opts: {
   lines.push('');
   if (plan.moves.length) {
     plan.moves.forEach((m, i) => {
-      lines.push(`${i + 1}. <b>Add ${esc(m.add.name)}</b>, drop ${esc(m.drop.name)}: <b>+${Math.round(m.pointsGain)} pts</b>${m.add.onWaivers ? ' (waivers)' : ''}`);
+      const when = m.swapAfter ? `After ${esc(m.swapAfter.label)}'s games: ` : '';
+      lines.push(`${i + 1}. ${when}<b>Add ${esc(m.add.name)}</b>, drop ${esc(m.drop.name)}: <b>+${Math.round(m.pointsGain)} pts</b>${m.add.onWaivers ? ' (waivers)' : ''}`);
       lines.push(`   ${esc(m.reason)}`);
       if (m.nextWeekWarning) lines.push(`   ⚠️ ${esc(m.nextWeekWarning)}`);
     });
