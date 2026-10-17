@@ -3,7 +3,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { AUTH_ON, SUPABASE_KEY, SUPABASE_URL } from "@/lib/supabase/env";
 
 /** Refresh the Supabase session once per navigation so server code sees a valid login. */
-export async function middleware(req: NextRequest) {
+export async function proxy(req: NextRequest) {
   if (!AUTH_ON) return NextResponse.next();
   let res = NextResponse.next({ request: req });
   const supabase = createServerClient(SUPABASE_URL, SUPABASE_KEY, {
