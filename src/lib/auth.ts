@@ -66,9 +66,12 @@ export function readPass(value: string | undefined): { email: string; until: num
   if (!body || !sig) return null;
   const good = Buffer.from(sign(body)), got = Buffer.from(sig);
   if (good.length !== got.length || !timingSafeEqual(good, got)) return null;
-  const [email, exp] = Buffer.from(body, "base64url").toString().split("|");
-  if (!email || Number(exp) < Date.now()) return null;
-  return { email, until: Number(exp) };
+  // The expiry is after the last "|": an email can contain "|", and a bad expiry must never mean "no expiry".
+  const text = Buffer.from(body, "base64url").toString();
+  const cut = text.lastIndexOf("|");
+  const email = text.slice(0, cut), until = Number(text.slice(cut + 1));
+  if (cut <= 0 || !email || !Number.isFinite(until) || until < Date.now()) return null;
+  return { email, until };
 }
 
 /** Emails that get Pro for free when they sign in (FRIEND_EMAILS, comma-separated). */
