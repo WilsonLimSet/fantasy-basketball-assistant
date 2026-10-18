@@ -34,16 +34,16 @@ export default function FreeAgentsPage() {
               <th className="pb-2 pl-2 text-right font-medium" title="Games left this week">Left</th>
               <th className="hidden pb-2 pl-2 text-right font-medium sm:table-cell" title="Games he'd start in your lineup">Starts</th>
               <th className="pb-2 pl-2 text-right font-medium" title="Games next matchup week">Next</th>
-              <th className="pb-2 pl-2 text-right font-medium">Pts/g</th>
+              <th className="hidden pb-2 pl-2 text-right font-medium sm:table-cell">Pts/g</th>
               <th className="hidden pb-2 pl-2 text-right font-medium sm:table-cell">Owned</th>
-              <th className="pb-2 pl-2 text-right font-medium" title="Projected points his best swap adds this week">Proj adds</th>
+              <th className="pb-2 pl-2 text-right font-medium" title="Projected points his best swap adds this week"><span className="sm:hidden">Adds</span><span className="hidden sm:inline">Proj adds</span></th>
               <th className="hidden pb-2 pl-4 font-medium sm:table-cell">Drop</th>
             </tr>
           </thead>
           <tbody>
             {rows.map((f) => (
               <tr key={f.player.id} className="border-t border-line">
-                <td className="max-w-[11rem] py-2 pr-2 sm:max-w-none">
+                <td className="max-w-[10rem] py-2 pr-2 sm:max-w-none">
                   <div className="flex min-w-0 items-center gap-2.5">
                     <Headshot id={f.player.id} name={f.player.name} size={28} />
                     <div className="min-w-0">
@@ -52,9 +52,12 @@ export default function FreeAgentsPage() {
                         <InjuryBadge s={f.player.status} />
                         {f.player.onWaivers && <span className="ml-1.5 rounded bg-sunken px-1 text-[10px] font-semibold text-muted">WAIVERS</span>}
                       </div>
-                      <div className="flex items-center gap-1 text-xs text-muted">
+                      <div className="flex min-w-0 items-center gap-1 text-xs text-muted">
                         {f.player.nbaTeamAbbrev && <TeamLogo team={f.player.nbaTeamAbbrev} size={12} />}
-                        {f.player.nbaTeamAbbrev} · {f.player.positions.join('/')}
+                        <span className="truncate">
+                          {f.player.nbaTeamAbbrev} · {f.player.positions.join('/')}
+                          <span className="sm:hidden"> · {f.player.fppg}/g</span>
+                        </span>
                       </div>
                     </div>
                   </div>
@@ -62,7 +65,7 @@ export default function FreeAgentsPage() {
                 <td className={`py-2 text-right tabular-nums ${f.player.gamesLeft >= 4 ? 'font-medium text-accent' : ''}`}>{f.player.gamesLeft}</td>
                 <td className="hidden py-2 text-right tabular-nums sm:table-cell">{f.player.usableLeft}</td>
                 <td className={`py-2 text-right tabular-nums ${(f.player.gamesNext ?? 0) >= 4 ? 'font-medium text-accent' : 'text-muted'}`}>{f.player.gamesNext ?? '–'}</td>
-                <td className="py-2 text-right tabular-nums">{f.player.fppg}</td>
+                <td className="hidden py-2 text-right tabular-nums sm:table-cell">{f.player.fppg}</td>
                 <td className="hidden py-2 text-right tabular-nums text-muted sm:table-cell">{f.player.percentOwned !== undefined ? `${Math.round(f.player.percentOwned)}%` : '–'}</td>
                 <td className="py-2 text-right font-medium tabular-nums">{f.pointsGain > 0 ? `+${Math.round(f.pointsGain)}` : <span className="font-normal text-muted">–</span>}</td>
                 <td className="hidden max-w-[10rem] truncate py-2 pl-4 text-muted sm:table-cell">{f.dropFor ?? ''}</td>
