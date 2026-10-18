@@ -41,7 +41,7 @@ function save(key: string, v: unknown) {
   try { localStorage.setItem(key, JSON.stringify(v)); } catch { /* ignore */ }
 }
 
-export default function App() {
+export default function App({ season = false }: { season?: boolean }) {
   const [rawBoard, setBoard] = useState<Board | null>(null);
   const myRanks = useMyRanks();
   // Your own ranks re-order the board everywhere: rankings, mocks, live draft.
@@ -123,6 +123,11 @@ export default function App() {
             <span className="text-base font-semibold tracking-tight">Takeover Fantasy</span>
           </Link>
           <nav className="no-scrollbar -mx-1 flex max-w-full gap-1 overflow-x-auto px-1">
+            {season && (
+              <Link href="/inseason" className="whitespace-nowrap rounded-full px-3 py-1 text-sm font-medium text-fg hover:bg-sunken">
+                In-season
+              </Link>
+            )}
             {tabs.map((t) => (
               <button
                 key={t.id}
@@ -134,9 +139,11 @@ export default function App() {
                 {t.label}
               </button>
             ))}
-            <Link href="/inseason" className="whitespace-nowrap rounded-full px-3 py-1 text-sm text-muted hover:text-fg">
-              In-season
-            </Link>
+            {!season && (
+              <Link href="/inseason" className="whitespace-nowrap rounded-full px-3 py-1 text-sm text-muted hover:text-fg">
+                In-season
+              </Link>
+            )}
           </nav>
           <div className="ml-auto flex items-center gap-3 text-xs text-muted">
             <span>

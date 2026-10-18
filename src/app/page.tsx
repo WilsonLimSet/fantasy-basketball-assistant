@@ -1,11 +1,16 @@
 import Link from "next/link";
 import { LogoMark } from "@/components/Logo";
 import { PAYWALL_ON } from "@/lib/auth";
+import { seasonMode } from "@/lib/season";
 
 const PRICE = process.env.CV_PRICE_LABEL ?? "$19 season pass";
 
-/** Public landing page. The app itself lives at /draft. */
+// Re-render hourly so season mode switches on by itself.
+export const revalidate = 3600;
+
+/** Public landing page. The draft kit lives at /draft, the in-season tools at /inseason. */
 export default function Landing() {
+  const season = seasonMode();
   return (
     <div className="min-h-screen">
       <header className="sticky top-0 z-20 border-b border-line bg-bg/90 backdrop-blur">
@@ -19,16 +24,17 @@ export default function Landing() {
             <a href="#features" className="hover:text-fg">Features</a>
             <a href="#pricing" className="hover:text-fg">Pricing</a>
             <a href="#faq" className="hover:text-fg">FAQ</a>
-            <Link href="/inseason" className="hover:text-fg">In-season</Link>
+            {season ? <Link href="/draft" className="hover:text-fg">Draft kit</Link> : <Link href="/inseason" className="hover:text-fg">In-season</Link>}
           </nav>
-          <Link href="/draft" className="ml-auto rounded-full bg-ink px-4 py-1.5 text-sm font-medium text-white hover:bg-ink/85">
-            Open the draft kit
+          <Link href={season ? "/inseason" : "/draft"} className="ml-auto rounded-full bg-ink px-4 py-1.5 text-sm font-medium text-white hover:bg-ink/85">
+            {season ? "Get your daily moves" : "Open the draft kit"}
           </Link>
         </div>
       </header>
 
       <main>
         {/* Hero */}
+        {season ? <SeasonHero /> : (
         <section className="border-b border-line">
           <div className="mx-auto grid max-w-6xl gap-12 px-4 py-16 sm:py-24 lg:grid-cols-[1.1fr_0.9fr] lg:items-center">
             <div>
@@ -55,6 +61,7 @@ export default function Landing() {
             <HeroVisual />
           </div>
         </section>
+        )}
 
         {/* Scouting */}
         <section id="scouting" className="border-b border-line">
@@ -176,10 +183,12 @@ export default function Landing() {
         {/* CTA */}
         <section>
           <div className="mx-auto max-w-6xl px-4 py-20 text-center">
-            <h2 className="text-3xl font-medium tracking-[-0.03em] sm:text-4xl">Draft day is coming.</h2>
-            <p className="mt-3 text-sm text-muted">Set your league up in two minutes and run a mock against your friends tonight.</p>
-            <Link href="/draft" className="mt-6 inline-block rounded-full bg-ink px-6 py-2.5 text-sm font-medium text-white hover:bg-ink/85">
-              Open the draft kit →
+            <h2 className="text-3xl font-medium tracking-[-0.03em] sm:text-4xl">{season ? "The season is on." : "Draft day is coming."}</h2>
+            <p className="mt-3 text-sm text-muted">
+              {season ? "Connect your ESPN league in a minute and get tomorrow morning's moves." : "Set your league up in two minutes and run a mock against your friends tonight."}
+            </p>
+            <Link href={season ? "/inseason" : "/draft"} className="mt-6 inline-block rounded-full bg-ink px-6 py-2.5 text-sm font-medium text-white hover:bg-ink/85">
+              {season ? "Get your daily moves →" : "Open the draft kit →"}
             </Link>
           </div>
         </section>
@@ -259,7 +268,77 @@ function Plan({ name, price, items, note, strong }: { name: string; price: strin
   );
 }
 
+/** The hero during the season: daily moves first, the draft kit a click away. */
+function SeasonHero() {
+  return (
+    <section className="border-b border-line">
+      <div className="mx-auto grid max-w-6xl gap-12 px-4 py-16 sm:py-24 lg:grid-cols-[1.1fr_0.9fr] lg:items-center">
+        <div>
+          <p className="text-sm font-medium text-accent">Fantasy basketball · 2026-27 season</p>
+          <h1 className="mt-3 text-4xl font-medium leading-[1.05] tracking-[-0.035em] sm:text-6xl">
+            Your best add/drops,
+            <br />
+            <span className="text-muted">every morning.</span>
+          </h1>
+          <p className="mt-5 max-w-xl text-base leading-relaxed text-muted">
+            Connect your ESPN league and get the pickups that add the most points this week. We count the games that
+            actually make your lineup, check next week&apos;s schedule before you drop anyone, and tell you which day to
+            make each move. By email or Telegram.
+          </p>
+          <ul className="mt-5 space-y-2 text-sm">
+            <Check>Usable games, not raw games: a pickup only helps on days he starts</Check>
+            <Check>Warns you before you drop someone with a big week coming</Check>
+            <Check>Your weekly pickup limit and waiver timing built in</Check>
+          </ul>
+          <div className="mt-7 flex flex-wrap gap-2">
+            <Link href="/inseason" className="rounded-full bg-ink px-5 py-2.5 text-sm font-medium text-white hover:bg-ink/85">
+              Get your daily moves →
+            </Link>
+            <Link href="/draft" className="rounded-full border border-line bg-panel px-5 py-2.5 text-sm font-medium hover:border-fg/30 hover:bg-sunken">
+              Open the draft kit
+            </Link>
+          </div>
+          <p className="mt-4 text-xs text-muted">Works with public and private ESPN leagues, points or categories.</p>
+        </div>
+        <MovesVisual />
+      </div>
+    </section>
+  );
+}
+
 /* ---------- Product visuals (illustrative data) ---------- */
+
+function MovesVisual() {
+  const moves = [
+    { add: { id: 4433621, name: "Jalen Duren" }, drop: "Bench big", gain: 58, note: "+2 usable games. Starts all 4 of his games.", when: "" },
+    { add: { id: 4433134, name: "Scottie Barnes" }, drop: "Streaming wing", gain: 31, note: "Keep your wing through Tuesday, then swap.", when: "After Tue" },
+  ];
+  return (
+    <Frame title="This week · your league · 4 pickups left">
+      <ul className="divide-y divide-line">
+        {moves.map((m) => (
+          <li key={m.add.name} className="py-3 first:pt-0 last:pb-0">
+            <div className="flex items-center gap-3">
+              <Face id={m.add.id} />
+              <div className="min-w-0 flex-1">
+                <div className="truncate text-sm"><span className="text-[10px] font-semibold uppercase text-accent">Add</span> <span className="font-medium">{m.add.name}</span></div>
+                <div className="truncate text-[11px] text-muted">drop {m.drop}</div>
+              </div>
+              <div className="text-right">
+                <div className="text-base font-medium tabular-nums">+{m.gain}</div>
+                {m.when && <div className="rounded bg-sunken px-1.5 text-[10px] font-semibold uppercase">{m.when}</div>}
+              </div>
+            </div>
+            <p className="mt-1.5 text-[11px] text-muted">{m.note}</p>
+          </li>
+        ))}
+      </ul>
+      <div className="mt-3 rounded-lg border border-line bg-bg px-3 py-2 text-xs text-muted">
+        Telegram · 7:02 AM — <span className="text-fg">Add Jalen Duren, drop your bench big: +58 pts</span>
+      </div>
+    </Frame>
+  );
+}
 
 function Frame({ title, children }: { title: string; children: React.ReactNode }) {
   return (

@@ -20,7 +20,7 @@ const VIEWS = [
   { href: '/inseason/connect', label: 'My league' },
 ];
 
-function Header() {
+function Header({ season }: { season: boolean }) {
   const { me } = useMeContext();
   const openDraftTab = (id: string) => {
     try { localStorage.setItem('cv.tab', JSON.stringify(id)); } catch { /* ignore */ }
@@ -33,17 +33,36 @@ function Header() {
           <span className="text-base font-semibold tracking-tight">Takeover Fantasy</span>
         </Link>
         <nav className="no-scrollbar -mx-1 flex max-w-full gap-1 overflow-x-auto px-1">
-          {DRAFT_TABS.map((t) => (
-            <Link
-              key={t.id}
-              href="/draft"
-              onClick={() => openDraftTab(t.id)}
-              className="whitespace-nowrap rounded-full px-3 py-1 text-sm text-muted hover:text-fg"
-            >
-              {t.label}
-            </Link>
-          ))}
-          <span className="whitespace-nowrap rounded-full bg-sunken px-3 py-1 text-sm font-medium text-fg">In-season</span>
+          {season ? (
+            // During the season: in-season first, news, and the draft kit behind one link.
+            <>
+              <span className="whitespace-nowrap rounded-full bg-sunken px-3 py-1 text-sm font-medium text-fg">In-season</span>
+              {[{ id: 'news', label: 'News' }, { id: 'kit', label: 'Draft kit' }].map((t) => (
+                <Link
+                  key={t.id}
+                  href="/draft"
+                  onClick={() => openDraftTab(t.id)}
+                  className="whitespace-nowrap rounded-full px-3 py-1 text-sm text-muted hover:text-fg"
+                >
+                  {t.label}
+                </Link>
+              ))}
+            </>
+          ) : (
+            <>
+              {DRAFT_TABS.map((t) => (
+                <Link
+                  key={t.id}
+                  href="/draft"
+                  onClick={() => openDraftTab(t.id)}
+                  className="whitespace-nowrap rounded-full px-3 py-1 text-sm text-muted hover:text-fg"
+                >
+                  {t.label}
+                </Link>
+              ))}
+              <span className="whitespace-nowrap rounded-full bg-sunken px-3 py-1 text-sm font-medium text-fg">In-season</span>
+            </>
+          )}
         </nav>
         <div className="ml-auto flex items-center gap-3 text-xs text-muted">
           {me?.profile && <span className="hidden sm:inline">{me.profile.teamName}</span>}
@@ -80,11 +99,11 @@ function SubNav() {
   );
 }
 
-export function InseasonShell({ children }: { children: React.ReactNode }) {
+export function InseasonShell({ children, season = false }: { children: React.ReactNode; season?: boolean }) {
   return (
     <MeProvider>
       <div className="min-h-screen">
-        <Header />
+        <Header season={season} />
         <main className="mx-auto max-w-7xl px-4 py-5">
           <SubNav />
           {children}

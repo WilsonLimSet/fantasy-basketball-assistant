@@ -129,6 +129,32 @@ export function expectedFppg(p: Player): number {
   return w * played + (1 - w) * proj;
 }
 
+const isPointsLeague = (snapshot: LeagueSnapshot) => (snapshot.scoringType ?? '').includes('POINTS');
+
+/**
+ * What a game from this player is worth: expected fantasy points in points leagues. Categories
+ * leagues have no points to add up, so every game counts the same (ties go to the more widely
+ * rostered player).
+ */
+export function playerValue(snapshot: LeagueSnapshot, p: Player): number {
+  return isPointsLeague(snapshot) ? expectedFppg(p) : 1 + (p.ownership?.percentOwned ?? 0) / 1000;
+}
+
+/** Starting lineup spots by ESPN slot id (bench and IR left out). */
+export function startingSlots(snapshot: LeagueSnapshot): number[] {
+  return Object.entries(snapshot.lineupSlots ?? {}).flatMap(([slot, n]) =>
+    Number(slot) === BENCH_SLOT || Number(slot) === IR_SLOT ? [] : Array<number>(n).fill(Number(slot))
+  );
+}
+
+/** The best lineup for one day's games: which players start, and their total value. */
+export function bestLineup(players: Player[], slots: number[], value: (p: Player) => number): { total: number; started: Set<number> } {
+  return fillDay(players.map((p) => ({ player: p, value: value(p), from: 0 })), slots, (c) => c.value);
+}
+
+/** Chance a player with this status plays today's game. */
+export const playChanceToday = (status: PlayerStatus) => PLAY_CHANCE[status] ?? 1;
+
 /**
  * Fill one day's lineup: highest value first, each into a slot it's eligible for, moving earlier
  * players between slots when that frees a spot (augmenting paths). With weights on players only,
@@ -217,17 +243,11 @@ export function buildStreamingPlan(snapshot: LeagueSnapshot, core: number[], wat
   const today = snapshot.scoringPeriodId;
   const asOf = easternDate(snapshot.fetchedAt);
 
-  // One entry per starting spot, by ESPN slot id.
-  const slots = Object.entries(snapshot.lineupSlots ?? {}).flatMap(([slot, n]) =>
-    Number(slot) === BENCH_SLOT || Number(slot) === IR_SLOT ? [] : Array<number>(n).fill(Number(slot))
-  );
+  const slots = startingSlots(snapshot);
   if (!slots.length) return null;
 
-  // Categories leagues have no points to add up, so every game counts the same (ties go to the
-  // more widely rostered player).
-  const pointsLeague = (snapshot.scoringType ?? '').includes('POINTS');
-  const valueOf = (p: Player) =>
-    pointsLeague ? expectedFppg(p) : 1 + (p.ownership?.percentOwned ?? 0) / 1000;
+  const pointsLeague = isPointsLeague(snapshot);
+  const valueOf = (p: Player) => playerValue(snapshot, p);
 
   const roster: Candidate[] = me.roster
     .filter((e) => e.lineupSlotId !== IR_SLOT)
