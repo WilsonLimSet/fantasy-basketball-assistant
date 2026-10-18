@@ -135,6 +135,17 @@ export async function hasInseasonAccess(email: string): Promise<boolean> {
   return !PAYWALL_ON || isOwnerEmail(email) || !!(await accessFor(email));
 }
 
+/** The accounts that have access, checked a few at a time so a big user list stays under Stripe's rate limit. */
+export async function withAccess<T extends { email: string }>(profiles: T[]): Promise<T[]> {
+  const out: T[] = [];
+  for (let i = 0; i < profiles.length; i += 10) {
+    const batch = profiles.slice(i, i + 10);
+    const ok = await Promise.all(batch.map((p) => hasInseasonAccess(p.email)));
+    out.push(...batch.filter((_, j) => ok[j]));
+  }
+  return out;
+}
+
 export type ContextResult =
   | { ok: true; ctx: LeagueContext }
   | { ok: false; status: 401 | 402 | 404; error: string };

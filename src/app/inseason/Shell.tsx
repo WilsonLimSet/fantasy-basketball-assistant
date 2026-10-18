@@ -76,7 +76,7 @@ function Header({ season }: { season: boolean }) {
           {me?.signedIn ? (
             <form action="/auth/signout" method="post" onSubmit={clearCached} className="flex items-center gap-2">
               <span className="hidden max-w-[12rem] truncate sm:inline" title={me.email}>{me.email}</span>
-              <button className="hover:text-fg">Sign out</button>
+              <button className="whitespace-nowrap hover:text-fg">Sign out</button>
             </form>
           ) : me ? (
             <Link href="/login?next=/inseason" className="shrink-0 whitespace-nowrap rounded-full border border-line px-3 py-1 font-medium text-fg hover:border-fg/30 hover:bg-sunken">
@@ -92,12 +92,12 @@ function Header({ season }: { season: boolean }) {
 function SubNav() {
   const path = usePathname();
   return (
-    <div className="no-scrollbar mb-5 inline-flex max-w-full overflow-x-auto rounded-full border border-line bg-panel p-0.5 text-sm">
+    <div className="no-scrollbar mb-5 inline-flex max-w-full overflow-x-auto rounded-full border border-line bg-panel p-0.5 text-[13px] sm:text-sm">
       {VIEWS.map((v) => (
         <Link
           key={v.href}
           href={v.href}
-          className={`whitespace-nowrap rounded-full px-3 py-1 ${path === v.href ? 'bg-sunken font-medium text-fg' : 'text-muted hover:text-fg'}`}
+          className={`whitespace-nowrap rounded-full px-2.5 py-1 sm:px-3 ${path === v.href ? 'bg-sunken font-medium text-fg' : 'text-muted hover:text-fg'}`}
         >
           {v.label}
         </Link>

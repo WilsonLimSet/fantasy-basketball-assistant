@@ -2,6 +2,7 @@ import { createHmac, timingSafeEqual } from "node:crypto";
 import { cookies } from "next/headers";
 import { AUTH_ON } from "./supabase/env";
 import { supabaseServer } from "./supabase/server";
+import { kvStore } from "./inseason/storage";
 
 /**
  * Stateless in-season pass: a week pass (7 days) or a season pass (through SEASON_END).
@@ -84,7 +85,18 @@ const PAID_CACHE_MAX = 5000;
  * cached for an hour (never past its end), none for 10 minutes, and a Stripe error for a minute
  * (so an outage doesn't turn every request into a Stripe call).
  */
-async function paidUntilOnStripe(email: string): Promise<number> {
+const lookups = new Map<string, Promise<number>>();
+/** One Stripe lookup at a time per email: a burst of requests shares it. */
+function paidUntilOnStripe(email: string): Promise<number> {
+  let p = lookups.get(email);
+  if (!p) {
+    p = lookupStripe(email).finally(() => lookups.delete(email));
+    lookups.set(email, p);
+  }
+  return p;
+}
+
+async function lookupStripe(email: string): Promise<number> {
   const sk = process.env.STRIPE_SECRET_KEY;
   if (!sk) return 0;
   const now = Date.now();
@@ -99,12 +111,25 @@ async function paidUntilOnStripe(email: string): Promise<number> {
   };
   try {
     const q = new URLSearchParams({ "customer_details[email]": email, status: "complete", limit: "100" });
-    const r = await fetch(`https://api.stripe.com/v1/checkout/sessions?${q}`, { headers: { Authorization: `Bearer ${sk}` }, cache: "no-store" });
+    const get = () => fetch(`https://api.stripe.com/v1/checkout/sessions?${q}`, { headers: { Authorization: `Bearer ${sk}` }, cache: "no-store" });
+    let r = await get();
+    // Stripe's rate limit (429): wait a moment and try again, twice.
+    for (let i = 1; r.status === 429 && i <= 2; i++) {
+      await new Promise((ok) => setTimeout(ok, 500 * i + Math.random() * 500));
+      r = await get();
+    }
     // On an error, keep what we knew; retry in about a minute.
     if (!r.ok) return remember(hit?.until ?? 0, now - ttl + 60 * 1000);
     const j = (await r.json()) as { data?: { payment_status?: string; payment_link?: string | null; created?: number }[] };
-    const ends = (j.data ?? []).filter((s) => s.payment_status === "paid").map((s) => accessEnd(s) ?? 0);
-    return remember(Math.max(0, ...ends));
+    // Passes stack: a week bought before the last one ends starts when that one ends.
+    let until = 0;
+    for (const s of (j.data ?? []).filter((s) => s.payment_status === "paid").sort((a, b) => (a.created ?? 0) - (b.created ?? 0))) {
+      const end = accessEnd(s);
+      if (!end) continue;
+      const start = (s.created ?? 0) * 1000;
+      until = end === SEASON_END ? Math.max(until, end) : Math.max(until, start) + (end - start);
+    }
+    return remember(until);
   } catch { return remember(hit?.until ?? 0, now - ttl + 60 * 1000); }
 }
 
@@ -134,11 +159,26 @@ export async function currentPass(): Promise<Pass | null> {
   return accessFor(account.email);
 }
 
+const linkedKey = (email: string) => `pass:linked:${email}`;
+
+/**
+ * A pass bought while signed in belongs to that account too, even if the buyer typed another email
+ * at checkout, so their alerts and other devices keep working.
+ */
+export async function linkPassToAccount(email: string, until: number) {
+  const kv = kvStore();
+  const key = linkedKey(email.toLowerCase());
+  const had = (await kv.get<number>(key).catch(() => null)) ?? 0;
+  if (until > had) await kv.set(key, until);
+  paidCache.delete(email.toLowerCase());
+}
+
 /** Access for an email without a browser (crons, Telegram): a friend, or a pass bought on Stripe. */
 export async function accessFor(email: string): Promise<Pass | null> {
   const e = email.toLowerCase();
   if (friendEmails().has(e)) return { email: e, via: "friend" };
-  const until = await paidUntilOnStripe(e);
+  const [stripe, linked] = await Promise.all([paidUntilOnStripe(e), kvStore().get<number>(linkedKey(e)).catch(() => null)]);
+  const until = Math.max(stripe, linked && linked > Date.now() ? linked : 0);
   return until ? { email: e, via: "stripe", until } : null;
 }
 

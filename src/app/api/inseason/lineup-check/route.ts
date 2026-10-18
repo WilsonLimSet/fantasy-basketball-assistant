@@ -6,7 +6,7 @@
  */
 
 import { NextResponse } from 'next/server';
-import { hasInseasonAccess, listProfiles, profileContext, type InseasonProfile } from '@/lib/inseason/profile';
+import { listProfiles, withAccess, profileContext, type InseasonProfile } from '@/lib/inseason/profile';
 import { refreshLeague } from '@/lib/inseason/refreshLeague';
 import { checkLineup, espnLineupUrl, lineupLines, type LineupCheck } from '@/lib/inseason/lineupCheck';
 import { EMAIL_ON, sendEmail } from '@/lib/inseason/email';
@@ -75,8 +75,7 @@ export async function GET(request: Request) {
   const ranKey = `lineupcheck:ran:${easternDate(now)}`;
 
   const wanting = (await listProfiles()).filter((p) => p.alerts.email || (p.alerts.telegram && p.telegram));
-  const access = await Promise.all(wanting.map((p) => hasInseasonAccess(p.email)));
-  const profiles = wanting.filter((_, i) => access[i]);
+  const profiles = await withAccess(wanting);
   if (!profiles.length) return NextResponse.json({ success: true, skipped: 'no one gets alerts' });
 
   if (!force) {

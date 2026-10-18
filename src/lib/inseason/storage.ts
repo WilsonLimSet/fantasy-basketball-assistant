@@ -15,6 +15,8 @@ export interface KV {
   delete(key: string): Promise<void>;
   /** Values of every key starting with prefix. */
   list<T>(prefix: string): Promise<T[]>;
+  /** Set a key only if it doesn't exist yet, atomically: true for the one caller that wins. */
+  claim<T>(key: string, value: T): Promise<boolean>;
 }
 
 // ============ Supabase (production) ============
@@ -36,6 +38,17 @@ function supabaseKV(url: string, secret: string): KV {
         body: JSON.stringify({ key, value, updated_at: new Date().toISOString() }),
       });
       if (!r.ok) throw new Error(`inseason_kv write ${key}: ${r.status} ${await r.text()}`);
+    },
+    async claim<T>(key: string, value: T) {
+      // A plain insert: the key is the primary key, so a second insert fails with 409.
+      const r = await fetch(rest, {
+        method: 'POST',
+        headers: { ...headers, Prefer: 'return=minimal' },
+        body: JSON.stringify({ key, value, updated_at: new Date().toISOString() }),
+      });
+      if (r.status === 409) return false;
+      if (!r.ok) throw new Error(`inseason_kv claim ${key}: ${r.status} ${await r.text()}`);
+      return true;
     },
     async delete(key: string) {
       const r = await fetch(`${rest}?key=eq.${encodeURIComponent(key)}`, { method: 'DELETE', headers });
@@ -68,6 +81,16 @@ const fileKV: KV = {
   },
   async delete(key: string) {
     if (existsSync(filePath(key))) unlinkSync(filePath(key));
+  },
+  async claim<T>(key: string, value: T) {
+    if (!existsSync(DATA_DIR)) mkdirSync(DATA_DIR, { recursive: true });
+    try {
+      writeFileSync(filePath(key), JSON.stringify(value), { encoding: 'utf-8', flag: 'wx' });
+      return true;
+    } catch (e) {
+      if ((e as NodeJS.ErrnoException).code === 'EEXIST') return false;
+      throw e;
+    }
   },
   async list<T>(prefix: string) {
     if (!existsSync(DATA_DIR)) return [];

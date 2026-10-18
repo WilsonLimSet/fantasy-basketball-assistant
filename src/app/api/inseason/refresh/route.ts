@@ -11,7 +11,7 @@ import { currentAccount } from '@/lib/auth';
 import { sendSmartAlerts } from '@/lib/inseason/telegram';
 import { generateSmartAlerts, hasActionableAlerts } from '@/lib/inseason/smartAlerts';
 import { refreshLeague } from '@/lib/inseason/refreshLeague';
-import { getProfile, hasInseasonAccess, listProfiles, ownerContext, profileContext, saveProfile, type InseasonProfile } from '@/lib/inseason/profile';
+import { getProfile, listProfiles, withAccess, ownerContext, profileContext, saveProfile, type InseasonProfile } from '@/lib/inseason/profile';
 import { requireLeague } from '@/lib/inseason/routeContext';
 import { buildStreamingPlan } from '@/lib/inseason/streaming';
 import { compareMatchupGames } from '@/lib/inseason/matchupGames';
@@ -85,9 +85,7 @@ export async function GET(request: Request) {
   }
 
   // Only accounts with a running pass (or no paywall): an expired week pass stops the work and the alerts.
-  const all = await listProfiles();
-  const access = await Promise.all(all.map((p) => hasInseasonAccess(p.email)));
-  const profiles = all.filter((_, i) => access[i]);
+  const profiles = await withAccess(await listProfiles());
   let refreshed = 0, failed = 0, emailed = 0, telegrammed = 0;
   // A few at a time keeps ESPN happy and stays well inside the function's time limit.
   for (let i = 0; i < profiles.length; i += 5) {
