@@ -10,7 +10,14 @@
     {
       "path": "/api/cron/news",
       "schedule": "15 7,19 * * *"
+    },
+    {
+      "path": "/api/inseason/lineup-check",
+      "schedule": "0 * * * *"
     }
   ],
-  "ignoreCommand": "bash scripts/vercel-ignore-build.sh"
+  "ignoreCommand": "bash scripts/vercel-ignore-build.sh",
+  "github": {
+    "silent": true
+  }
 }

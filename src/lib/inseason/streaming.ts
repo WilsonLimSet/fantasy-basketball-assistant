@@ -16,6 +16,8 @@ const MIN_POINTS_GAIN = 8;
 const WAIVER_DELAY_DAYS = 2;
 /** Most moves to suggest when the league has no weekly pickup limit. */
 const MAX_MOVES = 4;
+/** A dropped player rostered in at least this share of ESPN leagues will probably get claimed. */
+const LIKELY_CLAIMED_PCT = 15;
 
 const PLAY_CHANCE: Partial<Record<PlayerStatus, number>> = {
   OUT: 0,
@@ -69,6 +71,10 @@ export interface StreamMove {
   nextWeek?: { pointsChange: number; addGames: number; dropGames: number };
   /** Set when the move costs points next week, e.g. dropping someone with a big week coming. */
   nextWeekWarning?: string;
+  /** upgrade: the pickup is at least as good per game, keep him. stream: a short-term pickup for a better player. */
+  kind: 'upgrade' | 'stream';
+  /** Set for a stream that drops a better, widely rostered player who may not come back. */
+  keepWarning?: string;
 }
 
 export interface WatchlistNote {
@@ -128,6 +134,32 @@ export function expectedFppg(p: Player): number {
   const w = Math.min(1, gp / 10); // lean on the projection until about 10 games in
   return w * played + (1 - w) * proj;
 }
+
+const isPointsLeague = (snapshot: LeagueSnapshot) => (snapshot.scoringType ?? '').includes('POINTS');
+
+/**
+ * What a game from this player is worth: expected fantasy points in points leagues. Categories
+ * leagues have no points to add up, so every game counts the same (ties go to the more widely
+ * rostered player).
+ */
+export function playerValue(snapshot: LeagueSnapshot, p: Player): number {
+  return isPointsLeague(snapshot) ? expectedFppg(p) : 1 + (p.ownership?.percentOwned ?? 0) / 1000;
+}
+
+/** Starting lineup spots by ESPN slot id (bench and IR left out). */
+export function startingSlots(snapshot: LeagueSnapshot): number[] {
+  return Object.entries(snapshot.lineupSlots ?? {}).flatMap(([slot, n]) =>
+    Number(slot) === BENCH_SLOT || Number(slot) === IR_SLOT ? [] : Array<number>(n).fill(Number(slot))
+  );
+}
+
+/** The best lineup for one day's games: which players start, and their total value. */
+export function bestLineup(players: Player[], slots: number[], value: (p: Player) => number): { total: number; started: Set<number> } {
+  return fillDay(players.map((p) => ({ player: p, value: value(p), from: 0 })), slots, (c) => c.value);
+}
+
+/** Chance a player with this status plays today's game. */
+export const playChanceToday = (status: PlayerStatus) => PLAY_CHANCE[status] ?? 1;
 
 /**
  * Fill one day's lineup: highest value first, each into a slot it's eligible for, moving earlier
@@ -217,17 +249,11 @@ export function buildStreamingPlan(snapshot: LeagueSnapshot, core: number[], wat
   const today = snapshot.scoringPeriodId;
   const asOf = easternDate(snapshot.fetchedAt);
 
-  // One entry per starting spot, by ESPN slot id.
-  const slots = Object.entries(snapshot.lineupSlots ?? {}).flatMap(([slot, n]) =>
-    Number(slot) === BENCH_SLOT || Number(slot) === IR_SLOT ? [] : Array<number>(n).fill(Number(slot))
-  );
+  const slots = startingSlots(snapshot);
   if (!slots.length) return null;
 
-  // Categories leagues have no points to add up, so every game counts the same (ties go to the
-  // more widely rostered player).
-  const pointsLeague = (snapshot.scoringType ?? '').includes('POINTS');
-  const valueOf = (p: Player) =>
-    pointsLeague ? expectedFppg(p) : 1 + (p.ownership?.percentOwned ?? 0) / 1000;
+  const pointsLeague = isPointsLeague(snapshot);
+  const valueOf = (p: Player) => playerValue(snapshot, p);
 
   const roster: Candidate[] = me.roster
     .filter((e) => e.lineupSlotId !== IR_SLOT)
@@ -321,7 +347,16 @@ export function buildStreamingPlan(snapshot: LeagueSnapshot, core: number[], wat
         nextWeekWarning = `Next week ${drop.name} plays ${nextWeek.dropGames} and ${add.name} ${nextWeek.addGames}: keeping ${add.name} would cost ${-nextWeek.pointsChange} pts then.`;
       }
     }
+    // Points leagues only: in categories every game is worth the same, so there's no "better player" here.
+    const kind: StreamMove['kind'] = !pointsLeague || s.add.value >= s.drop.value - 0.5 ? 'upgrade' : 'stream';
+    const owned = s.drop.player.ownership?.percentOwned ?? 0;
+    const keepWarning =
+      kind === 'stream' && owned >= LIKELY_CLAIMED_PCT
+        ? `${drop.name} is the better player per game (${drop.fppg} vs ${add.fppg}) and ${Math.round(owned)}% of leagues roster him, so he may get claimed.`
+        : undefined;
     return {
+      kind,
+      keepWarning,
       drop,
       add: { ...add, onWaivers: !!fa?.onWaivers, percentOwned: fa?.player.ownership?.percentOwned },
       pointsGain: Math.round(s.gain * 10) / 10,

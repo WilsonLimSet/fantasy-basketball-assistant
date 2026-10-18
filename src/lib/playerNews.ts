@@ -35,3 +35,51 @@ export async function fetchPlayerNews(playerId: number, limit = 6): Promise<News
     return [];
   }
 }
+
+/**
+ * A news item as we show it. ESPN's news prose is RotoWire's writing, so we never show it: the
+ * card carries our own one-line summary (written by the news cron, see autoTakes) when we have one,
+ * the date, and a link to read the original on ESPN.
+ */
+export interface NewsCard {
+  id: number;
+  playerId: number;
+  published: string;
+  /** Our summary, if the news cron has written one for this item. */
+  headline: string | null;
+  note: string | null;
+  link: string;
+}
+
+type Summary = { headline: string; note: string };
+let summaries = new Map<number, Summary>();
+let summariesAt = 0;
+const SUMMARY_RECHECK_MS = 5 * 60 * 1000;
+
+/** Our summaries by ESPN news id: the cron's summary file plus the takes it wrote. */
+export async function loadNewsSummaries(): Promise<Map<number, Summary>> {
+  const base = process.env.TAKES_URL?.replace(/\/[^/]+$/, "");
+  if (!base || Date.now() - summariesAt < SUMMARY_RECHECK_MS) return summaries;
+  summariesAt = Date.now();
+  try {
+    const [file, auto] = await Promise.all(
+      ["news-summaries.json", "auto-takes.json"].map((name) => fetch(`${base}/${name}`, { cache: "no-store" }).then((r) => (r.ok ? r.json() : null)).catch(() => null))
+    );
+    const next = new Map<number, Summary>();
+    for (const it of (auto?.items ?? []) as Array<{ newsId?: number; headline: string; note: string }>) {
+      if (it.newsId) next.set(it.newsId, { headline: it.headline, note: it.note });
+    }
+    for (const [id, s] of Object.entries((file ?? {}) as Record<string, Summary>)) next.set(Number(id), s);
+    summaries = next;
+  } catch { /* keep the last good copy */ }
+  return summaries;
+}
+
+export const espnPlayerUrl = (playerId: number) => `https://www.espn.com/nba/player/_/id/${playerId}`;
+
+export function newsCards(items: NewsItem[], byId: Map<number, Summary>): NewsCard[] {
+  return items.map((n) => {
+    const s = byId.get(n.id);
+    return { id: n.id, playerId: n.playerId, published: n.published, headline: s?.headline ?? null, note: s?.note ?? null, link: espnPlayerUrl(n.playerId) };
+  });
+}

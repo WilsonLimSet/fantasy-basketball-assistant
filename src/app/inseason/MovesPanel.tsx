@@ -71,8 +71,14 @@ export function MoveRow({ m }: { m: StreamMove }) {
           )}
         </div>
       </div>
-      <p className="mt-2 text-xs text-muted">{m.reason}</p>
+      <p className="mt-2 text-xs text-muted">
+        <span className="mr-1.5 rounded bg-sunken px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-fg">
+          {m.kind === 'upgrade' ? 'Upgrade' : 'Stream'}
+        </span>
+        {m.reason}
+      </p>
       {m.nextWeekWarning && <p className="mt-1 text-xs font-medium text-red-700">{m.nextWeekWarning}</p>}
+      {m.keepWarning && <p className="mt-1 text-xs font-medium text-red-700">{m.keepWarning}</p>}
     </div>
   );
 }
