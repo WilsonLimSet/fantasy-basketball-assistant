@@ -65,7 +65,7 @@ export function lineupLines(c: LineupCheck): { headline: string; lines: string[]
   for (const h of c.hurt) lines.push(`${h.name} is ${STATUS[h.status] ?? h.status.toLowerCase()} tonight but in your starting lineup.`);
   if (c.start.length) {
     const many = c.start.length > 1;
-    lines.push(`Start ${c.start.join(', ')}: ${many ? 'they play' : 'he plays'} today but ${many ? 'are' : 'is'} on your bench${c.gain > 0 ? ` (about +${c.gain} pts)` : ''}.`);
+    lines.push(`Start ${c.start.join(', ')}: ${many ? 'they play' : 'he plays'} today but ${many ? 'are' : 'is'} on your bench${c.gain > 0 ? ` (about +${c.gain} projected pts)` : ''}.`);
     const hurtNames = new Set(c.hurt.map((h) => h.name));
     const bench = c.sit.filter((n) => !hurtNames.has(n));
     if (bench.length) lines.push(`To make room, bench ${bench.join(', ')}.`);

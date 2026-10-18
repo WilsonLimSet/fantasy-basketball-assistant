@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { LogoMark } from '@/components/Logo';
-import { MeProvider, useMeContext } from './useMe';
+import { clearCached, MeProvider, useMeContext } from './useMe';
 
 /** Draft kit tabs live inside /draft, so remember which one to open before going there. */
 const DRAFT_TABS = [
@@ -67,7 +67,7 @@ function Header({ season }: { season: boolean }) {
         <div className="ml-auto flex items-center gap-3 text-xs text-muted">
           {me?.profile && <span className="hidden sm:inline">{me.profile.teamName}</span>}
           {me?.signedIn ? (
-            <form action="/auth/signout" method="post" className="flex items-center gap-2">
+            <form action="/auth/signout" method="post" onSubmit={clearCached} className="flex items-center gap-2">
               <span className="hidden max-w-[12rem] truncate sm:inline" title={me.email}>{me.email}</span>
               <button className="hover:text-fg">Sign out</button>
             </form>

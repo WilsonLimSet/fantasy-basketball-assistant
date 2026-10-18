@@ -344,7 +344,7 @@ export function buildStreamingPlan(snapshot: LeagueSnapshot, core: number[], wat
       const without = simulateWeek(s.current, next, firstNext, slots, asOf).points;
       nextWeek = { pointsChange: Math.round(kept - without), addGames: add.gamesNext ?? 0, dropGames: drop.gamesNext ?? 0 };
       if (nextWeek.pointsChange <= -minGain) {
-        nextWeekWarning = `Next week ${drop.name} plays ${nextWeek.dropGames} and ${add.name} ${nextWeek.addGames}: keeping ${add.name} would cost ${-nextWeek.pointsChange} pts then.`;
+        nextWeekWarning = `Heads up: next week ${drop.name} plays ${nextWeek.dropGames} games and ${add.name} ${nextWeek.addGames}, so this swap costs about ${-nextWeek.pointsChange} projected pts next week.`;
       }
     }
     // Points leagues only: in categories every game is worth the same, so there's no "better player" here.

@@ -12,6 +12,16 @@ export const EMAIL_ON = !!process.env.RESEND_API_KEY;
 
 const esc = (s: string) => s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]!);
 
+/** Smallest watchlist gain worth listing in an alert. */
+const WATCH_MIN_GAIN = 10;
+
+/** The best watchlist pickups that aren't already a suggested move. */
+export const watchlistHits = (plan: StreamingPlan, max: number) =>
+  plan.watchlist
+    .filter((w) => w.bestMove && w.bestMove.pointsGain >= WATCH_MIN_GAIN && !plan.moves.some((m) => m.add.id === w.player.id))
+    .sort((a, b) => b.bestMove!.pointsGain - a.bestMove!.pointsGain)
+    .slice(0, max);
+
 /** ESPN's add/drop page for the user's team. */
 export function espnAddUrl(leagueId: string, teamId: number) {
   return `https://fantasy.espn.com/basketball/players/add?leagueId=${leagueId}&teamId=${teamId}`;
@@ -27,7 +37,7 @@ export function dailyEmail(opts: {
   const { plan, matchup } = opts;
   const first = plan.moves[0];
   const subject = first
-    ? `${first.swapAfter ? `After ${first.swapAfter.label}'s games: add` : 'Add'} ${first.add.name}, drop ${first.drop.name}: +${Math.round(first.pointsGain)} pts this week`
+    ? `${first.swapAfter ? `After ${first.swapAfter.label}'s games: add` : 'Add'} ${first.add.name}, drop ${first.drop.name}: +${Math.round(first.pointsGain)} projected pts this week`
     : `Week ${plan.week}: ${plan.baseline.usableGames} usable games left`;
 
   const lines: string[] = [];
@@ -40,7 +50,7 @@ export function dailyEmail(opts: {
   if (plan.moves.length) {
     lines.push('<p style="margin:0 0 8px;font-weight:600">Moves for this week</p>');
     for (const m of plan.moves) {
-      const head = `${m.swapAfter ? `After ${m.swapAfter.label}'s games: add` : 'Add'} ${m.add.name} (${m.add.nbaTeamAbbrev ?? ''}), drop ${m.drop.name}: +${Math.round(m.pointsGain)} pts`;
+      const head = `${m.swapAfter ? `After ${m.swapAfter.label}'s games: add` : 'Add'} ${m.add.name} (${m.add.nbaTeamAbbrev ?? ''}), drop ${m.drop.name}: +${Math.round(m.pointsGain)} projected pts`;
       const waivers = m.add.onWaivers ? ' He is on waivers, so put in a claim.' : '';
       lines.push(
         `<div style="border:1px solid #e5e5e5;border-radius:8px;padding:12px;margin:0 0 8px">` +
@@ -56,11 +66,11 @@ export function dailyEmail(opts: {
     lines.push(`<p style="margin:0 0 16px">${line}</p>`);
     text.push(line);
   }
-  const hits = plan.watchlist.filter((w) => w.bestMove && !plan.moves.some((m) => m.add.id === w.player.id));
+  const hits = watchlistHits(plan, 5);
   if (hits.length) {
     lines.push('<p style="margin:16px 0 8px;font-weight:600">From your watchlist</p>');
     for (const w of hits) {
-      const line = `${w.player.name}: ${w.player.gamesLeft} games left, +${Math.round(w.bestMove!.pointsGain)} pts for ${w.bestMove!.drop.name}`;
+      const line = `${w.player.name}: ${w.player.gamesLeft} games left, +${Math.round(w.bestMove!.pointsGain)} projected pts for ${w.bestMove!.drop.name}`;
       lines.push(`<div style="color:#333;font-size:14px;margin:0 0 4px">${esc(line)}</div>`);
       text.push(`- ${line}`);
     }
@@ -73,9 +83,9 @@ export function dailyEmail(opts: {
     `${plan.addsLeft !== null ? ` · ${plan.addsLeft} pickups left` : ''}</p>` +
     lines.join('') +
     `<p style="margin:24px 0 0"><a href="${espn}" style="background:#111;color:#fff;padding:10px 16px;border-radius:8px;text-decoration:none">Make moves on ESPN</a></p>` +
-    `<p style="color:#999;font-size:12px;margin:24px 0 0">Takeover Fantasy suggests moves; you make them. ` +
+    `<p style="color:#999;font-size:12px;margin:24px 0 0">Points are projections. Takeover Fantasy suggests moves; you make them. ` +
     `<a href="${SITE}/inseason/connect" style="color:#999">Change alerts</a></p></div>`;
-  text.push('', `Make moves on ESPN: ${espn}`, `Change alerts: ${SITE}/inseason/connect`);
+  text.push('', 'Points are projections, not guarantees.', `Make moves on ESPN: ${espn}`, `Change alerts: ${SITE}/inseason/connect`);
   return { subject, html, text: text.join('\n') };
 }
 

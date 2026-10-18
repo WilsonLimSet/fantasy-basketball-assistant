@@ -16,6 +16,11 @@ import News from "./News";
 import { PassInfo } from "./Paywall";
 import { PlayerSheetProvider } from "./PlayerSheet";
 import { ScoutingProvider } from "@/lib/scouting";
+import { clearCached } from "@/app/inseason/useMe";
+import { SkeletonRows } from "./ui";
+
+/** The last board the server sent, kept so a return visit shows it at once while a fresh one loads. */
+const BOARD_KEY = "tf.board";
 
 const TABS = ["kit", "mock", "draft", "sheet", "news", "edges", "settings"] as const;
 type Tab = (typeof TABS)[number];
@@ -67,14 +72,19 @@ export default function App({ season = false }: { season?: boolean }) {
     });
     const t = load<string>("cv.tab", "kit");
     setTab((TABS as readonly string[]).includes(t) ? (t as Tab) : "kit");
+    const saved = load<{ league: string; board: Board } | null>(BOARD_KEY, null);
+    if (saved?.league === JSON.stringify(lg)) setBoard(saved.board);
     setHydrated(true);
   }, []);
 
-  // Re-value the board on the server whenever league settings change.
+  // Re-value the board on the server whenever league settings change: at once on first load,
+  // after a short pause while settings are being edited.
+  const [firstBoard, setFirstBoard] = useState(true);
   useEffect(() => {
     if (!hydrated) return;
     const ctl = new AbortController();
     const t = setTimeout(() => {
+      setFirstBoard(false);
       setLoading(true);
       fetch("/api/board", {
         method: "POST",
@@ -87,11 +97,17 @@ export default function App({ season = false }: { season?: boolean }) {
           if (!r.ok) throw new Error(j.error ?? r.statusText);
           setBoard(j);
           setErr(null);
+          // Keep only the rankings: who's signed in, their email and payment link aren't saved.
+          try {
+            const board = { ...j, email: null, account: null, paymentLink: null, pro: false };
+            localStorage.setItem(BOARD_KEY, JSON.stringify({ league: JSON.stringify(league), board }));
+          } catch { /* full */ }
         })
         .catch((e) => { if (e.name !== "AbortError") setErr(String(e)); })
         .finally(() => setLoading(false));
-    }, 250);
+    }, firstBoard ? 0 : 250);
     return () => { clearTimeout(t); ctl.abort(); };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [league, hydrated]);
 
   useEffect(() => { if (hydrated) save("cv.league", league); }, [league, hydrated]);
@@ -153,7 +169,7 @@ export default function App({ season = false }: { season?: boolean }) {
               {loading && " · updating…"}
             </span>
             {board?.authOn && (board.account ? (
-              <form action="/auth/signout" method="post" className="flex items-center gap-2">
+              <form action="/auth/signout" method="post" onSubmit={() => { clearCached(); try { localStorage.removeItem(BOARD_KEY); } catch { /* ignore */ } }} className="flex items-center gap-2">
                 <span className="hidden max-w-[12rem] truncate sm:inline" title={board.account}>{board.account}</span>
                 <button className="hover:text-fg">Sign out</button>
               </form>
@@ -243,7 +259,7 @@ export default function App({ season = false }: { season?: boolean }) {
         {tab === "settings" && <LeagueSettings league={league} setLeague={setLeague} draft={draft} setDraft={setDraft} valued={board?.valued ?? null} />}
 
         {!board && !err && ["kit", "mock", "draft", "edges", "sheet"].includes(tab) && (
-          <div className="py-20 text-center text-muted">Loading players…</div>
+          <div role="status" aria-label="Loading players" className="rounded-xl border border-line bg-panel p-4"><SkeletonRows rows={10} /></div>
         )}
         {board && (
           <>

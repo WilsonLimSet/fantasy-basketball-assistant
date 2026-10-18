@@ -36,7 +36,7 @@ export default function FreeAgentsPage() {
               <th className="pb-2 pl-2 text-right font-medium" title="Games next matchup week">Next</th>
               <th className="pb-2 pl-2 text-right font-medium">Pts/g</th>
               <th className="hidden pb-2 pl-2 text-right font-medium sm:table-cell">Owned</th>
-              <th className="pb-2 pl-2 text-right font-medium" title="Points his best swap adds this week">Adds</th>
+              <th className="pb-2 pl-2 text-right font-medium" title="Projected points his best swap adds this week">Proj adds</th>
               <th className="hidden pb-2 pl-4 font-medium sm:table-cell">Drop</th>
             </tr>
           </thead>

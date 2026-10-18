@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import type { Take } from "@/lib/takes";
 import { KIND_STYLE, TakeModal } from "./Take";
-import { Headshot, InjuryBadge, TeamLogo } from "./ui";
+import { Headshot, InjuryBadge, SkeletonRows, TeamLogo } from "./ui";
 
 interface Latest {
   id: number; playerId: number; headline: string | null; note: string | null; published: string; link: string;
@@ -23,7 +23,7 @@ export default function News() {
   const [q, setQ] = useState("");
   const [open, setOpen] = useState<Take | null>(null);
   useEffect(() => { fetch("/api/news").then((r) => r.json()).then(setData).catch(() => {}); }, []);
-  if (!data) return <div className="py-20 text-center text-muted">Loading news…</div>;
+  if (!data) return <div role="status" aria-label="Loading news" className="rounded-xl border border-line bg-panel p-4"><SkeletonRows rows={8} size={44} /></div>;
 
   const items = data.takes.filter(
     (t) => (kind === "all" || t.kind === kind) && (!q || `${t.name} ${t.team}`.toLowerCase().includes(q.toLowerCase())),

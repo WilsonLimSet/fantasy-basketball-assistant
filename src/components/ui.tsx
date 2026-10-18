@@ -18,6 +18,29 @@ export function InjuryBadge({ s }: { s: string }) {
 const ESPN_LOGO_CODE: Record<string, string> = { GSW: "gs", NOP: "no", NYK: "ny", SAS: "sa", UTA: "utah", WAS: "wsh" };
 const hideOnError = (e: React.SyntheticEvent<HTMLImageElement>) => { e.currentTarget.style.visibility = "hidden"; };
 
+/** A placeholder bar or block while data loads. */
+export function Skeleton({ className = "" }: { className?: string }) {
+  return <div aria-hidden className={`skeleton ${className}`} />;
+}
+
+/** Placeholder rows shaped like a player list: headshot, two lines of text, a number. */
+export function SkeletonRows({ rows = 6, size = 32 }: { rows?: number; size?: number }) {
+  return (
+    <ul aria-hidden className="divide-y divide-line">
+      {Array.from({ length: rows }, (_, i) => (
+        <li key={i} className="flex items-center gap-3 py-2.5" style={{ opacity: 1 - i * (0.6 / rows) }}>
+          <div className="skeleton shrink-0 rounded-full" style={{ width: size, height: size }} />
+          <div className="flex-1 space-y-1.5">
+            <div className="skeleton h-3" style={{ width: `${44 + ((i * 17) % 30)}%` }} />
+            <div className="skeleton h-2.5 w-1/4" />
+          </div>
+          <div className="skeleton h-4 w-10" />
+        </li>
+      ))}
+    </ul>
+  );
+}
+
 /** Player headshot from ESPN (fantasy player ids are ESPN athlete ids). */
 export function Headshot({ id, name, size = 32 }: { id: number; name: string; size?: number }) {
   return (
@@ -32,8 +55,12 @@ export function Headshot({ id, name, size = 32 }: { id: number; name: string; si
         width={size}
         height={size}
         loading={size >= 64 ? "eager" : "lazy"}
+        decoding="async"
         onError={hideOnError}
-        className="h-full w-full object-cover object-top"
+        // Fade in once loaded (cached images can finish before hydration, so check on mount too).
+        ref={(img) => { if (img?.complete && img.naturalWidth) img.dataset.loaded = "1"; }}
+        onLoad={(e) => { e.currentTarget.dataset.loaded = "1"; }}
+        className="img-fade h-full w-full object-cover object-top"
       />
     </span>
   );

@@ -13,6 +13,8 @@ export default function Landing() {
   const season = seasonMode();
   return (
     <div className="min-h-screen">
+      {/* Layer-style guide lines framing the content column. */}
+      <div aria-hidden className="pointer-events-none fixed inset-y-0 left-1/2 z-0 hidden w-full max-w-6xl -translate-x-1/2 border-x border-line lg:block" />
       <header className="sticky top-0 z-20 border-b border-line bg-bg/90 backdrop-blur">
         <div className="mx-auto flex max-w-6xl items-center gap-6 px-4 py-3">
           <Link href="/" className="flex items-center gap-2">
@@ -32,23 +34,23 @@ export default function Landing() {
         </div>
       </header>
 
-      <main>
+      <main className="relative z-10">
         {/* Hero */}
         {season ? <SeasonHero /> : (
         <section className="border-b border-line">
           <div className="mx-auto grid max-w-6xl gap-12 px-4 py-16 sm:py-24 lg:grid-cols-[1.1fr_0.9fr] lg:items-center">
             <div>
-              <p className="text-sm font-medium text-accent">Fantasy basketball · 2026-27</p>
-              <h1 className="mt-3 text-4xl font-medium leading-[1.05] tracking-[-0.035em] sm:text-6xl">
+              <p className="animate-fade-up text-sm font-medium text-accent">Fantasy basketball · 2026-27</p>
+              <h1 style={{ animationDelay: "60ms" }} className="animate-fade-up mt-3 text-4xl font-medium leading-[1.05] tracking-[-0.035em] sm:text-6xl">
                 The draft kit that
                 <br />
                 <span className="text-muted">knows your league.</span>
               </h1>
-              <p className="mt-5 max-w-xl text-base leading-relaxed text-muted">
+              <p style={{ animationDelay: "120ms" }} className="animate-fade-up mt-5 max-w-xl text-base leading-relaxed text-muted">
                 Rankings tuned to your exact ESPN scoring, a live draft assistant that syncs with your draft room, a
                 scouting report on every manager in your league, and in-season help with waivers and lineups after the draft.
               </p>
-              <div className="mt-7 flex flex-wrap gap-2">
+              <div style={{ animationDelay: "220ms" }} className="animate-fade-up mt-7 flex flex-wrap gap-2">
                 <Link href="/draft" className="rounded-full bg-ink px-5 py-2.5 text-sm font-medium text-white hover:bg-ink/85">
                   Open the draft kit, free →
                 </Link>
@@ -274,23 +276,23 @@ function SeasonHero() {
     <section className="border-b border-line">
       <div className="mx-auto grid max-w-6xl gap-12 px-4 py-16 sm:py-24 lg:grid-cols-[1.1fr_0.9fr] lg:items-center">
         <div>
-          <p className="text-sm font-medium text-accent">Fantasy basketball · 2026-27 season</p>
-          <h1 className="mt-3 text-4xl font-medium leading-[1.05] tracking-[-0.035em] sm:text-6xl">
+          <p className="animate-fade-up text-sm font-medium text-accent">Fantasy basketball · 2026-27 season</p>
+          <h1 style={{ animationDelay: "60ms" }} className="animate-fade-up mt-3 text-4xl font-medium leading-[1.05] tracking-[-0.035em] sm:text-6xl">
             Your best add/drops,
             <br />
             <span className="text-muted">every morning.</span>
           </h1>
-          <p className="mt-5 max-w-xl text-base leading-relaxed text-muted">
+          <p style={{ animationDelay: "120ms" }} className="animate-fade-up mt-5 max-w-xl text-base leading-relaxed text-muted">
             Connect your ESPN league and get the pickups that add the most points this week. We count the games that
             actually make your lineup, check next week&apos;s schedule before you drop anyone, and tell you which day to
             make each move. By email or Telegram.
           </p>
-          <ul className="mt-5 space-y-2 text-sm">
+          <ul style={{ animationDelay: "180ms" }} className="animate-fade-up mt-5 space-y-2 text-sm">
             <Check>Usable games, not raw games: a pickup only helps on days he starts</Check>
             <Check>Warns you before you drop someone with a big week coming</Check>
             <Check>Your weekly pickup limit and waiver timing built in</Check>
           </ul>
-          <div className="mt-7 flex flex-wrap gap-2">
+          <div style={{ animationDelay: "220ms" }} className="animate-fade-up mt-7 flex flex-wrap gap-2">
             <Link href="/inseason" className="rounded-full bg-ink px-5 py-2.5 text-sm font-medium text-white hover:bg-ink/85">
               Get your daily moves →
             </Link>
@@ -342,7 +344,7 @@ function MovesVisual() {
 
 function Frame({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <div className="rounded-2xl border border-line bg-panel shadow-[0_20px_60px_rgba(25,25,25,0.10)]">
+    <div style={{ animationDelay: "260ms" }} className="animate-fade-up rounded-2xl border border-line bg-panel shadow-[0_20px_60px_rgba(25,25,25,0.10)]">
       <div className="flex items-center gap-1.5 border-b border-line px-4 py-2.5">
         <span className="h-2.5 w-2.5 rounded-full bg-line" /><span className="h-2.5 w-2.5 rounded-full bg-line" /><span className="h-2.5 w-2.5 rounded-full bg-line" />
         <span className="ml-2 text-xs text-muted">{title}</span>
