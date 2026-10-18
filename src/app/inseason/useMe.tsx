@@ -244,15 +244,19 @@ function PlanCard({ href, name, price, note, strong }: { href: string; name: str
 export function Gate({ needs }: { needs: 'signin' | 'pro' | 'connect' }) {
   const { me } = useMeContext();
   // Back from Stripe while Stripe couldn't confirm the payment: say so instead of asking again.
-  const [pending, setPending] = useState(false);
-  useEffect(() => { setPending(new URLSearchParams(location.search).get('unlock') === 'pending'); }, []);
-  if (needs === 'pro' && pending) {
+  const [unlock, setUnlock] = useState<string | null>(null);
+  useEffect(() => { setUnlock(new URLSearchParams(location.search).get('unlock')); }, []);
+  const notice =
+    unlock === 'pending'
+      ? { title: 'Confirming your payment', body: 'Stripe is slow to confirm right now. Don’t pay again: refresh in a minute and your pass will be here.' }
+      : unlock === 'used'
+        ? { title: 'This payment is already unlocked', body: 'It was used on another browser. Sign in with the email you paid with and your pass works here too.' }
+        : null;
+  if (needs === 'pro' && notice) {
     return (
       <section className="rounded-xl border border-line bg-panel px-6 py-10 sm:px-10">
-        <h1 className="text-2xl font-medium tracking-[-0.03em]">Confirming your payment</h1>
-        <p className="mt-3 max-w-xl text-sm leading-relaxed text-muted">
-          Stripe is slow to confirm right now. Don&apos;t pay again: refresh in a minute and your pass will be here.
-        </p>
+        <h1 className="text-2xl font-medium tracking-[-0.03em]">{notice.title}</h1>
+        <p className="mt-3 max-w-xl text-sm leading-relaxed text-muted">{notice.body}</p>
         <button onClick={() => location.reload()} className="mt-5 rounded-full bg-ink px-5 py-2 text-sm font-medium text-white hover:bg-ink/85">Refresh</button>
       </section>
     );

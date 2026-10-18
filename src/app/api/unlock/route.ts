@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto";
 import { NextResponse } from "next/server";
+import { kvStore } from "@/lib/inseason/storage";
 import { accessEnd, accessFor, checkLicense, currentAccount, linkPassToAccount, makePass, PASS_COOKIE, passCookieOptions, SEASON_END } from "@/lib/auth";
 
 /**
@@ -27,6 +28,12 @@ export async function GET(req: Request) {
   if (!r.ok || s.status !== "complete" || s.payment_status !== "paid" || !email || !until || until < Date.now()) {
     return NextResponse.redirect(new URL("/inseason?unlock=unpaid", u));
   }
+  // Each checkout unlocks once, so a shared or leaked return link can't unlock other browsers or
+  // accounts. The buyer keeps access everywhere by signing in with their checkout email.
+  const kv = kvStore();
+  const claimKey = `unlock:claimed:${sid}`;
+  if (await kv.get(claimKey).catch(() => null)) return NextResponse.redirect(new URL("/inseason?unlock=used", u));
+  await kv.set(claimKey, Date.now());
   // Signed in under a different email than the checkout one? The pass is theirs as well.
   const account = await currentAccount();
   if (account && account.email !== email.toLowerCase()) await linkPassToAccount(account.email, until).catch((e) => console.error("[unlock] link failed", e));
