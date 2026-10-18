@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import { Skeleton, SkeletonRows } from '@/components/ui';
 import { createContext, useCallback, useContext, useEffect, useState, useSyncExternalStore } from 'react';
 
 export interface MeProfile {
@@ -36,7 +37,9 @@ export function MeProvider({ children }: { children: React.ReactNode }) {
   const reload = useCallback(async () => {
     try {
       const r = await fetch('/api/inseason/me', { cache: 'no-store' });
-      setMe(await r.json());
+      const j = (await r.json()) as Me;
+      claimCache(j.signedIn ? j.email : undefined);
+      setMe(j);
     } catch {
       setMe({ signedIn: false });
     }
@@ -60,20 +63,59 @@ export const useMeContext = () => useContext(MeContext);
 const FRESH_MS = 60_000;
 type Entry = { data?: unknown; at: number; inflight?: Promise<void> };
 const cache = new Map<string, Entry>();
+
+// The last responses also live in localStorage, so a reload or a visit tomorrow shows them at
+// once while fresh ones load. They belong to one account: cleared on sign-out or a new sign-in.
+const STORE = 'tf.cache:';
+const OWNER = 'tf.cache.owner';
+function stored(url: string): Entry | undefined {
+  try {
+    const raw = localStorage.getItem(STORE + url);
+    return raw ? (JSON.parse(raw) as Entry) : undefined;
+  } catch { return undefined; }
+}
+function store(url: string, e: Entry) {
+  try { localStorage.setItem(STORE + url, JSON.stringify({ data: e.data, at: e.at })); } catch { /* full or blocked */ }
+}
+export function clearCached() {
+  cache.clear();
+  try {
+    for (const k of Object.keys(localStorage)) if (k.startsWith(STORE) || k === OWNER) localStorage.removeItem(k);
+  } catch { /* ignore */ }
+}
+/** Keep cached data only for the account it was loaded for. */
+function claimCache(email: string | undefined) {
+  try {
+    if (localStorage.getItem(OWNER) !== (email ?? '')) { clearCached(); localStorage.setItem(OWNER, email ?? ''); }
+  } catch { /* ignore */ }
+}
+const entry = (url: string): Entry | undefined => {
+  let e = cache.get(url);
+  if (!e && typeof window !== 'undefined') {
+    e = stored(url);
+    if (e) cache.set(url, e);
+  }
+  return e;
+};
 const listeners = new Set<() => void>();
 const notify = () => listeners.forEach((l) => l());
 const subscribe = (l: () => void) => { listeners.add(l); return () => { listeners.delete(l); }; };
 
 /** Fetch an API response into the cache (one request at a time per URL). */
 export function loadCached(url: string, force = false): Promise<void> {
-  const e = cache.get(url) ?? { at: 0 };
+  const e = entry(url) ?? { at: 0 };
   cache.set(url, e);
   if (e.inflight) return e.inflight;
   if (!force && e.data !== undefined && Date.now() - e.at < FRESH_MS) return Promise.resolve();
   e.inflight = fetch(url, { cache: 'no-store' })
     .then((r) => r.json())
     .catch(() => ({ success: false, error: 'Network error' }))
-    .then((data) => { cache.set(url, { data, at: Date.now() }); notify(); });
+    .then((data) => {
+      const next = { data, at: Date.now() };
+      cache.set(url, next);
+      if ((data as { success?: boolean })?.success) store(url, next);
+      notify();
+    });
   return e.inflight;
 }
 
@@ -85,7 +127,7 @@ export function invalidateCached(...urls: string[]) {
 
 /** The cached response for a URL (null until the first load), revalidated when stale. */
 export function useCached<T>(url: string | null): { data: T | null; reload: () => Promise<void> } {
-  const data = useSyncExternalStore(subscribe, () => (url ? (cache.get(url)?.data as T | undefined) ?? null : null), () => null);
+  const data = useSyncExternalStore(subscribe, () => (url ? (entry(url)?.data as T | undefined) ?? null : null), () => null);
   useEffect(() => { if (url) loadCached(url); }, [url]);
   const reload = useCallback(() => (url ? loadCached(url, true) : Promise.resolve()), [url]);
   return { data, reload };
@@ -99,7 +141,7 @@ export function Panel({ title, sub, right, children, className = '' }: {
   title?: React.ReactNode; sub?: React.ReactNode; right?: React.ReactNode; children: React.ReactNode; className?: string;
 }) {
   return (
-    <section className={`rounded-xl border border-line bg-panel shadow-[0_1px_2px_rgba(25,25,25,0.04)] ${className}`}>
+    <section className={`animate-fade-up rounded-xl border border-line bg-panel shadow-[0_1px_2px_rgba(25,25,25,0.04)] ${className}`}>
       {(title || right) && (
         <div className="flex flex-wrap items-baseline justify-between gap-2 border-b border-line px-4 py-3">
           <div>
@@ -114,8 +156,35 @@ export function Panel({ title, sub, right, children, className = '' }: {
   );
 }
 
-export function Loading({ what }: { what: string }) {
-  return <div className="py-20 text-center text-muted">Loading {what}…</div>;
+/**
+ * Placeholder while a tab's data loads, shaped like what's coming: "week" has the stat strip and
+ * a moves panel beside a side column; "table" is one long list.
+ */
+export function Loading({ what, kind = 'table' }: { what: string; kind?: 'week' | 'table' }) {
+  const panel = (rows: number, cls = '') => (
+    <div className={`rounded-xl border border-line bg-panel p-4 shadow-[0_1px_2px_rgba(25,25,25,0.04)] ${cls}`}>
+      <Skeleton className="mb-1 h-3.5 w-36" />
+      <Skeleton className="mb-3 h-2.5 w-56" />
+      <SkeletonRows rows={rows} />
+    </div>
+  );
+  return (
+    <div role="status" aria-label={`Loading ${what}`} className="space-y-4">
+      {kind === 'week' ? (
+        <>
+          <div className="flex flex-wrap items-end justify-between gap-4">
+            <div className="space-y-2"><Skeleton className="h-7 w-52" /><Skeleton className="h-3 w-64" /></div>
+            <div className="grid w-full max-w-xl grid-cols-3 gap-px overflow-hidden rounded-xl border border-line bg-line">
+              {[0, 1, 2].map((i) => <div key={i} className="space-y-2 bg-panel px-4 py-4"><Skeleton className="mx-auto h-6 w-16" /><Skeleton className="mx-auto h-2.5 w-24" /></div>)}
+            </div>
+          </div>
+          <div className="grid gap-4 lg:grid-cols-[1fr_20rem]">{panel(3)}{panel(5)}</div>
+        </>
+      ) : (
+        panel(8)
+      )}
+    </div>
+  );
 }
 
 export function ErrorBox({ children }: { children: React.ReactNode }) {

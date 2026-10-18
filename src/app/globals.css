@@ -33,3 +33,24 @@ body { font-feature-settings: "tnum" 0, "cv11" 1; letter-spacing: -0.006em; }
     @apply rounded-full bg-ink px-3 py-1 text-xs font-medium text-white hover:bg-ink/85 disabled:opacity-40;
   }
 }
+
+/* ---------- Motion: quiet and quick. Content fades up as it arrives; placeholders pulse. ---------- */
+@keyframes fade-up { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+@keyframes pulse-soft { 0%, 100% { opacity: 1; } 50% { opacity: 0.55; } }
+
+@utility animate-fade-up { animation: fade-up 0.45s cubic-bezier(0.2, 0.7, 0.2, 1) both; }
+
+@layer components {
+  /* Placeholder shape while data loads. */
+  .skeleton { @apply rounded-md bg-[#ebe9e7]; animation: pulse-soft 1.6s ease-in-out infinite; }
+  /* Headshots and logos fade in instead of popping (see Headshot). */
+  .img-fade { opacity: 0; transition: opacity 0.3s ease; }
+  .img-fade[data-loaded] { opacity: 1; }
+}
+
+/* Every link and button eases its hover and active states. */
+a, button, summary, label, .input { transition: color 150ms ease, background-color 150ms ease, border-color 150ms ease, opacity 150ms ease, box-shadow 150ms ease; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; }
+}

@@ -62,7 +62,7 @@ export default function ThisWeekPage() {
     }
   };
 
-  if (!moves) return <Loading what="your week" />;
+  if (!moves) return <Loading what="your week" kind="week" />;
   const needs = moves.needs;
   if (needs === 'signin' || needs === 'pro' || needs === 'connect') return <Gate needs={needs} />;
 

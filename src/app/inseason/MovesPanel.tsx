@@ -94,7 +94,7 @@ export function StatStrip({ plan, mg }: { plan: StreamingPlan; mg?: MatchupGames
     { k: 'Pickups left', v: plan.addsLeft === null ? 'No limit' : String(plan.addsLeft) },
   ];
   return (
-    <dl className="grid grid-cols-3 divide-x divide-line rounded-xl border border-line bg-panel text-center shadow-[0_1px_2px_rgba(25,25,25,0.04)]">
+    <dl className="animate-fade-up grid grid-cols-3 divide-x divide-line rounded-xl border border-line bg-panel text-center shadow-[0_1px_2px_rgba(25,25,25,0.04)]">
       {items.map((x) => (
         <div key={x.k} className="px-2 py-4 sm:px-6">
           <dd className="text-2xl font-medium tracking-tight tabular-nums">{x.v}</dd>

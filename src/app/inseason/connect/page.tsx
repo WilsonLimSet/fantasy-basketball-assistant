@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
-import { Headshot, InjuryBadge } from '@/components/ui';
+import { Headshot, InjuryBadge, SkeletonRows } from '@/components/ui';
 import { qrMatrix } from '@/lib/qr';
 import { ErrorBox, Gate, invalidateCached, Loading, MOVES_URL, Panel, useCached, useMeContext, type Me, type MeProfile } from '../useMe';
 
@@ -128,7 +128,7 @@ function CorePicker({ core: savedCore }: { core: number[] }) {
   if (!roster) {
     return (
       <Panel title="Core players" sub={sub}>
-        <p className="py-6 text-center text-sm text-muted">{data && !data.success ? 'Load your league on This week first.' : 'Loading your roster…'}</p>
+        {data && !data.success ? <p className="py-6 text-center text-sm text-muted">Load your league on This week first.</p> : <SkeletonRows rows={6} size={28} />}
       </Panel>
     );
   }
