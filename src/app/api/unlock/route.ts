@@ -30,10 +30,16 @@ export async function GET(req: Request) {
   }
   // Each checkout unlocks once, so a shared or leaked return link can't unlock other browsers or
   // accounts. The buyer keeps access everywhere by signing in with their checkout email.
-  const kv = kvStore();
-  const claimKey = `unlock:claimed:${sid}`;
-  if (await kv.get(claimKey).catch(() => null)) return NextResponse.redirect(new URL("/inseason?unlock=used", u));
-  await kv.set(claimKey, Date.now());
+  // The claim is atomic (two browsers at once can't both win) and fails closed: if it can't be
+  // recorded, no cookie, and the buyer still gets in by signing in with their checkout email.
+  let won: boolean;
+  try {
+    won = await kvStore().claim(`unlock:claimed:${sid}`, Date.now());
+  } catch (e) {
+    console.error("[unlock] claim failed", e);
+    return NextResponse.redirect(new URL("/inseason?unlock=pending", u));
+  }
+  if (!won) return NextResponse.redirect(new URL("/inseason?unlock=used", u));
   // Signed in under a different email than the checkout one? The pass is theirs as well.
   const account = await currentAccount();
   if (account && account.email !== email.toLowerCase()) await linkPassToAccount(account.email, until).catch((e) => console.error("[unlock] link failed", e));
