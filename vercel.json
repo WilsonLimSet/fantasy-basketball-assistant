@@ -16,5 +16,8 @@
       "schedule": "0 * * * *"
     }
   ],
-  "ignoreCommand": "bash scripts/vercel-ignore-build.sh"
+  "ignoreCommand": "bash scripts/vercel-ignore-build.sh",
+  "github": {
+    "silent": true
+  }
 }

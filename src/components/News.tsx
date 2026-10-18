@@ -6,7 +6,7 @@ import { KIND_STYLE, TakeModal } from "./Take";
 import { Headshot, InjuryBadge, TeamLogo } from "./ui";
 
 interface Latest {
-  id: number; playerId: number; headline: string; analysis: string; published: string; source: string;
+  id: number; playerId: number; headline: string | null; note: string | null; published: string; link: string;
   name: string; team: string; pos: string[]; injury: string;
 }
 
@@ -65,9 +65,9 @@ export default function News() {
                     <span className="flex items-center gap-1 text-xs text-muted"><TeamLogo team={n.team} />{n.team} · {n.pos.join("/")}</span>
                     <span className="text-xs text-muted">· {stamp(n.published)}</span>
                   </div>
-                  <p className="mt-1 text-sm">{n.headline}</p>
-                  {n.analysis && <p className="mt-1 text-sm leading-relaxed text-muted">{n.analysis}</p>}
-                  <div className="mt-1 text-[11px] text-muted">via ESPN · {n.source}</div>
+                  <p className="mt-1 text-sm">{n.headline ?? "News update"}</p>
+                  {n.note && <p className="mt-1 text-sm leading-relaxed text-muted">{n.note}</p>}
+                  <a href={n.link} target="_blank" rel="noopener noreferrer" className="mt-1 inline-block text-[11px] text-muted underline hover:text-fg">Read on ESPN</a>
                 </div>
               </li>
             ))}

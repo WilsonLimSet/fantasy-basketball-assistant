@@ -73,7 +73,8 @@ Rules:
 - If the current take already accounts for the same injury and the timeline hasn't changed, missedGames null.
 - Rest days, load management, practice reports and box scores are "ignore", or "note" if a manager would care.
 - Multipliers only for real role changes: trades, signings, a starter's long injury opening minutes for a teammate, confirmed rotation changes in the regular season. Keep them between 0.85 and 1.15.
-- Never invent facts beyond the news text.`;
+- Never invent facts beyond the news text.
+- Write every headline and note in your own words. Never copy a sentence or phrase from the news text; we show your summary instead of the original.`;
 
 const blobBase = () => process.env.TAKES_URL?.replace(/\/[^/]+$/, "") ?? null;
 
@@ -182,6 +183,11 @@ export async function ingestNews(opts: { dryRun?: boolean; lookbackDays?: number
 
   if (opts.dryRun) return { checked: relevant.length, fresh: fresh.length, added, published: false };
 
+  // Our summary of every item, shown in place of ESPN's text (see newsCards).
+  const summaries = (await readJson<Record<string, { headline: string; note: string }>>("news-summaries.json")) ?? {};
+  for (const d of output.decisions) if (byId.has(d.newsId)) summaries[d.newsId] = { headline: d.headline, note: d.note };
+  await writeJson("news-summaries.json", Object.fromEntries(Object.entries(summaries).slice(-SEEN_KEEP)), 300);
+
   for (const id of answered) seen.add(id);
   // Store only what can still matter (per player: latest games, latest role change, 3 notes).
   const items = [...currentAuto([...state.items, ...added]).values()]
@@ -191,4 +197,50 @@ export async function ingestNews(opts: { dryRun?: boolean; lookbackDays?: number
   // Re-read the manual takes: a `takes:publish` may have landed while the model was running.
   await writeJson("takes.json", compileTakes(mergeItems(await manualItems(), next.items)));
   return { checked: relevant.length, fresh: fresh.length, added, published: true };
+}
+
+const summary = z.object({
+  newsId: z.number(),
+  headline: z.string().describe("Under 80 characters, plain and specific, in your own words."),
+  note: z.string().describe("1-2 sentences for fantasy managers, in your own words."),
+});
+
+const SUMMARY_SYSTEM = `You write short summaries of NBA player news for a fantasy basketball app.
+For each item write a headline (under 80 characters) and a 1-2 sentence note on what happened and what it means for fantasy managers.
+Use your own words: never copy a sentence or phrase from the news text. State only facts in the text; don't speculate.`;
+
+/**
+ * Summaries for news shown in the app that the takes run didn't cover (older items, or players
+ * outside the top 300 that appear in the Latest feed). Our summary replaces ESPN's text on screen.
+ */
+export async function summarizeMissing(playerIds: number[], perPlayer = 1): Promise<{ written: number }> {
+  if (!blobBase()) return { written: 0 };
+  const summaries = (await readJson<Record<string, { headline: string; note: string }>>("news-summaries.json")) ?? {};
+  const state = await readJson<AutoState>("auto-takes.json");
+  const covered = new Set([...Object.keys(summaries).map(Number), ...(state?.items ?? []).map((i) => i.newsId).filter(Boolean) as number[]]);
+  const { players } = await getPlayers();
+  const nameOf = new Map(players.map((p) => [p.id, `${p.name} (${p.team})`]));
+  const todo: NewsItem[] = [];
+  for (let i = 0; i < playerIds.length; i += 10) {
+    const feeds = await Promise.all(playerIds.slice(i, i + 10).map((id) => fetchPlayerNews(id, perPlayer)));
+    for (const items of feeds) for (const n of items.slice(0, perPlayer)) if (!covered.has(n.id)) todo.push(n);
+  }
+  const batch = todo.slice(0, MAX_ITEMS_PER_RUN);
+  if (!batch.length) return { written: 0 };
+  const chunks: NewsItem[][] = [];
+  for (let i = 0; i < batch.length; i += ITEMS_PER_CALL) chunks.push(batch.slice(i, i + ITEMS_PER_CALL));
+  const results = await Promise.allSettled(chunks.map((chunk) => generateText({
+    model: MODEL,
+    system: SUMMARY_SYSTEM,
+    prompt: chunk.map((n) => `newsId ${n.id} | ${nameOf.get(n.playerId) ?? `player ${n.playerId}`} | ${n.published.slice(0, 10)}\n${n.headline}\n${n.analysis}`).join("\n\n"),
+    output: Output.object({ schema: z.object({ summaries: z.array(summary) }) }),
+  })));
+  const ids = new Set(batch.map((n) => n.id));
+  let written = 0;
+  for (const r of results) {
+    if (r.status !== "fulfilled") { console.error("[news cron] summary batch failed:", r.reason); continue; }
+    for (const s of r.value.output.summaries) if (ids.has(s.newsId)) { summaries[s.newsId] = { headline: s.headline, note: s.note }; written++; }
+  }
+  if (written) await writeJson("news-summaries.json", Object.fromEntries(Object.entries(summaries).slice(-SEEN_KEEP)), 300);
+  return { written };
 }

@@ -42,7 +42,12 @@ export function MeProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
   useEffect(() => { reload(); }, [reload]);
-  useEffect(() => { if (me?.profile) loadCached(MOVES_URL); }, [me?.profile]);
+  // Load the other tabs' data up front so switching to them is instant.
+  useEffect(() => {
+    if (!me?.profile) return;
+    loadCached(MOVES_URL);
+    loadCached('/api/inseason/weekly-plan');
+  }, [me?.profile]);
   return <MeContext.Provider value={{ me, reload }}>{children}</MeContext.Provider>;
 }
 

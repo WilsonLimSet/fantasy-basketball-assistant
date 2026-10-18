@@ -6,7 +6,7 @@ import { League, Valued, fantasyPoints, tierLabel } from "@/lib/engine";
 import { playerInsights, playerNotes } from "@/lib/insights";
 import { useScouting } from "@/lib/scouting";
 import { setMyRank } from "@/lib/myRanks";
-import type { NewsItem } from "@/lib/playerNews";
+import type { NewsCard } from "@/lib/playerNews";
 import type { StatLine } from "@/lib/types";
 import { KIND_STYLE } from "./Take";
 import { AvoidButton, Headshot, InjuryBadge, StarButton, TeamLogo, espnRankFor, fmt } from "./ui";
@@ -27,7 +27,7 @@ export function PlayerSheetProvider({ league, children }: { league: League; chil
   );
 }
 
-interface Notes { outlook: string | null; news: NewsItem[]; season: number }
+interface Notes { news: NewsCard[]; season: number; espnUrl: string }
 
 const when = (iso: string) => {
   const d = new Date(iso);
@@ -63,7 +63,6 @@ function PlayerSheet({ v, league, onClose }: { v: Valued; league: League; onClos
   const leagueHistory = useScouting()?.historyOf(p.id) ?? [];
   const insights = playerInsights(v, league);
   const espnTotal = points && p.proj ? fantasyPoints(p.proj, league.scoring) * p.proj.gp : null;
-  const seasonLabel = notes ? `${notes.season - 1}-${String(notes.season).slice(2)}` : "";
   const rows: { label: string; line: StatLine | null; gp: number | null; strong?: boolean }[] = [
     { label: "Our projection", line: v.proj.line, gp: v.proj.games, strong: true },
     { label: "ESPN projection", line: p.proj, gp: p.proj?.gp ?? null },
@@ -238,26 +237,19 @@ function PlayerSheet({ v, league, onClose }: { v: Valued; league: League; onClos
             </Section>
           )}
 
-          {/* ESPN outlook */}
-          <Section title={`ESPN ${seasonLabel} outlook`.replace("  ", " ")}>
-            {!notes && !failed && <Skeleton lines={4} />}
-            {failed && <p className="text-sm text-muted">Couldn&apos;t load ESPN&apos;s notes right now.</p>}
-            {notes && (notes.outlook
-              ? <p className="text-sm leading-relaxed">{notes.outlook}</p>
-              : <p className="text-sm text-muted">ESPN hasn&apos;t written an outlook for him this season.</p>)}
-          </Section>
-
           {/* News */}
           <Section title="Latest news">
             {!notes && !failed && <Skeleton lines={3} />}
+            {failed && <p className="text-sm text-muted">Couldn&apos;t load news right now.</p>}
             {notes && !notes.news.length && <p className="text-sm text-muted">No recent news.</p>}
             {notes && notes.news.length > 0 && (
               <ul className="space-y-3">
                 {notes.news.map((n) => (
                   <li key={n.id} className="text-sm">
-                    <div className="text-[11px] text-muted">{when(n.published)} · {n.source}</div>
-                    <p className="mt-0.5 font-medium">{n.headline}</p>
-                    {n.analysis && <p className="mt-1 leading-relaxed text-muted">{n.analysis}</p>}
+                    <div className="text-[11px] text-muted">{when(n.published)}</div>
+                    <p className="mt-0.5 font-medium">{n.headline ?? "News update"}</p>
+                    {n.note && <p className="mt-1 leading-relaxed text-muted">{n.note}</p>}
+                    <a href={n.link} target="_blank" rel="noopener noreferrer" className="mt-1 inline-block text-[11px] text-muted underline hover:text-fg">Read on ESPN</a>
                   </li>
                 ))}
               </ul>
