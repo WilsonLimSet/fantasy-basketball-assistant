@@ -18,7 +18,6 @@ export function InjuryBadge({ s }: { s: string }) {
 const ESPN_LOGO_CODE: Record<string, string> = { GSW: "gs", NOP: "no", NYK: "ny", SAS: "sa", UTA: "utah", WAS: "wsh" };
 const hideOnError = (e: React.SyntheticEvent<HTMLImageElement>) => { e.currentTarget.style.visibility = "hidden"; };
 
-/** Player headshot from ESPN (fantasy player ids are ESPN athlete ids). */
 /** A placeholder bar or block while data loads. */
 export function Skeleton({ className = "" }: { className?: string }) {
   return <div aria-hidden className={`skeleton ${className}`} />;
@@ -42,6 +41,7 @@ export function SkeletonRows({ rows = 6, size = 32 }: { rows?: number; size?: nu
   );
 }
 
+/** Player headshot from ESPN (fantasy player ids are ESPN athlete ids). */
 export function Headshot({ id, name, size = 32 }: { id: number; name: string; size?: number }) {
   return (
     <span

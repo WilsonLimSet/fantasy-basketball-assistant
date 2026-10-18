@@ -79,6 +79,7 @@ function store(url: string, e: Entry) {
 }
 export function clearCached() {
   cache.clear();
+  checked.clear();
   ownerConfirmed = false;
   try {
     for (const k of Object.keys(localStorage)) if (k.startsWith(STORE) || k === OWNER) localStorage.removeItem(k);
@@ -99,11 +100,19 @@ function claimCache(email: string | undefined) {
   ownerConfirmed = !!email;
   notify();
 }
+/** URLs already looked up in localStorage since the owner was confirmed. */
+const checked = new Set<string>();
 const entry = (url: string): Entry | undefined => {
-  let e = cache.get(url);
-  if (!e && ownerConfirmed && typeof window !== 'undefined') {
-    e = stored(url);
-    if (e) cache.set(url, e);
+  const e = cache.get(url);
+  // A page may have started loading before /me answered; fill its empty entry from the saved copy.
+  if (e?.data === undefined && ownerConfirmed && !checked.has(url) && typeof window !== 'undefined') {
+    checked.add(url);
+    const s = stored(url);
+    if (s) {
+      const filled = e ? Object.assign(e, { data: s.data, at: s.at }) : s;
+      cache.set(url, filled);
+      return filled;
+    }
   }
   return e;
 };

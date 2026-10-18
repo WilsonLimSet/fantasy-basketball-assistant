@@ -33,7 +33,8 @@ async function refreshOwnerLeague() {
   const alerts = generateSmartAlerts(snapshot, diff, watchlist, transactions);
   let alertSent = false;
   try {
-    if (hasActionableAlerts(alerts)) alertSent = await sendSmartAlerts(alerts, snapshot.week);
+    // Old single-chat alerts; only when TELEGRAM_CHAT_ID is set (users get theirs via sendMoves).
+    if (process.env.TELEGRAM_CHAT_ID && hasActionableAlerts(alerts)) alertSent = await sendSmartAlerts(alerts, snapshot.week);
   } catch (e) {
     console.error('[Refresh] Telegram failed:', e);
   }
