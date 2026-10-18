@@ -79,19 +79,29 @@ function store(url: string, e: Entry) {
 }
 export function clearCached() {
   cache.clear();
+  ownerConfirmed = false;
   try {
     for (const k of Object.keys(localStorage)) if (k.startsWith(STORE) || k === OWNER) localStorage.removeItem(k);
   } catch { /* ignore */ }
 }
-/** Keep cached data only for the account it was loaded for. */
+/**
+ * Saved data is only read once /me has confirmed it belongs to the signed-in account, so on a
+ * shared browser nobody sees the previous user's league, even for a moment.
+ */
+let ownerConfirmed = false;
 function claimCache(email: string | undefined) {
   try {
-    if (localStorage.getItem(OWNER) !== (email ?? '')) { clearCached(); localStorage.setItem(OWNER, email ?? ''); }
+    if (!email || localStorage.getItem(OWNER) !== email) {
+      clearCached();
+      if (email) localStorage.setItem(OWNER, email);
+    }
   } catch { /* ignore */ }
+  ownerConfirmed = !!email;
+  notify();
 }
 const entry = (url: string): Entry | undefined => {
   let e = cache.get(url);
-  if (!e && typeof window !== 'undefined') {
+  if (!e && ownerConfirmed && typeof window !== 'undefined') {
     e = stored(url);
     if (e) cache.set(url, e);
   }
@@ -113,7 +123,7 @@ export function loadCached(url: string, force = false): Promise<void> {
     .then((data) => {
       const next = { data, at: Date.now() };
       cache.set(url, next);
-      if ((data as { success?: boolean })?.success) store(url, next);
+      if (ownerConfirmed && (data as { success?: boolean })?.success) store(url, next);
       notify();
     });
   return e.inflight;

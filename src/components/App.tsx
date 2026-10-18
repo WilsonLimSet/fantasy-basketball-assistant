@@ -97,7 +97,11 @@ export default function App({ season = false }: { season?: boolean }) {
           if (!r.ok) throw new Error(j.error ?? r.statusText);
           setBoard(j);
           setErr(null);
-          try { localStorage.setItem(BOARD_KEY, JSON.stringify({ league: JSON.stringify(league), board: j })); } catch { /* full */ }
+          // Keep only the rankings: who's signed in, their email and payment link aren't saved.
+          try {
+            const board = { ...j, email: null, account: null, paymentLink: null, pro: false };
+            localStorage.setItem(BOARD_KEY, JSON.stringify({ league: JSON.stringify(league), board }));
+          } catch { /* full */ }
         })
         .catch((e) => { if (e.name !== "AbortError") setErr(String(e)); })
         .finally(() => setLoading(false));
