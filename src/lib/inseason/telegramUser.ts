@@ -9,7 +9,7 @@ import type { MatchupGamesComparison } from '@/types';
 import type { StreamingPlan } from './streaming';
 import { espnAddUrl, watchlistHits } from './email';
 import { kvStore } from './storage';
-import { getProfile, profileContext, saveProfile } from './profile';
+import { getProfile, hasInseasonAccess, profileContext, saveProfile } from './profile';
 import { buildStreamingPlan } from './streaming';
 import { compareMatchupGames } from './matchupGames';
 import { createHash } from 'node:crypto';
@@ -81,8 +81,8 @@ export async function completeLink(code: string, chat: { id: number; username?: 
     chat.id,
     `You're connected. Each morning we'll send <b>${esc(team)}</b>'s best add/drops here, only when there's a move worth making.\n\nSend /moves any time for this week's moves, or /stop to pause.`
   );
-  // Show them what they signed up for right away.
-  const moves = await movesMessage(pending.email);
+  // Show them what they signed up for right away (if their pass is running).
+  const moves = (await hasInseasonAccess(pending.email)) ? await movesMessage(pending.email) : null;
   if (moves) await sendTelegramTo(chat.id, moves);
   return team;
 }

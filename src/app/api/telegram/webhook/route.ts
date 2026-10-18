@@ -7,7 +7,7 @@
 
 import { NextResponse } from 'next/server';
 import { codeFrom, completeLink, movesMessage, sendTelegramTo, webhookSecret } from '@/lib/inseason/telegramUser';
-import { listProfiles, saveProfile } from '@/lib/inseason/profile';
+import { hasInseasonAccess, listProfiles, saveProfile } from '@/lib/inseason/profile';
 
 export const dynamic = 'force-dynamic';
 
@@ -40,6 +40,8 @@ export async function POST(req: Request) {
     reply = code
       ? `That code didn't match or has expired. Get a fresh one at ${CONNECT} → Telegram.`
       : `Hi! I send your ESPN fantasy basketball team's best add/drops each morning: who to pick up, who to drop, and how many extra games it wins you.\n\nTo connect: open ${CONNECT}, choose <b>Telegram</b>, and tap <b>Open Telegram</b>.`;
+  } else if (command === '/moves' && !(await hasInseasonAccess(mine.email))) {
+    reply = `Your pass has ended. Get a week or the season at ${CONNECT.replace('My league', 'This week')}.`;
   } else if (command === '/moves') {
     reply = (await movesMessage(mine.email)) ?? `Your league hasn't loaded yet. Open ${CONNECT} and hit Refresh on This week.`;
   } else if (command === '/stop') {

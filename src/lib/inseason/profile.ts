@@ -6,7 +6,7 @@
  */
 
 import { createCipheriv, createDecipheriv, createHash, randomBytes } from 'node:crypto';
-import { currentAccount, currentPass, PAYWALL_ON } from '@/lib/auth';
+import { accessFor, currentAccount, currentPass, PAYWALL_ON } from '@/lib/auth';
 import { createStorageAdapter, kvStore, type StorageAdapter } from './storage';
 import type { ESPNClientConfig } from './espnClient';
 import { ownLeagueIds } from '@/lib/espnLeague';
@@ -128,6 +128,11 @@ export async function ownerContext(email: string): Promise<LeagueContext | null>
 
 export function isOwnerEmail(email: string) {
   return (process.env.OWNER_EMAILS ?? '').split(',').map((e) => e.trim().toLowerCase()).includes(email);
+}
+
+/** Whether an account gets in-season work done for it (refreshes, alerts), checked without a browser. */
+export async function hasInseasonAccess(email: string): Promise<boolean> {
+  return !PAYWALL_ON || isOwnerEmail(email) || !!(await accessFor(email));
 }
 
 export type ContextResult =
