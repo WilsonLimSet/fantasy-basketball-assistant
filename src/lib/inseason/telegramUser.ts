@@ -7,7 +7,7 @@
 
 import type { MatchupGamesComparison } from '@/types';
 import type { StreamingPlan } from './streaming';
-import { espnAddUrl } from './email';
+import { espnAddUrl, watchlistHits } from './email';
 import { kvStore } from './storage';
 import { getProfile, profileContext, saveProfile } from './profile';
 import { buildStreamingPlan } from './streaming';
@@ -168,17 +168,17 @@ export function dailyTelegram(opts: {
   if (plan.moves.length) {
     plan.moves.forEach((m, i) => {
       const when = m.swapAfter ? `After ${esc(m.swapAfter.label)}'s games: ` : '';
-      lines.push(`${i + 1}. ${when}<b>Add ${esc(m.add.name)}</b>, drop ${esc(m.drop.name)}: <b>+${Math.round(m.pointsGain)} pts</b>${m.add.onWaivers ? ' (waivers)' : ''}`);
+      lines.push(`${i + 1}. ${when}<b>Add ${esc(m.add.name)}</b>, drop ${esc(m.drop.name)}: <b>+${Math.round(m.pointsGain)} projected pts</b>${m.add.onWaivers ? ' (waivers)' : ''}`);
       lines.push(`   ${m.kind === 'upgrade' ? 'Upgrade. ' : 'Stream. '}${esc(m.reason)}`);
       for (const w of [m.nextWeekWarning, m.keepWarning]) if (w) lines.push(`   ⚠️ ${esc(w)}`);
     });
   } else {
     lines.push('No add/drop beats your roster this week. Sit tight.');
   }
-  const hits = plan.watchlist.filter((w) => w.bestMove && !plan.moves.some((m) => m.add.id === w.player.id)).slice(0, 3);
+  const hits = watchlistHits(plan, 3);
   if (hits.length) {
     lines.push('', '<b>Watchlist</b>');
-    for (const w of hits) lines.push(`• ${esc(w.player.name)}: ${w.player.gamesLeft} games left, +${Math.round(w.bestMove!.pointsGain)} for ${esc(w.bestMove!.drop.name)}`);
+    for (const w of hits) lines.push(`• ${esc(w.player.name)}: ${w.player.gamesLeft} games left, +${Math.round(w.bestMove!.pointsGain)} projected pts for ${esc(w.bestMove!.drop.name)}`);
   }
   lines.push('', `<a href="${esc(espnAddUrl(opts.leagueId, opts.teamId))}">Make moves on ESPN</a> · <a href="${esc(`${SITE}/inseason`)}">Open Takeover</a>`);
   return lines.join('\n');

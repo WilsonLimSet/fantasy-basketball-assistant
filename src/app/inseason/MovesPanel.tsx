@@ -63,7 +63,7 @@ export function MoveRow({ m }: { m: StreamMove }) {
         </div>
         <div className="col-start-2 row-start-1 text-right sm:col-start-3">
           <div className="text-lg font-medium tabular-nums tracking-tight">+{Math.round(m.pointsGain)}</div>
-          <div className="text-[11px] uppercase tracking-wide text-muted">pts</div>
+          <div className="text-[11px] uppercase tracking-wide text-muted">proj pts</div>
           {m.swapAfter && (
             <div className="mt-1 whitespace-nowrap rounded bg-sunken px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-fg">
               After {m.swapAfter.label.split(',')[0]}
