@@ -29,9 +29,8 @@ export async function GET(req: Request) {
     return NextResponse.redirect(new URL("/inseason?unlock=unpaid", u));
   }
   // Each checkout unlocks once, so a shared or leaked return link can't unlock other browsers or
-  // accounts. The buyer keeps access everywhere by signing in with their checkout email.
-  // The claim is atomic (two browsers at once can't both win) and fails closed: if it can't be
-  // recorded, no cookie, and the buyer still gets in by signing in with their checkout email.
+  // accounts. The claim is atomic (two browsers at once can't both win) and fails closed; either
+  // way the buyer gets in anywhere by signing in with their checkout email.
   let won: boolean;
   try {
     won = await kvStore().claim(`unlock:claimed:${sid}`, Date.now());
