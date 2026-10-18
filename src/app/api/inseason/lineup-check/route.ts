@@ -1,12 +1,12 @@
 /**
- * API Route: /api/inseason/lineup-check (Vercel Cron, hourly, with CRON_SECRET)
+ * API Route: /api/inseason/lineup-check (Vercel Cron, 3 times a day, with CRON_SECRET)
  * Shortly before the day's first tip-off (when most leagues lock lineups), refresh every league
  * whose owner gets alerts and flag starters who are out or bench players who should start.
  * Runs once a day; ?force=1 runs it now (for testing).
  */
 
 import { NextResponse } from 'next/server';
-import { listProfiles, profileContext, type InseasonProfile } from '@/lib/inseason/profile';
+import { hasInseasonAccess, listProfiles, profileContext, type InseasonProfile } from '@/lib/inseason/profile';
 import { refreshLeague } from '@/lib/inseason/refreshLeague';
 import { checkLineup, espnLineupUrl, lineupLines, type LineupCheck } from '@/lib/inseason/lineupCheck';
 import { EMAIL_ON, sendEmail } from '@/lib/inseason/email';
@@ -16,8 +16,12 @@ import { kvStore } from '@/lib/inseason/storage';
 export const dynamic = 'force-dynamic';
 export const maxDuration = 300;
 
-/** Check between 100 and 10 minutes before the first game; the hourly cron lands in that window once. */
-const WINDOW_BEFORE_MS = 100 * 60 * 1000;
+/**
+ * Check between 3 hours and 10 minutes before the first game. The cron runs at 16:00, 18:30 and
+ * 22:30 UTC (11:00, 1:30 and 5:30 Eastern in winter, an hour later in October and spring), which
+ * covers noon-to-4pm weekend tips and the usual 7pm start; the first run in the window sends.
+ */
+const WINDOW_BEFORE_MS = 180 * 60 * 1000;
 const WINDOW_AFTER_MS = 10 * 60 * 1000;
 
 const easternDate = (ms: number) => new Date(ms).toLocaleDateString('en-CA', { timeZone: 'America/New_York' });
@@ -70,7 +74,9 @@ export async function GET(request: Request) {
   const kv = kvStore();
   const ranKey = `lineupcheck:ran:${easternDate(now)}`;
 
-  const profiles = (await listProfiles()).filter((p) => p.alerts.email || (p.alerts.telegram && p.telegram));
+  const wanting = (await listProfiles()).filter((p) => p.alerts.email || (p.alerts.telegram && p.telegram));
+  const access = await Promise.all(wanting.map((p) => hasInseasonAccess(p.email)));
+  const profiles = wanting.filter((_, i) => access[i]);
   if (!profiles.length) return NextResponse.json({ success: true, skipped: 'no one gets alerts' });
 
   if (!force) {

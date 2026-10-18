@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 import { getPlayers } from "@/lib/data";
 import { League, PRESETS, edgeTags, leagueFromPreset, valuePlayers } from "@/lib/engine";
-import { currentPass, FREE_LIMIT, PAYWALL_ON } from "@/lib/auth";
 import { STAT_KEYS } from "@/lib/types";
 import { loadTakes } from "@/lib/takes";
 
@@ -25,8 +24,9 @@ export async function POST(req: Request) {
     const teams = Math.max(4, Math.min(20, Number(body.teams ?? 10)));
     const A = resolve(body.a ?? { league: "espn-points" }, teams);
     const B = resolve(body.b ?? { league: "yahoo-points" }, teams);
-    const pass = (await currentPass()) || !PAYWALL_ON;
-    const topN = pass ? Math.min(250, Number(body.top ?? 150)) : FREE_LIMIT;
+    // The draft kit is free: everyone gets the full comparison.
+    const pass = true;
+    const topN = Math.min(250, Number(body.top ?? 150));
     const [{ players }] = await Promise.all([getPlayers(), loadTakes()]);
     const va = valuePlayers(players, A.league);
     const rb = new Map(valuePlayers(players, B.league).map((v) => [v.p.id, v]));

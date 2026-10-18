@@ -9,7 +9,7 @@
  */
 
 import { NextResponse } from 'next/server';
-import { currentAccount, currentPass, PAYWALL_ON } from '@/lib/auth';
+import { currentAccount, currentPass, PAYWALL_ON, planLinks } from '@/lib/auth';
 import { SEASON } from '@/lib/data';
 import { checkAuth, EspnLeagueError } from '@/lib/espnLeague';
 import { ESPNHttpError, getLeagueInfo, withLeague } from '@/lib/inseason/espnClient';
@@ -75,13 +75,15 @@ export async function GET() {
     signedIn: true,
     email: account.email,
     pro: !PAYWALL_ON || !!pass || isOwnerEmail(account.email),
+    // When a paid pass runs out (week or season), so the app can say so.
+    passUntil: pass?.until ?? null,
+    shortPass: !!pass?.until && pass.until - Date.now() < 14 * 86_400_000,
     profile: publicProfile(profile),
     emailAlerts: EMAIL_ON,
     telegramBot: TELEGRAM_ON ? await botUsername() : null,
-    paymentLink: process.env.STRIPE_PAYMENT_LINK
-      ? `${process.env.STRIPE_PAYMENT_LINK}?prefilled_email=${encodeURIComponent(account.email)}`
-      : null,
-    priceLabel: process.env.CV_PRICE_LABEL ?? '$19 season pass',
+    plans: planLinks(account.email),
+    // For the owner only: whether Stripe is in live mode (the key's prefix, never the key).
+    stripeLive: isOwnerEmail(account.email) ? /^(sk|rk)_live_/.test(process.env.STRIPE_SECRET_KEY ?? '') : undefined,
   });
 }
 

@@ -25,8 +25,12 @@ export interface Me {
   emailAlerts?: boolean;
   /** Our Telegram bot's username, when Telegram alerts are switched on. */
   telegramBot?: string | null;
-  paymentLink?: string | null;
-  priceLabel?: string;
+  /** When a paid pass ends (ms), null for friends, owners and comp codes. */
+  passUntil?: number | null;
+  /** The pass ends within two weeks (a week pass), so the header offers the season. */
+  shortPass?: boolean;
+  /** Stripe checkout links for the two passes (null until payments are set up). */
+  plans?: { week: string | null; season: string | null };
 }
 
 const MeContext = createContext<{ me: Me | null; reload: () => Promise<void> }>({ me: null, reload: async () => {} });
@@ -218,6 +222,22 @@ export function formatAge(ms: number): string {
   return hours < 24 ? `${hours}h ago` : `${Math.floor(hours / 24)}d ago`;
 }
 
+function PlanCard({ href, name, price, note, strong }: { href: string; name: string; price: string; note: string; strong?: boolean }) {
+  return (
+    <a
+      href={href}
+      className={`block rounded-xl border p-4 transition-shadow hover:shadow-[0_8px_30px_rgba(25,25,25,0.08)] ${strong ? 'border-ink' : 'border-line'}`}
+    >
+      <div className="text-sm font-medium">{name}</div>
+      <div className="mt-1 text-3xl font-medium tracking-tight">{price}</div>
+      <div className="mt-1 text-xs text-muted">{note} One payment, no auto-renew.</div>
+      <div className={`mt-4 rounded-full py-1.5 text-center text-sm font-medium ${strong ? 'bg-ink text-white' : 'border border-line'}`}>
+        {strong ? 'Get the season' : 'Try a week'}
+      </div>
+    </a>
+  );
+}
+
 /** What to show instead of the tools: sign in, upgrade, or connect a league. */
 export function Gate({ needs }: { needs: 'signin' | 'pro' | 'connect' }) {
   const { me } = useMeContext();
@@ -227,8 +247,8 @@ export function Gate({ needs }: { needs: 'signin' | 'pro' | 'connect' }) {
       body: 'Connect your ESPN league and get the add/drops that put the most games in your lineup, every morning.',
     },
     pro: {
-      title: 'In-season is part of Pro',
-      body: 'Daily add/drops built on usable games, your matchup’s game counts, watchlist alerts and a morning email.',
+      title: 'Let Takeover manage your week',
+      body: 'Every morning: the add/drops that win you the most points, the day to make each one, a lineup check before lock, and alerts by email or Telegram. Try a week; if it earns its keep, get the season.',
     },
     connect: {
       title: 'Connect your ESPN league',
@@ -251,10 +271,11 @@ export function Gate({ needs }: { needs: 'signin' | 'pro' | 'connect' }) {
           </Link>
         )}
         {needs === 'pro' &&
-          (me?.paymentLink ? (
-            <a href={me.paymentLink} className="rounded-full bg-ink px-5 py-2 text-sm font-medium text-white hover:bg-ink/85">
-              Get the {me.priceLabel}
-            </a>
+          (me?.plans?.week || me?.plans?.season ? (
+            <div className="grid max-w-xl gap-3 sm:grid-cols-2">
+              {me.plans.week && <PlanCard href={me.plans.week} name="Week pass" price="$5" note="7 days. Try it on a real matchup." />}
+              {me.plans.season && <PlanCard href={me.plans.season} name="Season pass" price="$39" note="Through the 2026-27 playoffs." strong />}
+            </div>
           ) : (
             <span className="text-sm text-muted">Payments aren’t switched on yet.</span>
           ))}

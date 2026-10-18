@@ -4,7 +4,7 @@ import { AUTH_ON } from "./supabase/env";
 import { supabaseServer } from "./supabase/server";
 
 /**
- * Stateless season pass.
+ * Stateless in-season pass: a week pass (7 days) or a season pass (through SEASON_END).
  *  - cookie `cv_pass` = base64url(email|expiryMs).signature
  *  - license key = first 12 chars of HMAC(email) (lets a buyer unlock on another device)
  * Set CV_SECRET in production.
@@ -16,10 +16,29 @@ export const PASS_COOKIE = "cv_pass";
 export const SEASON_END = Date.parse(process.env.CV_PASS_EXPIRES ?? "2027-07-01T00:00:00Z");
 export const FREE_LIMIT = Number(process.env.CV_FREE_LIMIT ?? 50);
 /**
- * The paywall only applies once payments are set up (STRIPE_PAYMENT_LINK) or it is forced with
- * CV_PAYWALL=on. Until then everyone gets the full product.
+ * The in-season paywall only applies once the Stripe links are set up (STRIPE_WEEK_LINK and
+ * STRIPE_SEASON_LINK) or it is forced with CV_PAYWALL=on. The draft kit is always free.
  */
-export const PAYWALL_ON = !!process.env.STRIPE_PAYMENT_LINK || process.env.CV_PAYWALL === "on";
+export const PAYWALL_ON = !!process.env.STRIPE_SEASON_LINK || process.env.CV_PAYWALL === "on";
+const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
+
+/** The two Stripe Payment Links, with each one's checkout prefilled with the buyer's email. */
+export function planLinks(email?: string) {
+  const link = (url: string | undefined) => (url ? url + (email ? `?prefilled_email=${encodeURIComponent(email)}` : "") : null);
+  return { week: link(process.env.STRIPE_WEEK_LINK), season: link(process.env.STRIPE_SEASON_LINK) };
+}
+
+/**
+ * When a paid checkout's access ends: 7 days after a week pass, the end of the season for a
+ * season pass (and the old draft pass), null for anything else on the Stripe account.
+ */
+export function accessEnd(session: { payment_link?: string | null; created?: number }): number | null {
+  const link = session.payment_link;
+  if (!link) return null;
+  if (link === process.env.STRIPE_WEEK_LINK_ID) return (session.created ?? 0) * 1000 + WEEK_MS;
+  if (link === process.env.STRIPE_SEASON_LINK_ID || link === process.env.STRIPE_PAYMENT_LINK_ID) return SEASON_END;
+  return null;
+}
 
 const sign = (s: string) => {
   if (!SECRET) throw new Error("CV_SECRET is not set");
@@ -36,12 +55,12 @@ export function checkLicense(email: string, key: string) {
   return a.length === b.length && timingSafeEqual(a, b);
 }
 
-export function makePass(email: string) {
-  const body = Buffer.from(`${email.trim().toLowerCase()}|${SEASON_END}`).toString("base64url");
+export function makePass(email: string, until = SEASON_END) {
+  const body = Buffer.from(`${email.trim().toLowerCase()}|${until}`).toString("base64url");
   return `${body}.${sign(body)}`;
 }
 
-export function readPass(value: string | undefined): { email: string } | null {
+export function readPass(value: string | undefined): { email: string; until: number } | null {
   if (!value || !SECRET) return null;
   const [body, sig] = value.split(".");
   if (!body || !sig) return null;
@@ -49,37 +68,41 @@ export function readPass(value: string | undefined): { email: string } | null {
   if (good.length !== got.length || !timingSafeEqual(good, got)) return null;
   const [email, exp] = Buffer.from(body, "base64url").toString().split("|");
   if (!email || Number(exp) < Date.now()) return null;
-  return { email };
+  return { email, until: Number(exp) };
 }
 
 /** Emails that get Pro for free when they sign in (FRIEND_EMAILS, comma-separated). */
 const friendEmails = () => new Set((process.env.FRIEND_EMAILS ?? "").split(",").map((e) => e.trim().toLowerCase()).filter(Boolean));
 
-const paidCache = new Map<string, { paid: boolean; at: number }>();
+const paidCache = new Map<string, { until: number; at: number }>();
 const PAID_CACHE_MAX = 5000;
 /**
- * Did this email complete a Stripe checkout? A yes is cached for an hour, a no for 10 minutes,
- * and a Stripe error for a minute (so an outage doesn't turn every request into a Stripe call).
+ * Until when this email has access from its Stripe purchases (0 if none). An active pass is
+ * cached for an hour (never past its end), none for 10 minutes, and a Stripe error for a minute
+ * (so an outage doesn't turn every request into a Stripe call).
  */
-async function paidOnStripe(email: string): Promise<boolean> {
+async function paidUntilOnStripe(email: string): Promise<number> {
   const sk = process.env.STRIPE_SECRET_KEY;
-  if (!sk) return false;
+  if (!sk) return 0;
+  const now = Date.now();
   const hit = paidCache.get(email);
-  const ttl = hit?.paid ? 60 * 60 * 1000 : 10 * 60 * 1000;
-  if (hit && Date.now() - hit.at < ttl) return hit.paid;
-  const remember = (paid: boolean, at = Date.now()) => {
+  const active = !!hit && hit.until > now;
+  const ttl = active ? 60 * 60 * 1000 : 10 * 60 * 1000;
+  if (hit && now - hit.at < ttl) return hit.until > now ? hit.until : 0;
+  const remember = (until: number, at = Date.now()) => {
     if (paidCache.size >= PAID_CACHE_MAX) paidCache.delete(paidCache.keys().next().value!);
-    paidCache.set(email, { paid, at });
-    return paid;
+    paidCache.set(email, { until, at });
+    return until > Date.now() ? until : 0;
   };
   try {
     const q = new URLSearchParams({ "customer_details[email]": email, status: "complete", limit: "100" });
     const r = await fetch(`https://api.stripe.com/v1/checkout/sessions?${q}`, { headers: { Authorization: `Bearer ${sk}` }, cache: "no-store" });
-    // On an error, keep a known yes; otherwise retry in about a minute.
-    if (!r.ok) return remember(hit?.paid ?? false, Date.now() - ttl + 60 * 1000);
-    const j = (await r.json()) as { data?: { payment_status?: string }[] };
-    return remember(!!j.data?.some((s) => s.payment_status === "paid"));
-  } catch { return remember(hit?.paid ?? false, Date.now() - ttl + 60 * 1000); }
+    // On an error, keep what we knew; retry in about a minute.
+    if (!r.ok) return remember(hit?.until ?? 0, now - ttl + 60 * 1000);
+    const j = (await r.json()) as { data?: { payment_status?: string; payment_link?: string | null; created?: number }[] };
+    const ends = (j.data ?? []).filter((s) => s.payment_status === "paid").map((s) => accessEnd(s) ?? 0);
+    return remember(Math.max(0, ...ends));
+  } catch { return remember(hit?.until ?? 0, now - ttl + 60 * 1000); }
 }
 
 /** The signed-in account (Supabase), if auth is configured and the email is verified. */
@@ -93,19 +116,27 @@ export async function currentAccount(): Promise<{ email: string } | null> {
   } catch { return null; }
 }
 
+type Pass = { email: string; via: "pass" | "friend" | "stripe"; until?: number };
+
 /**
- * Pro access, from any of: the season-pass cookie (paid or comp code), a signed-in friend on
- * FRIEND_EMAILS, or a signed-in account whose email paid on Stripe.
+ * In-season access, from any of: the pass cookie (paid or comp code), a signed-in friend on
+ * FRIEND_EMAILS, or a signed-in account whose email bought a pass on Stripe.
  */
-export async function currentPass(): Promise<{ email: string; via: "pass" | "friend" | "stripe" } | null> {
+export async function currentPass(): Promise<Pass | null> {
   const jar = await cookies();
   const pass = readPass(jar.get(PASS_COOKIE)?.value);
   if (pass) return { ...pass, via: "pass" };
   const account = await currentAccount();
   if (!account) return null;
-  if (friendEmails().has(account.email)) return { email: account.email, via: "friend" };
-  if (await paidOnStripe(account.email)) return { email: account.email, via: "stripe" };
-  return null;
+  return accessFor(account.email);
+}
+
+/** Access for an email without a browser (crons, Telegram): a friend, or a pass bought on Stripe. */
+export async function accessFor(email: string): Promise<Pass | null> {
+  const e = email.toLowerCase();
+  if (friendEmails().has(e)) return { email: e, via: "friend" };
+  const until = await paidUntilOnStripe(e);
+  return until ? { email: e, via: "stripe", until } : null;
 }
 
 export const passCookieOptions = {
@@ -113,7 +144,6 @@ export const passCookieOptions = {
   secure: process.env.NODE_ENV === "production",
   sameSite: "lax" as const,
   path: "/",
-  expires: new Date(SEASON_END),
 };
 
 /** The league owner (OWNER_EMAILS): the in-season tools read the owner's league with the server's ESPN login. */

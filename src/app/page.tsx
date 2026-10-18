@@ -3,7 +3,6 @@ import { LogoMark } from "@/components/Logo";
 import { PAYWALL_ON } from "@/lib/auth";
 import { seasonMode } from "@/lib/season";
 
-const PRICE = process.env.CV_PRICE_LABEL ?? "$19 season pass";
 
 // Re-render hourly so season mode switches on by itself.
 export const revalidate = 3600;
@@ -151,15 +150,25 @@ export default function Landing() {
         <section id="pricing" className="border-b border-line">
           <div className="mx-auto max-w-4xl px-4 py-16">
             <Eyebrow>Pricing</Eyebrow>
-            <H2 a="One price for the season." b={PAYWALL_ON ? "Start free." : "Free while we're in beta."} />
-            <div className="mt-8 grid gap-4 sm:grid-cols-2">
-              <Plan name="Free" price="$0" items={["Top 50 players for your scoring", "Short mock drafts", "Daily sourced news and takes", "ESPN vs Yahoo comparison"]} />
+            <H2 a="Try a week. Keep it for the season." b={PAYWALL_ON ? "The draft kit is free." : "Free while we're in beta."} />
+            <div className="mt-8 grid gap-4 sm:grid-cols-3">
+              <Plan name="Draft kit" price="Free" href="/draft" cta="Open the draft kit" items={["Every player ranked for your scoring", "Full mock drafts", "Live ESPN draft assistant", "Daily news and takes"]} />
+              <Plan
+                name="Week pass"
+                price="$5"
+                note={PAYWALL_ON ? "7 days, one payment, no auto-renew" : "Everything is unlocked during the beta"}
+                href="/inseason"
+                cta="Try a week"
+                items={["Daily add/drops by usable games", "Which day to make each move", "Lineup check before lock", "Email and Telegram alerts"]}
+              />
               <Plan
                 name="Season pass"
-                price={PRICE.replace(/\s*season pass/i, "")}
-                note={PAYWALL_ON ? "One payment, through the 2026-27 season" : "Everything is unlocked during the beta"}
+                price="$39"
+                note={PAYWALL_ON ? "Through the 2026-27 playoffs, no auto-renew" : "Everything is unlocked during the beta"}
                 strong
-                items={["Every player, every tier, every note", "Full-length mocks vs your league mates", "Live ESPN draft sync and assistant", "League scouting from past drafts", "In-season waiver picks and alerts"]}
+                href="/inseason"
+                cta="Get the season"
+                items={["Everything in the week pass", "Every week through the playoffs", "Next-week schedule warnings", "About $1.50 a week"]}
               />
             </div>
           </div>
@@ -256,15 +265,15 @@ function Check({ children }: { children: React.ReactNode }) {
   );
 }
 
-function Plan({ name, price, items, note, strong }: { name: string; price: string; items: string[]; note?: string; strong?: boolean }) {
+function Plan({ name, price, items, note, strong, href, cta }: { name: string; price: string; items: string[]; note?: string; strong?: boolean; href: string; cta: string }) {
   return (
     <div className={`rounded-xl border p-6 ${strong ? "border-ink bg-panel shadow-[0_8px_30px_rgba(25,25,25,0.08)]" : "border-line bg-panel"}`}>
       <div className="text-sm font-medium">{name}</div>
       <div className="mt-2 text-4xl font-medium tracking-tight">{price}</div>
       {note && <div className="mt-1 text-xs text-muted">{note}</div>}
       <ul className="mt-5 space-y-2 text-sm">{items.map((i) => <Check key={i}>{i}</Check>)}</ul>
-      <Link href="/draft" className={`mt-6 block rounded-full py-2 text-center text-sm font-medium ${strong ? "bg-ink text-white hover:bg-ink/85" : "border border-line hover:bg-sunken"}`}>
-        {strong ? "Get the season pass" : "Start free"}
+      <Link href={href} className={`mt-6 block rounded-full py-2 text-center text-sm font-medium ${strong ? "bg-ink text-white hover:bg-ink/85" : "border border-line hover:bg-sunken"}`}>
+        {cta}
       </Link>
     </div>
   );

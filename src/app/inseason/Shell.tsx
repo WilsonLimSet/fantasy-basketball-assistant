@@ -66,6 +66,13 @@ function Header({ season }: { season: boolean }) {
         </nav>
         <div className="ml-auto flex items-center gap-3 text-xs text-muted">
           {me?.profile && <span className="hidden sm:inline">{me.profile.teamName}</span>}
+          {/* A week pass says when it ends, with the season one click away. */}
+          {me?.passUntil && me.shortPass && (
+            <span className="whitespace-nowrap">
+              Pass ends {new Date(me.passUntil).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
+              {me.plans?.season && <> · <a href={me.plans.season} className="font-medium text-fg underline-offset-2 hover:underline">Get the season</a></>}
+            </span>
+          )}
           {me?.signedIn ? (
             <form action="/auth/signout" method="post" onSubmit={clearCached} className="flex items-center gap-2">
               <span className="hidden max-w-[12rem] truncate sm:inline" title={me.email}>{me.email}</span>
