@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 import { NextResponse } from "next/server";
-import { accessEnd, accessFor, checkLicense, makePass, PASS_COOKIE, passCookieOptions, SEASON_END } from "@/lib/auth";
+import { accessEnd, accessFor, checkLicense, currentAccount, linkPassToAccount, makePass, PASS_COOKIE, passCookieOptions, SEASON_END } from "@/lib/auth";
 
 /**
  * GET  /api/unlock?session_id=cs_...  -> Stripe Payment Link success redirect. Verifies the
@@ -17,7 +17,9 @@ export async function GET(req: Request) {
   const r = await fetch(`https://api.stripe.com/v1/checkout/sessions/${encodeURIComponent(sid)}`, {
     headers: { Authorization: `Bearer ${sk}` },
     cache: "no-store",
-  });
+  }).catch(() => null);
+  // Stripe itself failed (outage, rate limit, network): they may well have paid, so don't show the paywall again.
+  if (!r || (!r.ok && (r.status === 429 || r.status >= 500))) return NextResponse.redirect(new URL("/inseason?unlock=pending", u));
   const s = await r.json();
   const email: string | undefined = s?.customer_details?.email ?? s?.customer_email;
   // Must be a completed, paid session from one of our pass links, and the pass must still be running.
@@ -25,6 +27,9 @@ export async function GET(req: Request) {
   if (!r.ok || s.status !== "complete" || s.payment_status !== "paid" || !email || !until || until < Date.now()) {
     return NextResponse.redirect(new URL("/inseason?unlock=unpaid", u));
   }
+  // Signed in under a different email than the checkout one? The pass is theirs as well.
+  const account = await currentAccount();
+  if (account && account.email !== email.toLowerCase()) await linkPassToAccount(account.email, until).catch((e) => console.error("[unlock] link failed", e));
   const res = NextResponse.redirect(new URL("/unlocked", u));
   res.cookies.set(PASS_COOKIE, makePass(email, until), { ...passCookieOptions, expires: new Date(until) });
   return res;

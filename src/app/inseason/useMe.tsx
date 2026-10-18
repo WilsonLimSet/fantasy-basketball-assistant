@@ -137,6 +137,8 @@ export function loadCached(url: string, force = false): Promise<void> {
       const next = { data, at: Date.now() };
       cache.set(url, next);
       if (ownerConfirmed && (data as { success?: boolean })?.success) store(url, next);
+      // Lost access (pass ended, signed out): drop the saved copy so it doesn't flash next time.
+      else if ((data as { needs?: string })?.needs) try { localStorage.removeItem(STORE + url); } catch { /* ignore */ }
       notify();
     });
   return e.inflight;
@@ -241,6 +243,20 @@ function PlanCard({ href, name, price, note, strong }: { href: string; name: str
 /** What to show instead of the tools: sign in, upgrade, or connect a league. */
 export function Gate({ needs }: { needs: 'signin' | 'pro' | 'connect' }) {
   const { me } = useMeContext();
+  // Back from Stripe while Stripe couldn't confirm the payment: say so instead of asking again.
+  const [pending, setPending] = useState(false);
+  useEffect(() => { setPending(new URLSearchParams(location.search).get('unlock') === 'pending'); }, []);
+  if (needs === 'pro' && pending) {
+    return (
+      <section className="rounded-xl border border-line bg-panel px-6 py-10 sm:px-10">
+        <h1 className="text-2xl font-medium tracking-[-0.03em]">Confirming your payment</h1>
+        <p className="mt-3 max-w-xl text-sm leading-relaxed text-muted">
+          Stripe is slow to confirm right now. Don&apos;t pay again: refresh in a minute and your pass will be here.
+        </p>
+        <button onClick={() => location.reload()} className="mt-5 rounded-full bg-ink px-5 py-2 text-sm font-medium text-white hover:bg-ink/85">Refresh</button>
+      </section>
+    );
+  }
   const copy = {
     signin: {
       title: 'Win the week with two extra games',
