@@ -24,6 +24,7 @@ export interface Player {
   injury: string; // ACTIVE, OUT, DAY_TO_DAY, ...
   adp: number | null; // ESPN average draft position
   pctOwned: number | null;
+  pctChange: number | null; // change in percent rostered over the last day
   espnRank: number | null; // ESPN STANDARD (points) draft rank
   espnRankRoto: number | null; // ESPN ROTO (categories) draft rank
   last: StatLine | null; // last season actual, per game

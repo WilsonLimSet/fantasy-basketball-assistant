@@ -26,6 +26,9 @@ import { refreshLeague } from '@/lib/inseason/refreshLeague';
 import { EMAIL_ON } from '@/lib/inseason/email';
 import { botUsername, drainUpdates, rememberLinkCode, TELEGRAM_ON } from '@/lib/inseason/telegramUser';
 import { randomBytes } from 'node:crypto';
+import { cookies } from 'next/headers';
+import { cleanCode, ensureReferralCode, PROMO_COOKIE } from '@/lib/referral';
+import { SITE } from '@/lib/social';
 import { ownLeagueIds } from '@/lib/espnLeague';
 
 export const dynamic = 'force-dynamic';
@@ -69,7 +72,8 @@ function espnError(e: unknown, hadLogin: boolean) {
 export async function GET() {
   const account = await currentAccount();
   if (!account) return NextResponse.json({ success: true, signedIn: false });
-  const [profile, pass] = await Promise.all([getProfile(account.email), currentPass()]);
+  const [profile, pass, jar, refCode] = await Promise.all([getProfile(account.email), currentPass(), cookies(), ensureReferralCode(account.email).catch(() => null)]);
+  const shortPass = !!pass?.until && pass.until - Date.now() < 14 * 86_400_000;
   return NextResponse.json({
     success: true,
     signedIn: true,
@@ -77,11 +81,13 @@ export async function GET() {
     pro: !PAYWALL_ON || !!pass || isOwnerEmail(account.email),
     // When a paid pass runs out (week or season), so the app can say so.
     passUntil: pass?.until ?? null,
-    shortPass: !!pass?.until && pass.until - Date.now() < 14 * 86_400_000,
+    shortPass,
     profile: publicProfile(profile),
     emailAlerts: EMAIL_ON,
     telegramBot: TELEGRAM_ON ? await botUsername() : null,
-    plans: planLinks(account.email),
+    plans: planLinks(account.email, { promo: cleanCode(jar.get(PROMO_COOKIE)?.value), upgrading: shortPass }),
+    // Their referral link: a friend who buys through it gets a free week, and so do they.
+    referralUrl: refCode ? `${SITE}/?ref=${refCode}` : null,
     // For the owner only: whether Stripe is in live mode (the key's prefix, never the key).
     stripeLive: isOwnerEmail(account.email) ? /^(sk|rk)_live_/.test(process.env.STRIPE_SECRET_KEY ?? '') : undefined,
   });

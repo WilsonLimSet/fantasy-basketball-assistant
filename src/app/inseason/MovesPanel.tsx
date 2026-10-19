@@ -14,6 +14,19 @@ export interface MovesResponse {
   snapshotAge?: number;
   error?: string;
   needs?: 'signin' | 'pro' | 'connect' | 'refresh';
+  /** Without a pass: what the moves would add this week, and the best one. */
+  preview?: MovesPreview;
+}
+
+export interface MovesPreview {
+  week: number;
+  daysLeft: number;
+  pointsLeague: boolean;
+  baseline: StreamingPlan['baseline'];
+  after: StreamingPlan['after'];
+  moveCount: number;
+  firstMove: StreamMove | null;
+  teamName?: string;
 }
 
 const dayLabel = (date: string) =>

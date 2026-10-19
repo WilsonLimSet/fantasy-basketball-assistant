@@ -1,5 +1,6 @@
 'use client';
 
+import { track } from '@vercel/analytics';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { LogoMark } from '@/components/Logo';
@@ -70,7 +71,7 @@ function Header({ season }: { season: boolean }) {
           {me?.passUntil && me.shortPass && (
             <span className="whitespace-nowrap">
               Pass ends {new Date(me.passUntil).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
-              {me.plans?.season && <> · <a href={me.plans.season} className="font-medium text-fg underline-offset-2 hover:underline">Get the season</a></>}
+              {me.plans?.season && <> · <a href={me.plans.season} onClick={() => track('checkout_click', { plan: 'upgrade' })} className="font-medium text-fg underline-offset-2 hover:underline">Get the season</a></>}
             </span>
           )}
           {me?.signedIn ? (

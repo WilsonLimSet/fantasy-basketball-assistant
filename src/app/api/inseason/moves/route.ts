@@ -1,19 +1,61 @@
 /**
  * API Route: /api/inseason/moves
  * This week's suggested add/drops, the user's roster (for picking core players) and watchlist notes.
+ * Without a pass: a preview (the week's gain and the best move).
  */
 
 import { NextResponse } from 'next/server';
 import { requireLeague } from '@/lib/inseason/routeContext';
+import { previewContext, saveProfile } from '@/lib/inseason/profile';
+import { refreshLeague } from '@/lib/inseason/refreshLeague';
 import { buildStreamingPlan, expectedFppg } from '@/lib/inseason/streaming';
 import { compareMatchupGames } from '@/lib/inseason/matchupGames';
 import { espnAddUrl } from '@/lib/inseason/email';
 
 export const dynamic = 'force-dynamic';
+export const maxDuration = 60;
+
+/** Free users' league data is refreshed when they look, at most this often (paid leagues refresh by cron). */
+const PREVIEW_REFRESH_MS = 12 * 60 * 60 * 1000;
+
+/**
+ * The free preview for a connected league without a pass: how much the moves add this week and
+ * the best one, with the rest behind the paywall.
+ */
+async function preview() {
+  const ctx = await previewContext();
+  if (!ctx?.profile) return null;
+  let snapshot = await ctx.storage.getLatestSnapshot(ctx.leagueId, ctx.seasonId);
+  if (!snapshot || Date.now() - snapshot.fetchedAt > PREVIEW_REFRESH_MS) {
+    try {
+      snapshot = (await refreshLeague(ctx)).snapshot;
+      await saveProfile({ ...ctx.profile, lastRefreshAt: Date.now() });
+    } catch (e) {
+      console.error('[moves] preview refresh failed', e);
+    }
+  }
+  if (!snapshot) return null;
+  const plan = buildStreamingPlan(snapshot, ctx.core, []);
+  if (!plan) return null;
+  return {
+    week: plan.week,
+    daysLeft: plan.daysLeft,
+    pointsLeague: plan.pointsLeague,
+    baseline: plan.baseline,
+    after: plan.after,
+    moveCount: plan.moves.length,
+    firstMove: plan.moves[0] ?? null,
+    teamName: snapshot.teams.find((t) => t.id === snapshot.myTeamId)?.name,
+  };
+}
 
 export async function GET() {
   const { ctx, error } = await requireLeague();
-  if (error) return error;
+  if (error) {
+    if (error.status !== 402) return error;
+    const p = await preview().catch((e) => { console.error('[moves] preview', e); return null; });
+    return p ? NextResponse.json({ success: false, needs: 'pro', preview: p }, { status: 402 }) : error;
+  }
   const [snapshot, watchlist] = await Promise.all([
     ctx.storage.getLatestSnapshot(ctx.leagueId, ctx.seasonId),
     ctx.storage.getWatchlist(ctx.leagueId, ctx.seasonId),

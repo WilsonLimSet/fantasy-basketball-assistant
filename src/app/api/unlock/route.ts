@@ -1,6 +1,9 @@
 import { createHash } from "node:crypto";
 import { NextResponse } from "next/server";
+import { track } from "@vercel/analytics/server";
+import { cookies } from "next/headers";
 import { kvStore } from "@/lib/inseason/storage";
+import { cleanCode, REF_COOKIE, rewardReferral } from "@/lib/referral";
 import { accessEnd, accessFor, checkLicense, currentAccount, linkPassToAccount, makePass, PASS_COOKIE, passCookieOptions, SEASON_END } from "@/lib/auth";
 
 /**
@@ -39,11 +42,18 @@ export async function GET(req: Request) {
     return NextResponse.redirect(new URL("/inseason?unlock=pending", u));
   }
   if (!won) return NextResponse.redirect(new URL("/inseason?unlock=used", u));
+  // Bought through a friend's referral link: the friend gets a week, and so does the buyer.
+  const jar = await cookies();
+  const bonus = await rewardReferral(cleanCode(jar.get(REF_COOKIE)?.value), email).catch((e) => { console.error("[unlock] referral failed", e); return 0; });
+  const end = until + bonus * 24 * 60 * 60 * 1000;
+  if (bonus) await linkPassToAccount(email, end).catch((e) => console.error("[unlock] bonus failed", e));
   // Signed in under a different email than the checkout one? The pass is theirs as well.
   const account = await currentAccount();
-  if (account && account.email !== email.toLowerCase()) await linkPassToAccount(account.email, until).catch((e) => console.error("[unlock] link failed", e));
-  const res = NextResponse.redirect(new URL("/unlocked", u));
-  res.cookies.set(PASS_COOKIE, makePass(email, until), { ...passCookieOptions, expires: new Date(until) });
+  if (account && account.email !== email.toLowerCase()) await linkPassToAccount(account.email, end).catch((e) => console.error("[unlock] link failed", e));
+  const res = NextResponse.redirect(new URL(bonus ? "/unlocked?bonus=1" : "/unlocked", u));
+  res.cookies.set(PASS_COOKIE, makePass(email, end), { ...passCookieOptions, expires: new Date(end) });
+  if (bonus) res.cookies.delete(REF_COOKIE);
+  await track("purchase", { plan: until === SEASON_END ? "season" : "week", referred: bonus > 0 }).catch(() => {});
   return res;
 }
 

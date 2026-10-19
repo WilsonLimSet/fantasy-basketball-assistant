@@ -1,6 +1,8 @@
 'use client';
 
+import { track } from '@vercel/analytics';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { Headshot, InjuryBadge, SkeletonRows } from '@/components/ui';
 import { qrMatrix } from '@/lib/qr';
@@ -34,6 +36,7 @@ function LeagueForm({ onSaved, onCancel, hasLogin }: { onSaved: () => void; onCa
       if (/private|cookies/i.test(j.error ?? '')) setShowLogin(true);
       return;
     }
+    track('league_found');
     setTeams(j.teams); setLeagueId(j.leagueId); setLeagueName(j.leagueName); setTeamId(j.teamId ?? '');
   };
 
@@ -42,7 +45,7 @@ function LeagueForm({ onSaved, onCancel, hasLogin }: { onSaved: () => void; onCa
     setBusy(true); setError(null);
     const j = await post('POST', { action: 'save', leagueId, teamId, s2, swid });
     setBusy(false);
-    if (j.success) onSaved(); else setError(j.error);
+    if (j.success) { track('league_connected'); onSaved(); } else setError(j.error);
   };
 
   return (
@@ -303,8 +306,28 @@ function Alerts({ profile, me, reload }: { profile: MeProfile; me: Me; reload: (
   );
 }
 
+function Referral({ url }: { url: string }) {
+  const [copied, setCopied] = useState(false);
+  return (
+    <Panel title="Give a friend a free week" sub="When someone buys any pass through your link, you both get a week free. Share it with friends in other leagues.">
+      <div className="flex max-w-xl gap-2">
+        <input readOnly value={url} className="input min-w-0 flex-1 py-1.5" onFocus={(e) => e.currentTarget.select()} aria-label="Your referral link" />
+        <button
+          className="btn-accent shrink-0"
+          onClick={async () => {
+            try { await navigator.clipboard.writeText(url); setCopied(true); track('referral_copied'); setTimeout(() => setCopied(false), 1500); } catch { /* blocked */ }
+          }}
+        >
+          {copied ? 'Copied' : 'Copy link'}
+        </button>
+      </div>
+    </Panel>
+  );
+}
+
 export default function MyLeaguePage() {
   const { me, reload } = useMeContext();
+  const router = useRouter();
   const [editing, setEditing] = useState(false);
   const [confirming, setConfirming] = useState(false);
 
@@ -319,7 +342,8 @@ export default function MyLeaguePage() {
   };
 
   if (!profile || editing) {
-    return <LeagueForm hasLogin={profile?.hasLogin} onCancel={profile ? () => setEditing(false) : undefined} onSaved={async () => { setEditing(false); await reload(); }} />;
+    // A first connect goes straight to the week's moves (or, without a pass, the free preview).
+    return <LeagueForm hasLogin={profile?.hasLogin} onCancel={profile ? () => setEditing(false) : undefined} onSaved={async () => { setEditing(false); await reload(); if (!profile) { invalidateCached(MOVES_URL); router.push('/inseason'); } }} />;
   }
 
   return (
@@ -345,6 +369,7 @@ export default function MyLeaguePage() {
         <p className="text-sm text-muted">Signed in as {me.email}. We refresh your league twice a day; hit Refresh on This week for the latest.</p>
       </Panel>
       <div id="alerts"><Alerts profile={profile} me={me} reload={reload} /></div>
+      {me.referralUrl && <Referral url={me.referralUrl} />}
       {me.pro ? <CorePicker key={`${profile.leagueId}-${profile.teamId}`} core={profile.core} /> : <Gate needs="pro" />}
     </div>
   );

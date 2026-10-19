@@ -7,7 +7,7 @@ const ESPN_STAT: Record<string, StatKey | "gp"> = {
   "17": "tpm", "18": "tpa", "37": "dd", "38": "td", "40": "min", "42": "gp",
 };
 
-const PRO_TEAM: Record<number, string> = {
+export const PRO_TEAM: Record<number, string> = {
   0: "FA", 1: "ATL", 2: "BOS", 3: "NOP", 4: "CHI", 5: "CLE", 6: "DAL", 7: "DEN",
   8: "DET", 9: "GSW", 10: "HOU", 11: "IND", 12: "LAC", 13: "LAL", 14: "MIA",
   15: "MIL", 16: "MIN", 17: "BKN", 18: "NYK", 19: "ORL", 20: "PHI", 21: "PHX",
@@ -75,6 +75,7 @@ export function parsePlayers(json: any, season: number, outlooks?: Map<number, s
       injury: p.injuryStatus ?? (p.injured ? "INJURED" : "ACTIVE"),
       adp: p.ownership?.averageDraftPosition ?? null,
       pctOwned: p.ownership?.percentOwned ?? null,
+      pctChange: p.ownership?.percentChange ?? null,
       espnRank: p.draftRanksByRankType?.STANDARD?.rank ?? null,
       espnRankRoto: p.draftRanksByRankType?.ROTO?.rank ?? null,
       last: lastE ? toLine(lastE) : null,

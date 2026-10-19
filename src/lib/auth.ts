@@ -23,10 +23,21 @@ export const FREE_LIMIT = Number(process.env.CV_FREE_LIMIT ?? 50);
 export const PAYWALL_ON = !!process.env.STRIPE_SEASON_LINK || process.env.CV_PAYWALL === "on";
 const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
 
-/** The two Stripe Payment Links, with each one's checkout prefilled with the buyer's email. */
-export function planLinks(email?: string) {
-  const link = (url: string | undefined) => (url ? url + (email ? `?prefilled_email=${encodeURIComponent(email)}` : "") : null);
-  return { week: link(process.env.STRIPE_WEEK_LINK), season: link(process.env.STRIPE_SEASON_LINK) };
+/**
+ * The two Stripe Payment Links, with each one's checkout prefilled with the buyer's email and a
+ * promotion code: a creator's code from their link, or STRIPE_UPGRADE_PROMO on the season link for
+ * someone already on a week pass. (The links must allow promotion codes in Stripe.)
+ */
+export function planLinks(email?: string, opts: { promo?: string | null; upgrading?: boolean } = {}) {
+  const link = (url: string | undefined, promo?: string | null) => {
+    if (!url) return null;
+    const q = new URLSearchParams();
+    if (email) q.set("prefilled_email", email);
+    if (promo) q.set("prefilled_promo_code", promo);
+    return q.size ? `${url}?${q}` : url;
+  };
+  const upgrade = opts.upgrading ? process.env.STRIPE_UPGRADE_PROMO : null;
+  return { week: link(process.env.STRIPE_WEEK_LINK, opts.promo), season: link(process.env.STRIPE_SEASON_LINK, upgrade || opts.promo) };
 }
 
 /**

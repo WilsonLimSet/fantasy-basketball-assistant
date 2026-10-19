@@ -1,5 +1,6 @@
 'use client';
 
+import { track } from '@vercel/analytics';
 import Link from 'next/link';
 import { Skeleton, SkeletonRows } from '@/components/ui';
 import { createContext, useCallback, useContext, useEffect, useState, useSyncExternalStore } from 'react';
@@ -31,6 +32,8 @@ export interface Me {
   shortPass?: boolean;
   /** Stripe checkout links for the two passes (null until payments are set up). */
   plans?: { week: string | null; season: string | null };
+  /** Their referral link (a friend who buys through it gets a free week, and so do they). */
+  referralUrl?: string | null;
 }
 
 const MeContext = createContext<{ me: Me | null; reload: () => Promise<void> }>({ me: null, reload: async () => {} });
@@ -228,6 +231,7 @@ function PlanCard({ href, name, price, note, strong }: { href: string; name: str
   return (
     <a
       href={href}
+      onClick={() => track('checkout_click', { plan: strong ? 'season' : 'week' })}
       className={`block rounded-xl border p-4 transition-shadow hover:shadow-[0_8px_30px_rgba(25,25,25,0.08)] ${strong ? 'border-ink' : 'border-line'}`}
     >
       <div className="text-sm font-medium">{name}</div>
