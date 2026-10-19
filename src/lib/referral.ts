@@ -31,16 +31,25 @@ export async function ensureReferralCode(email: string): Promise<string> {
 
 export const cleanCode = (v: string | null | undefined) => (v ?? "").replace(/[^A-Za-z0-9_-]/g, "").slice(0, 32) || null;
 
+/** Most free weeks one person can earn from referrals in a season. */
+const MAX_REWARDS = 10;
+
 /**
  * A referred purchase: the referrer gets a week added to their access, once per buyer. Returns
- * the buyer's bonus days (0 when there's no valid referral).
+ * the buyer's bonus days (0 when there's no valid referral). The checkout email is free text, so
+ * a purchase made while signed in as the referrer never counts, and rewards are capped per referrer.
  */
-export async function rewardReferral(code: string | null, buyer: string): Promise<number> {
+export async function rewardReferral(code: string | null, buyer: string, signedIn: string | null): Promise<number> {
   if (!code) return 0;
   const kv = kvStore();
   const referrer = await kv.get<string>(refKey(code));
-  if (!referrer || referrer === buyer.toLowerCase()) return 0;
-  if (!(await kv.claim(`ref:rewarded:${buyer.toLowerCase()}`, { referrer, at: Date.now() }))) return 0;
+  const b = buyer.toLowerCase();
+  if (!referrer || referrer === b || referrer === signedIn?.toLowerCase()) return 0;
+  const countKey = `ref:count:${referrer}`;
+  const count = (await kv.get<number>(countKey)) ?? 0;
+  if (count >= MAX_REWARDS) return 0;
+  if (!(await kv.claim(`ref:rewarded:${b}`, { referrer, at: Date.now() }))) return 0;
+  await kv.set(countKey, count + 1);
   const current = (await accessFor(referrer))?.until ?? 0;
   await linkPassToAccount(referrer, Math.max(current, Date.now()) + REFERRAL_DAYS * DAY);
   return REFERRAL_DAYS;
