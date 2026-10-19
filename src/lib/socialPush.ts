@@ -5,20 +5,43 @@ import { savePicks, scorecard } from "./scorecard";
 import { easternDate, newsAlerts, newsCaption, scheduleCaption, scheduleSpots, SITE, streamers, streamersCaption, weekOf } from "./social";
 
 /**
- * Sends new social posts (card + caption) to Telegram: the owner's chat with the bot, so posting
+ * Sends new social posts (card + caption) to Telegram: the owner's chat with the bot (linked on My
+ * league, or by sending /posts from a TELEGRAM_OWNER_USERNAMES account), so posting
  * from a phone is save image, paste caption; and TELEGRAM_CHANNEL (e.g. @takeoverfantasy), a free
  * public channel that doubles as our alert list. Runs from the news cron; each post goes out once.
  */
 
 const POSTED = "social:posted";
+const OWNER_CHATS = "social:ownerChats";
+
+/** Telegram usernames allowed to subscribe to the posts with /posts (TELEGRAM_OWNER_USERNAMES, comma-separated). */
+export const isPostsUser = (username?: string) =>
+  !!username && (process.env.TELEGRAM_OWNER_USERNAMES ?? "").split(",").map((u) => u.trim().replace(/^@/, "").toLowerCase()).includes(username.toLowerCase());
+
+/** Subscribe a chat to the posts, and send it the current ones right away. */
+export async function subscribePosts(chatId: number): Promise<number> {
+  const kv = kvStore();
+  const chats = new Set((await kv.get<number[]>(OWNER_CHATS)) ?? []);
+  chats.add(chatId);
+  await kv.set(OWNER_CHATS, [...chats]);
+  const today = easternDate(Date.now());
+  const card = (q: string) => `${SITE}/api/card/social?${q}&v=${today}`;
+  let sent = 0;
+  const s = await streamers(5).catch(() => null);
+  if (s?.list.length && (await sendTelegramPhoto(chatId, card("type=streamers"), streamersCaption(s)))) sent++;
+  for (const a of (await newsAlerts(3).catch(() => []))) if (await sendTelegramPhoto(chatId, card(`type=news&player=${a.id}`), newsCaption(a))) sent++;
+  return sent;
+}
+
 const KEEP = 500;
 /** At most this many news posts per run, biggest first, so a busy news day doesn't flood the chat. */
 const MAX_NEWS = 4;
 
 async function recipients(): Promise<(number | string)[]> {
   const owners = (await listProfiles()).filter((p) => isOwnerEmail(p.email) && p.telegram).map((p) => p.telegram!.chatId);
+  const subscribed = (await kvStore().get<number[]>(OWNER_CHATS)) ?? [];
   const channel = process.env.TELEGRAM_CHANNEL?.trim();
-  return [...new Set([...owners, ...(channel ? [channel] : [])])];
+  return [...new Set([...owners, ...subscribed, ...(channel ? [channel] : [])])];
 }
 
 export async function pushSocial(now = Date.now()): Promise<{ sent: string[]; picksSaved: boolean }> {
