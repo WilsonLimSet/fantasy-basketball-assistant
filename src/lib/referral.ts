@@ -45,11 +45,11 @@ export async function rewardReferral(code: string | null, buyer: string, signedI
   const referrer = await kv.get<string>(refKey(code));
   const b = buyer.toLowerCase();
   if (!referrer || referrer === b || referrer === signedIn?.toLowerCase()) return 0;
-  const countKey = `ref:count:${referrer}`;
-  const count = (await kv.get<number>(countKey)) ?? 0;
-  if (count >= MAX_REWARDS) return 0;
   if (!(await kv.claim(`ref:rewarded:${b}`, { referrer, at: Date.now() }))) return 0;
-  await kv.set(countKey, count + 1);
+  // One atomic claim per reward slot, so simultaneous purchases can't push past the cap.
+  let slot = false;
+  for (let n = 0; n < MAX_REWARDS && !slot; n++) slot = await kv.claim(`ref:slot:${referrer}:${n}`, b);
+  if (!slot) return 0;
   const current = (await accessFor(referrer))?.until ?? 0;
   await linkPassToAccount(referrer, Math.max(current, Date.now()) + REFERRAL_DAYS * DAY);
   return REFERRAL_DAYS;
