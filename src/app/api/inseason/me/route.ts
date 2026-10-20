@@ -4,7 +4,7 @@
  *   GET                                     -> profile (without the cookies) and access state
  *   POST {action:"lookup", link, s2?, swid?} -> the league's teams, with the user's team guessed
  *   POST {action:"save", leagueId, teamId, s2?, swid?} -> connect the league and load it
- *   PATCH {core?, alerts?}                  -> core players and alert settings
+ *   PATCH {core?, alerts?}                  -> core players and alert settings (alerts.news: free news alerts)
  *   DELETE                                  -> disconnect
  */
 
@@ -220,7 +220,7 @@ export async function PATCH(req: Request) {
   if (!account) return fail('Sign in first.', 401);
   const profile = await getProfile(account.email);
   if (!profile) return fail('Connect your ESPN league first.', 404);
-  const body = (await req.json().catch(() => ({}))) as { core?: unknown; alerts?: { email?: unknown; telegram?: unknown } };
+  const body = (await req.json().catch(() => ({}))) as { core?: unknown; alerts?: { email?: unknown; telegram?: unknown; news?: unknown } };
   if (body.core !== undefined) {
     if (!Array.isArray(body.core) || body.core.length > 20 || !body.core.every((id) => Number.isInteger(id) && id > 0)) {
       return fail('Bad core player list.');
@@ -228,6 +228,7 @@ export async function PATCH(req: Request) {
     profile.core = body.core as number[];
   }
   if (typeof body.alerts?.email === 'boolean') profile.alerts = { ...profile.alerts, email: body.alerts.email };
+  if (typeof body.alerts?.news === 'boolean') profile.alerts = { ...profile.alerts, news: body.alerts.news };
   if (typeof body.alerts?.telegram === 'boolean') {
     if (body.alerts.telegram && !profile.telegram) return fail('Link Telegram first.');
     profile.alerts = { ...profile.alerts, telegram: body.alerts.telegram };

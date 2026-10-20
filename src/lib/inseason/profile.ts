@@ -22,8 +22,8 @@ export interface InseasonProfile {
   auth?: string;
   /** Players the user always keeps; the add/drop engine never drops them. */
   core: number[];
-  /** Which channels get the daily moves. */
-  alerts: { email: boolean; telegram?: boolean };
+  /** Which channels get the daily moves; news (default on) adds the free news alerts on those channels. */
+  alerts: { email: boolean; telegram?: boolean; news?: boolean };
   /** The user's Telegram chat with our bot, once linked. */
   telegram?: { chatId: number; username?: string; linkedAt: number };
   /** One-time code for the t.me/<bot>?start=<code> link while they're linking. */
