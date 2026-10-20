@@ -4,6 +4,7 @@
  *   link code (or "/start CODE" from the deep link) -> links that chat to the account, sends this week's moves
  *   /moves -> this week's moves    /stop -> pause Telegram alerts    /help or anything else -> how it works
  *   /posts (owner usernames only) -> get the daily social posts in this chat
+ *   /nonews, /news -> stop or restart the free news alerts
  */
 
 import { NextResponse } from 'next/server';
@@ -36,7 +37,7 @@ export async function POST(req: Request) {
   if (code && (await completeLink(code, chat))) return NextResponse.json({ ok: true });
 
   if (command === '/posts' && isPostsUser(chat.username)) {
-    await sendTelegramTo(chat.id, 'You\'ll get the social posts here: new injury news as it breaks, streamers every afternoon, the schedule and receipts on Mondays. Here\'s what\'s up now:');
+    await sendTelegramTo(chat.id, 'You\'ll get the social posts here: new injury news as it breaks, risers & fallers every afternoon, the schedule and receipts on Mondays. Here\'s what\'s up now:');
     const sent = await subscribePosts(chat.id);
     if (!sent) await sendTelegramTo(chat.id, 'Nothing to post right now. New ones come with the next news run.');
     return NextResponse.json({ ok: true });
@@ -54,6 +55,10 @@ export async function POST(req: Request) {
     reply = `Your pass has ended. Get a week or the season at ${CONNECT.replace('My league', 'This week')}.`;
   } else if (command === '/moves') {
     reply = (await movesMessage(mine.email)) ?? `Your league hasn't loaded yet. Open ${CONNECT} and hit Refresh on This week.`;
+  } else if (command === '/nonews' || command === '/news') {
+    const on = command === '/news';
+    await saveProfile({ ...mine, alerts: { ...mine.alerts, news: on } });
+    reply = on ? 'News alerts are on: injuries, players back, and last night\'s waiver heroes.' : 'News alerts are off. Your morning moves are unchanged. Send /news to turn them back on.';
   } else if (command === '/stop') {
     await saveProfile({ ...mine, alerts: { ...mine.alerts, telegram: false } });
     reply = `Paused. You won't get morning moves here. Turn them back on at ${CONNECT}.`;
@@ -61,7 +66,7 @@ export async function POST(req: Request) {
     await saveProfile({ ...mine, alerts: { ...mine.alerts, telegram: true } });
     reply = `Welcome back. Morning moves for <b>${team}</b> are on again.`;
   } else {
-    reply = `You're connected for <b>${team}</b>${mine.alerts.telegram ? '' : ' (alerts paused)'}.\n\n/moves this week's add/drops\n/stop pause morning alerts\n\nSettings: ${CONNECT}`;
+    reply = `You're connected for <b>${team}</b>${mine.alerts.telegram ? '' : ' (alerts paused)'}.\n\n/moves this week's add/drops\n/stop pause morning alerts\n/nonews stop news alerts (/news to restart)\n\nSettings: ${CONNECT}`;
   }
   await sendTelegramTo(chat.id, reply);
   // Always 200 so Telegram doesn't retry.

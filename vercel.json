@@ -9,7 +9,7 @@
     },
     {
       "path": "/api/cron/news",
-      "schedule": "15 7,19 * * *"
+      "schedule": "0 5,15 * * *"
     },
     {
       "path": "/api/inseason/lineup-check",

@@ -4,7 +4,7 @@ import { notFound } from "next/navigation";
 import { LogoMark } from "@/components/Logo";
 import { isOwner } from "@/lib/auth";
 import { scorecard } from "@/lib/scorecard";
-import { newsAlerts, newsCaption, scheduleCaption, scheduleSpots, SITE, streamers, streamersCaption } from "@/lib/social";
+import { heroesCaption, newsAlerts, newsCaption, risersCaption, risersFallers, scheduleCaption, scheduleSpots, SITE, waiverHeroes, yesterday } from "@/lib/social";
 import { CopyButton } from "./CopyButton";
 
 export const dynamic = "force-dynamic";
@@ -31,11 +31,13 @@ function Post({ title, img, caption, file }: { title: string; img: string; capti
  */
 export default async function Studio() {
   if (!(await isOwner())) notFound();
-  const [news, streams, schedule, card] = await Promise.all([
+  const night = yesterday();
+  const [news, movers, schedule, card, heroes] = await Promise.all([
     newsAlerts(8).catch(() => []),
-    streamers(5).catch(() => null),
+    risersFallers(5).catch(() => null),
     scheduleSpots().catch(() => null),
     scorecard().catch(() => null),
+    waiverHeroes(night, 5).catch(() => null),
   ]);
   const img = (q: string) => `/api/card/social?${q}`;
   return (
@@ -44,7 +46,7 @@ export default async function Studio() {
       <h1 className="mt-6 text-3xl font-medium tracking-[-0.03em]">Studio</h1>
       <p className="mt-2 max-w-2xl text-sm text-muted">
         Today&apos;s posts. Download the image (or long-press it on your phone), copy the caption, post. New injury news also
-        goes to your Telegram automatically. Every link points to {SITE.replace(/^https?:\/\//, "")}.
+        goes to your Telegram automatically, and players cleared to return show up there too. Every link points to {SITE.replace(/^https?:\/\//, "")}.
       </p>
 
       <h2 className="mt-10 mb-4 text-lg font-medium">Breaking news</h2>
@@ -58,9 +60,10 @@ export default async function Studio() {
         <p className="text-sm text-muted">No fresh news on rostered players in the last two days.</p>
       )}
 
-      <h2 className="mt-10 mb-4 text-lg font-medium">Weekly</h2>
+      <h2 className="mt-10 mb-4 text-lg font-medium">Daily and weekly</h2>
       <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-        {streams && streams.list.length > 0 && <Post title="Top streamers" img={img("type=streamers")} caption={streamersCaption(streams)} file="streamers.png" />}
+        {heroes && heroes.list.length > 0 && <Post title="Last night's waiver heroes" img={img(`type=heroes&date=${night}`)} caption={heroesCaption(heroes)} file={`heroes-${night}.png`} />}
+        {movers && movers.risers.length > 0 && <Post title="Risers & fallers" img={img("type=trending")} caption={risersCaption(movers)} file="trending.png" />}
         {schedule && <Post title="Schedule" img={img("type=schedule")} caption={scheduleCaption(schedule)} file="schedule.png" />}
         {card && (
           <Post

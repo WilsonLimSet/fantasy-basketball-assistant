@@ -185,6 +185,22 @@ const CHANNELS: { id: Channel; label: string }[] = [
   { id: 'off', label: 'Off' },
 ];
 
+/** The free news alerts (injuries, returns, waiver heroes) on the same channels as the moves. */
+function NewsToggle({ on, reload }: { on: boolean; reload: () => Promise<void> }) {
+  const [busy, setBusy] = useState(false);
+  return (
+    <label className="mb-3 flex items-center gap-2 text-sm">
+      <input
+        type="checkbox"
+        checked={on}
+        disabled={busy}
+        onChange={async (e) => { setBusy(true); await post('PATCH', { alerts: { news: e.target.checked } }); await reload(); setBusy(false); }}
+      />
+      <span>Also send breaking news: injuries, players back, last night&apos;s waiver heroes <span className="text-muted">(free, a few a day)</span></span>
+    </label>
+  );
+}
+
 function Alerts({ profile, me, reload }: { profile: MeProfile; me: Me; reload: () => Promise<void> }) {
   const linked = !!profile.telegram;
   const current: Channel =
@@ -245,6 +261,7 @@ function Alerts({ profile, me, reload }: { profile: MeProfile; me: Me; reload: (
 
   return (
     <Panel title="Where should we send your daily moves?" sub="Your best add/drops around 7am New York time, only when there’s a move worth making.">
+      <NewsToggle on={profile.alerts.news !== false} reload={reload} />
       <div className="inline-flex rounded-full border border-line bg-panel p-0.5 text-sm">
         {CHANNELS.map((c) => (
           <button

@@ -12,7 +12,7 @@ export interface MeProfile {
   teamName?: string;
   leagueName?: string;
   core: number[];
-  alerts: { email: boolean; telegram?: boolean };
+  alerts: { email: boolean; telegram?: boolean; news?: boolean };
   telegram?: { username?: string } | null;
   hasLogin: boolean;
   lastRefreshAt?: number;
