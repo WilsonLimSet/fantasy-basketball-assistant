@@ -31,7 +31,9 @@ export interface Me {
   /** The pass ends within two weeks (a week pass), so the header offers the season. */
   shortPass?: boolean;
   /** Stripe checkout links for the two passes (null until payments are set up). */
-  plans?: { week: string | null; season: string | null };
+  plans?: { week: string | null; season: string | null; weekly?: boolean };
+  /** On the weekly subscription and still renewing (passUntil is the next renewal). */
+  renews?: boolean;
   /** Their referral link (a friend who buys through it gets a free week, and so do they). */
   referralUrl?: string | null;
 }
@@ -227,7 +229,7 @@ export function formatAge(ms: number): string {
   return hours < 24 ? `${hours}h ago` : `${Math.floor(hours / 24)}d ago`;
 }
 
-function PlanCard({ href, name, price, note, strong }: { href: string; name: string; price: string; note: string; strong?: boolean }) {
+function PlanCard({ href, name, price, note, fine, strong }: { href: string; name: string; price: string; note: string; fine: string; strong?: boolean }) {
   return (
     <a
       href={href}
@@ -236,7 +238,7 @@ function PlanCard({ href, name, price, note, strong }: { href: string; name: str
     >
       <div className="text-sm font-medium">{name}</div>
       <div className="mt-1 text-3xl font-medium tracking-tight">{price}</div>
-      <div className="mt-1 text-xs text-muted">{note} One payment, no auto-renew.</div>
+      <div className="mt-1 text-xs text-muted">{note} {fine}</div>
       <div className={`mt-4 rounded-full py-1.5 text-center text-sm font-medium ${strong ? 'bg-ink text-white' : 'border border-line'}`}>
         {strong ? 'Get the season' : 'Try a week'}
       </div>
@@ -297,8 +299,10 @@ export function Gate({ needs }: { needs: 'signin' | 'pro' | 'connect' }) {
         {needs === 'pro' &&
           (me?.plans?.week || me?.plans?.season ? (
             <div className="grid max-w-xl gap-3 sm:grid-cols-2">
-              {me.plans.week && <PlanCard href={me.plans.week} name="Week pass" price="$5" note="7 days. Try it on a real matchup." />}
-              {me.plans.season && <PlanCard href={me.plans.season} name="Season pass" price="$39" note="Through the 2026-27 playoffs." strong />}
+              {me.plans.week && (me.plans.weekly
+                ? <PlanCard href={me.plans.week} name="Weekly" price="$5/wk" note="Try it on a real matchup." fine="Renews weekly, cancel anytime." />
+                : <PlanCard href={me.plans.week} name="Week pass" price="$5" note="7 days. Try it on a real matchup." fine="One payment, no auto-renew." />)}
+              {me.plans.season && <PlanCard href={me.plans.season} name="Season pass" price="$39" note="Through the 2026-27 playoffs." fine="One payment, no auto-renew." strong />}
             </div>
           ) : (
             <span className="text-sm text-muted">Payments aren’t switched on yet.</span>
