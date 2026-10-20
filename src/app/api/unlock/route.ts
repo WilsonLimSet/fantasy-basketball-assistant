@@ -4,7 +4,8 @@ import { track } from "@vercel/analytics/server";
 import { cookies } from "next/headers";
 import { kvStore } from "@/lib/inseason/storage";
 import { cleanCode, REF_COOKIE, rewardReferral } from "@/lib/referral";
-import { accessEnd, accessFor, checkLicense, currentAccount, linkPassToAccount, makePass, PASS_COOKIE, passCookieOptions, SEASON_END } from "@/lib/auth";
+import { stopWeeklyFor } from "@/lib/subscription";
+import { accessFor, checkoutAccessEnd, isWeeklyCheckout, checkLicense, currentAccount, linkPassToAccount, makePass, PASS_COOKIE, passCookieOptions, SEASON_END } from "@/lib/auth";
 
 /**
  * GET  /api/unlock?session_id=cs_...  -> Stripe Payment Link success redirect. Verifies the
@@ -27,7 +28,7 @@ export async function GET(req: Request) {
   const s = await r.json();
   const email: string | undefined = s?.customer_details?.email ?? s?.customer_email;
   // Must be a completed, paid session from one of our pass links, and the pass must still be running.
-  const until = r.ok ? accessEnd(s) : null;
+  const until = r.ok ? await checkoutAccessEnd(s).catch(() => null) : null;
   if (!r.ok || s.status !== "complete" || s.payment_status !== "paid" || !email || !until || until < Date.now()) {
     return NextResponse.redirect(new URL("/inseason?unlock=unpaid", u));
   }
@@ -42,6 +43,8 @@ export async function GET(req: Request) {
     return NextResponse.redirect(new URL("/inseason?unlock=pending", u));
   }
   if (!won) return NextResponse.redirect(new URL("/inseason?unlock=used", u));
+  // The season covers everything the weekly subscription did, so stop it renewing.
+  if (until === SEASON_END) await stopWeeklyFor(email).catch((e) => console.error("[unlock] stop weekly failed", e));
   const account = await currentAccount();
   // Bought through a friend's referral link: the friend gets a week, and so does the buyer.
   const jar = await cookies();
@@ -53,7 +56,7 @@ export async function GET(req: Request) {
   const res = NextResponse.redirect(new URL(bonus ? "/unlocked?bonus=1" : "/unlocked", u));
   res.cookies.set(PASS_COOKIE, makePass(email, end), { ...passCookieOptions, expires: new Date(end) });
   if (bonus) res.cookies.delete(REF_COOKIE);
-  await track("purchase", { plan: until === SEASON_END ? "season" : "week", referred: bonus > 0 }).catch(() => {});
+  await track("purchase", { plan: until === SEASON_END ? "season" : isWeeklyCheckout(s) ? "weekly" : "week", referred: bonus > 0 }).catch(() => {});
   return res;
 }
 

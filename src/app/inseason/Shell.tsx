@@ -70,7 +70,7 @@ function Header({ season }: { season: boolean }) {
           {/* A week pass says when it ends, with the season one click away. */}
           {me?.passUntil && me.shortPass && (
             <span className="whitespace-nowrap">
-              Pass ends {new Date(me.passUntil).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
+              {me.renews ? 'Renews' : 'Pass ends'} {new Date(me.passUntil).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
               {me.plans?.season && <> · <a href={me.plans.season} onClick={() => track('checkout_click', { plan: 'upgrade' })} className="font-medium text-fg underline-offset-2 hover:underline">Get the season</a></>}
             </span>
           )}

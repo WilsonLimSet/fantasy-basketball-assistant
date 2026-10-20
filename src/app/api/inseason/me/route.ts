@@ -9,7 +9,7 @@
  */
 
 import { NextResponse } from 'next/server';
-import { currentAccount, currentPass, PAYWALL_ON, planLinks } from '@/lib/auth';
+import { accessFor, currentAccount, currentPass, PAYWALL_ON, planLinks } from '@/lib/auth';
 import { SEASON } from '@/lib/data';
 import { checkAuth, EspnLeagueError } from '@/lib/espnLeague';
 import { ESPNHttpError, getLeagueInfo, withLeague } from '@/lib/inseason/espnClient';
@@ -74,6 +74,8 @@ export async function GET() {
   if (!account) return NextResponse.json({ success: true, signedIn: false });
   const [profile, pass, jar, refCode] = await Promise.all([getProfile(account.email), currentPass(), cookies(), ensureReferralCode(account.email).catch(() => null)]);
   const shortPass = !!pass?.until && pass.until - Date.now() < 14 * 86_400_000;
+  // A pass cookie doesn't know about renewals; the account's Stripe record (cached) does.
+  const renews = !!pass?.renews || (shortPass && pass?.via === 'pass' && !!(await accessFor(account.email).catch(() => null))?.renews);
   return NextResponse.json({
     success: true,
     signedIn: true,
@@ -82,6 +84,8 @@ export async function GET() {
     // When a paid pass runs out (week or season), so the app can say so.
     passUntil: pass?.until ?? null,
     shortPass,
+    // On the weekly subscription and still renewing: passUntil is the next renewal.
+    renews,
     profile: publicProfile(profile),
     emailAlerts: EMAIL_ON,
     telegramBot: TELEGRAM_ON ? await botUsername() : null,
