@@ -4,7 +4,7 @@ import { notFound } from "next/navigation";
 import { LogoMark } from "@/components/Logo";
 import { isOwner } from "@/lib/auth";
 import { scorecard } from "@/lib/scorecard";
-import { newsAlerts, newsCaption, scheduleCaption, scheduleSpots, SITE, streamers, streamersCaption } from "@/lib/social";
+import { newsAlerts, newsCaption, risersCaption, risersFallers, scheduleCaption, scheduleSpots, SITE } from "@/lib/social";
 import { CopyButton } from "./CopyButton";
 
 export const dynamic = "force-dynamic";
@@ -31,9 +31,9 @@ function Post({ title, img, caption, file }: { title: string; img: string; capti
  */
 export default async function Studio() {
   if (!(await isOwner())) notFound();
-  const [news, streams, schedule, card] = await Promise.all([
+  const [news, movers, schedule, card] = await Promise.all([
     newsAlerts(8).catch(() => []),
-    streamers(5).catch(() => null),
+    risersFallers(5).catch(() => null),
     scheduleSpots().catch(() => null),
     scorecard().catch(() => null),
   ]);
@@ -58,9 +58,9 @@ export default async function Studio() {
         <p className="text-sm text-muted">No fresh news on rostered players in the last two days.</p>
       )}
 
-      <h2 className="mt-10 mb-4 text-lg font-medium">Weekly</h2>
+      <h2 className="mt-10 mb-4 text-lg font-medium">Daily and weekly</h2>
       <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-        {streams && streams.list.length > 0 && <Post title="Top streamers" img={img("type=streamers")} caption={streamersCaption(streams)} file="streamers.png" />}
+        {movers && movers.risers.length > 0 && <Post title="Risers & fallers" img={img("type=trending")} caption={risersCaption(movers)} file="trending.png" />}
         {schedule && <Post title="Schedule" img={img("type=schedule")} caption={scheduleCaption(schedule)} file="schedule.png" />}
         {card && (
           <Post

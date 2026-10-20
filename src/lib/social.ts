@@ -150,6 +150,23 @@ export async function mostAdded(limit = 10): Promise<Player[]> {
   return players.filter((p) => (p.pctChange ?? 0) > 0).sort((a, b) => (b.pctChange ?? 0) - (a.pctChange ?? 0)).slice(0, limit);
 }
 
+export interface Mover { id: number; name: string; team: string; pos: string; pctOwned: number; pctChange: number }
+
+const mover = (p: Player): Mover => ({
+  id: p.id, name: p.name, team: p.team, pos: p.pos.join("/"), pctOwned: Math.round(p.pctOwned ?? 0), pctChange: round1(p.pctChange ?? 0),
+});
+
+/** The players ESPN managers added and dropped most over the last day (change in % rostered). */
+export async function risersFallers(limit = 5): Promise<{ date: string; risers: Mover[]; fallers: Mover[] }> {
+  const { players } = await getPlayers();
+  const moved = players.filter((p) => p.team !== "FA" && Math.abs(p.pctChange ?? 0) >= 0.5);
+  return {
+    date: easternDate(Date.now()),
+    risers: moved.filter((p) => (p.pctChange ?? 0) > 0).sort((a, b) => (b.pctChange ?? 0) - (a.pctChange ?? 0)).slice(0, limit).map(mover),
+    fallers: moved.filter((p) => (p.pctChange ?? 0) < 0).sort((a, b) => (a.pctChange ?? 0) - (b.pctChange ?? 0)).slice(0, limit).map(mover),
+  };
+}
+
 export interface NewsAlert {
   /** Player id: the card shows this player's latest take. */
   id: number;
@@ -164,6 +181,8 @@ export interface NewsAlert {
   date: string;
   /** The pickup who gains most when this player sits. */
   nextUp?: { id: number; name: string; team: string; pctOwned: number; fppg: number };
+  /** Ruled out, rather than day-to-day or questionable. Only these get a pickup and an auto post. */
+  out: boolean;
   /** Stable id for de-duplicating auto posts. */
   key: string;
 }
@@ -182,14 +201,15 @@ const INJURY_WORDS = /injur|sprain|strain|surgery|sore|tight|ankle|knee|calf|ham
 
 function toAlert(p: Player, t: Take, players: Player[]): NewsAlert {
   const note = t.notes[0];
-  // Only a real absence gets a pickup; a questionable tag isn't worth a waiver move yet.
   const out = OUT_STATUSES.has(p.injury);
   const injury = out || p.injury !== "ACTIVE" || INJURY_WORDS.test(`${note.headline} ${note.text}`);
   return {
     id: p.id, name: p.name, team: p.team, pos: p.pos.join("/"), status: p.injury, pctOwned: Math.round(p.pctOwned ?? 0),
     label: injury ? "Injury" : t.kind === "boost" ? "Role up" : t.kind === "fade" ? "Role down" : "News",
     headline: note.headline, note: note.text, date: note.date,
+    // Only a real absence gets a pickup; a day-to-day tag isn't worth a waiver move yet.
     nextUp: out ? nextUpFor(p, players) : undefined,
+    out,
     key: `${p.id}:${note.date}:${normName(note.headline).slice(0, 40)}`,
   };
 }
@@ -247,6 +267,13 @@ export function newsCaption(a: NewsAlert): string {
 export function streamersCaption(s: Awaited<ReturnType<typeof streamers>>): string {
   const rows = s.list.map((p, i) => `${i + 1}. ${p.name} (${p.team}): ${p.games} games, ${p.fppg} fpts/g, ${pct(p.pctOwned)}`);
   return `Top ${s.list.length} streamers for ${s.window.label} (${dateRange(s.window.from, s.window.end)}) 📈\n\n${rows.join("\n")}\n\nWhich one fits your roster, and who do you drop? ${CTA}\n${TAGS}`;
+}
+
+export function risersCaption(r: Awaited<ReturnType<typeof risersFallers>>): string {
+  const row = (m: Mover) => `${m.name} (${m.team}) ${m.pctChange > 0 ? "+" : ""}${m.pctChange}%, now ${m.pctOwned}% rostered`;
+  const up = r.risers.map((m) => `📈 ${row(m)}`).join("\n");
+  const down = r.fallers.length ? `\n\nGetting dropped:\n${r.fallers.map((m) => `📉 ${row(m)}`).join("\n")}` : "";
+  return `Who ESPN managers are adding right now 👀\n\n${up}${down}\n\nAre you early or late? ${CTA}\n${TAGS}`;
 }
 
 export function scheduleCaption(s: Awaited<ReturnType<typeof scheduleSpots>>): string {

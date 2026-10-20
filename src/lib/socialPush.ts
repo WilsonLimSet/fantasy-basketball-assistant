@@ -2,7 +2,7 @@ import { kvStore } from "./inseason/storage";
 import { isOwnerEmail, listProfiles } from "./inseason/profile";
 import { sendTelegramPhoto, TELEGRAM_ON } from "./inseason/telegramUser";
 import { savePicks, scorecard } from "./scorecard";
-import { easternDate, newsAlerts, newsCaption, scheduleCaption, scheduleSpots, SITE, streamers, streamersCaption, weekOf } from "./social";
+import { easternDate, newsAlerts, newsCaption, risersCaption, risersFallers, scheduleCaption, scheduleSpots, SITE, weekOf } from "./social";
 
 /**
  * Sends new social posts (card + caption) to Telegram: the owner's chat with the bot (linked on My
@@ -13,6 +13,9 @@ import { easternDate, newsAlerts, newsCaption, scheduleCaption, scheduleSpots, S
 
 const POSTED = "social:posted";
 const OWNER_CHATS = "social:ownerChats";
+/** Each player's status when we last posted about them, so follow-ups on the same injury don't repost. */
+const LAST_PLAYER = "social:lastPlayer";
+const FOLLOW_UP_MS = 3 * 24 * 60 * 60 * 1000;
 
 /** Telegram usernames allowed to subscribe to the posts with /posts (TELEGRAM_OWNER_USERNAMES, comma-separated). */
 export const isPostsUser = (username?: string) =>
@@ -27,8 +30,8 @@ export async function subscribePosts(chatId: number): Promise<number> {
   const today = easternDate(Date.now());
   const card = (q: string) => `${SITE}/api/card/social?${q}&v=${today}`;
   let sent = 0;
-  const s = await streamers(5).catch(() => null);
-  if (s?.list.length && (await sendTelegramPhoto(chatId, card("type=streamers"), streamersCaption(s)))) sent++;
+  const r = await risersFallers(5).catch(() => null);
+  if (r?.risers.length && (await sendTelegramPhoto(chatId, card("type=trending"), risersCaption(r)))) sent++;
   for (const a of (await newsAlerts(3).catch(() => []))) if (await sendTelegramPhoto(chatId, card(`type=news&player=${a.id}`), newsCaption(a))) sent++;
   return sent;
 }
@@ -57,18 +60,21 @@ export async function pushSocial(now = Date.now()): Promise<{ sent: string[]; pi
   const monday = weekOf(today).start === today;
   // A version per day, so Telegram doesn't reuse yesterday's cached image.
   const card = (q: string) => `${SITE}/api/card/social?${q}&v=${today}`;
-  const posts: { key: string; img: string; caption: string }[] = [];
+  const posts: { key: string; player?: { id: number; status: string }; img: string; caption: string }[] = [];
 
-  // Breaking news: real absences with a pickup, or anything on a star.
+  // Breaking news: players ruled out (day-to-day can wait), and role changes on stars.
+  const lastPlayer = (await kv.get<Record<string, { status: string; at: number }>>(LAST_PLAYER)) ?? {};
+  // "Still out" follow-ups: same player, same status, posted in the last few days. A status change posts again.
+  const followUp = (id: number, status: string) => lastPlayer[id]?.status === status && now - lastPlayer[id].at < FOLLOW_UP_MS;
   const news = (await newsAlerts(12, now).catch(() => []))
-    .filter((a) => !posted.has(a.key) && ((a.label === "Injury" && a.nextUp) || a.pctOwned >= 80))
+    .filter((a) => !posted.has(a.key) && !followUp(a.id, a.status) && (a.label === "Injury" ? a.out : a.pctOwned >= 80))
     .slice(0, MAX_NEWS);
-  for (const a of news) posts.push({ key: a.key, img: card(`type=news&player=${a.id}`), caption: newsCaption(a) });
+  for (const a of news) posts.push({ key: a.key, player: { id: a.id, status: a.status }, img: card(`type=news&player=${a.id}`), caption: newsCaption(a) });
 
-  // Streamers in the afternoon US time (the evening run), schedule and receipts on Mondays.
-  if (new Date(now).getUTCHours() >= 12 && !posted.has(`streamers:${today}`)) {
-    const s = await streamers(5, now).catch(() => null);
-    if (s?.list.length) posts.push({ key: `streamers:${today}`, img: card("type=streamers"), caption: streamersCaption(s) });
+  // Risers & fallers with the morning run (US time), schedule and receipts on Mondays.
+  if (new Date(now).getUTCHours() >= 12 && !posted.has(`trending:${today}`)) {
+    const r = await risersFallers(5).catch(() => null);
+    if (r?.risers.length) posts.push({ key: `trending:${today}`, img: card("type=trending"), caption: risersCaption(r) });
   }
   if (monday && !posted.has(`schedule:${today}`)) {
     const s = await scheduleSpots(now).catch(() => null);
@@ -88,8 +94,16 @@ export async function pushSocial(now = Date.now()): Promise<{ sent: string[]; pi
   const sent: string[] = [];
   for (const p of posts) {
     const ok = (await Promise.all(to.map((chat) => sendTelegramPhoto(chat, p.img, p.caption)))).some(Boolean);
-    if (ok) { posted.add(p.key); sent.push(p.key); }
+    if (ok) {
+      posted.add(p.key);
+      sent.push(p.key);
+      if (p.player) lastPlayer[p.player.id] = { status: p.player.status, at: now };
+    }
   }
-  if (sent.length) await kv.set(POSTED, [...posted].slice(-KEEP));
+  if (sent.length) {
+    await kv.set(POSTED, [...posted].slice(-KEEP));
+    // Forget players not posted about in a month, so the map stays small.
+    await kv.set(LAST_PLAYER, Object.fromEntries(Object.entries(lastPlayer).filter(([, v]) => now - v.at < 30 * FOLLOW_UP_MS)));
+  }
   return { sent, picksSaved };
 }

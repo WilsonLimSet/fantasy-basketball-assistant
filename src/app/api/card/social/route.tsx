@@ -1,7 +1,7 @@
 import { ImageResponse } from "next/og";
 import { headshotUrl, teamLogoUrl } from "@/lib/espnImages";
 import { scorecard } from "@/lib/scorecard";
-import { dateRange, newsAlertFor, scheduleSpots, shortDate, SITE, streamers, type NewsAlert } from "@/lib/social";
+import { dateRange, newsAlertFor, risersFallers, scheduleSpots, shortDate, type Mover, SITE, streamers, type NewsAlert } from "@/lib/social";
 
 export const dynamic = "force-dynamic";
 
@@ -92,6 +92,20 @@ function Row({ rank, id, name, sub, value, unit }: { rank: number; id: number; n
   );
 }
 
+function MoverRow({ m, up }: { m: Mover; up: boolean }) {
+  return (
+    <div style={{ display: "flex", flexShrink: 0, alignItems: "center", gap: 20, background: PANEL, border: `2px solid ${LINE}`, borderRadius: 24, padding: "10px 24px", marginBottom: 12 }}>
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img src={headshotUrl(m.id, 150, 109)} width={96} height={70} alt="" />
+      <div style={{ display: "flex", flexDirection: "column", flex: 1 }}>
+        <div style={{ display: "flex", fontSize: 34, fontWeight: 700, letterSpacing: -1 }}>{m.name}</div>
+        <div style={{ display: "flex", fontSize: 24, color: MUTED }}>{`${m.team} · ${m.pos} · ${m.pctOwned}% rostered`}</div>
+      </div>
+      <div style={{ display: "flex", fontSize: 40, fontWeight: 700, color: up ? GREEN : RED }}>{`${up ? "▲" : "▼"} ${Math.abs(m.pctChange)}%`}</div>
+    </div>
+  );
+}
+
 function Logos({ teams, size }: { teams: string[]; size: number }) {
   return (
     <div style={{ display: "flex", flexWrap: "wrap", gap: 20 }}>
@@ -112,7 +126,7 @@ const png = (el: React.ReactElement) =>
   new ImageResponse(el, { width: W, height: H, headers: { "Cache-Control": "public, s-maxage=1800, stale-while-revalidate=3600" } });
 
 /**
- * GET /api/card/social?type=news&player=<id> | type=streamers | type=schedule | type=scorecard
+ * GET /api/card/social?type=news&player=<id> | type=trending | type=streamers | type=schedule | type=scorecard
  * Portrait cards (1080x1350) for Instagram, TikTok photo posts and X. Public data only.
  */
 export async function GET(req: Request) {
@@ -123,6 +137,23 @@ export async function GET(req: Request) {
       const a = await newsAlertFor(Number(q.get("player")));
       if (!a) return new Response("No news for that player", { status: 404 });
       return png(<NewsCard a={a} />);
+    }
+    if (type === "trending") {
+      const r = await risersFallers(5);
+      if (!r.risers.length) return new Response("No movers yet", { status: 404 });
+      return png(
+        <Frame tag="Trending" tagColor={GREEN} right={shortDate(r.date)}>
+          <div style={{ display: "flex", flexShrink: 0, fontSize: 64, fontWeight: 700, letterSpacing: -2.5, lineHeight: 1.05 }}>Who everyone&apos;s adding</div>
+          <div style={{ display: "flex", flexShrink: 0, fontSize: 28, color: MUTED, marginTop: 10, marginBottom: 24 }}>Change in % rostered across ESPN leagues, last 24 hours.</div>
+          {r.risers.slice(0, 4).map((m) => <MoverRow key={m.id} m={m} up />)}
+          {r.fallers.length > 0 && (
+            <div style={{ display: "flex", flexShrink: 0, flexDirection: "column", marginTop: 12 }}>
+              <div style={{ display: "flex", fontSize: 26, fontWeight: 700, letterSpacing: 2, textTransform: "uppercase", color: RED, marginBottom: 12 }}>Getting dropped</div>
+              {r.fallers.slice(0, 2).map((m) => <MoverRow key={m.id} m={m} up={false} />)}
+            </div>
+          )}
+        </Frame>,
+      );
     }
     if (type === "streamers") {
       const s = await streamers(5);

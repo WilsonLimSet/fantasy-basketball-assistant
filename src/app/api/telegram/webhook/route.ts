@@ -36,7 +36,7 @@ export async function POST(req: Request) {
   if (code && (await completeLink(code, chat))) return NextResponse.json({ ok: true });
 
   if (command === '/posts' && isPostsUser(chat.username)) {
-    await sendTelegramTo(chat.id, 'You\'ll get the social posts here: new injury news as it breaks, streamers every afternoon, the schedule and receipts on Mondays. Here\'s what\'s up now:');
+    await sendTelegramTo(chat.id, 'You\'ll get the social posts here: new injury news as it breaks, risers & fallers every afternoon, the schedule and receipts on Mondays. Here\'s what\'s up now:');
     const sent = await subscribePosts(chat.id);
     if (!sent) await sendTelegramTo(chat.id, 'Nothing to post right now. New ones come with the next news run.');
     return NextResponse.json({ ok: true });
