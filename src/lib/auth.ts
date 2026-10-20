@@ -52,6 +52,8 @@ type Checkout = { payment_link?: string | null; created?: number; subscription?:
 export const isWeeklyCheckout = (s: Checkout) =>
   !!s.subscription && !!s.payment_link && s.payment_link === process.env.STRIPE_WEEKLY_LINK_ID;
 
+const PAST_DUE_GRACE_MS = 2 * 24 * 60 * 60 * 1000;
+
 export interface SubscriptionState { id: string; until: number; renews: boolean; status: string }
 
 /** Until when a subscription gives access (the end of the paid period, 0 once it has ended) and whether it renews. Throws on Stripe errors. */
@@ -62,9 +64,12 @@ export async function subscriptionState(id: string): Promise<SubscriptionState> 
   if (!r.ok) throw new Error(`Stripe subscription ${id}: ${r.status}`);
   const sub = await r.json();
   // Newer API versions keep the period on the subscription item.
-  const end = Number(sub.current_period_end ?? sub.items?.data?.[0]?.current_period_end ?? 0) * 1000;
-  const live = ["active", "trialing", "past_due"].includes(sub.status);
-  return { id, until: live ? end : 0, renews: live && !sub.cancel_at_period_end && !sub.cancel_at, status: String(sub.status) };
+  const item = sub.items?.data?.[0];
+  const end = Number(sub.current_period_end ?? item?.current_period_end ?? 0) * 1000;
+  const start = Number(sub.current_period_start ?? item?.current_period_start ?? 0) * 1000;
+  // A failed renewal (past_due) has moved into a week nobody paid for: a short grace while Stripe retries the card.
+  const until = sub.status === "active" || sub.status === "trialing" ? end : sub.status === "past_due" ? Math.min(end, start + PAST_DUE_GRACE_MS) : 0;
+  return { id, until, renews: until > 0 && !sub.cancel_at_period_end && !sub.cancel_at, status: String(sub.status) };
 }
 
 /** When a paid checkout's access ends, including the weekly subscription (asks Stripe for its period). */
