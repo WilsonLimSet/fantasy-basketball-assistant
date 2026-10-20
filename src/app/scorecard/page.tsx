@@ -2,12 +2,13 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { LogoMark } from "@/components/Logo";
 import { scorecards } from "@/lib/scorecard";
+import { cardUrl } from "@/lib/social";
 
 export const revalidate = 3600;
 export const metadata: Metadata = {
   title: "Receipts · Takeover Fantasy",
   description: "Every week: our streaming picks vs ESPN's most-added players, scored in fantasy points per game.",
-  openGraph: { images: [{ url: "/api/card/social?type=scorecard", width: 1080, height: 1350 }] },
+  openGraph: { images: [{ url: cardUrl("type=scorecard", false), width: 1080, height: 1350 }] },
 };
 
 /** Public receipts: how each week's streaming picks did against ESPN's most-added players. */

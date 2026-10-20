@@ -1,3 +1,4 @@
+import { createHmac, timingSafeEqual } from "node:crypto";
 import { getPlayers, SEASON } from "./data";
 import { fantasyPoints, PRESETS } from "./engine";
 import { PRO_TEAM } from "./espn";
@@ -17,6 +18,24 @@ const SEASON_START = process.env.NBA_SEASON_START ?? "2026-10-20";
 const STREAMER_MAX_OWNED = 50;
 /** News about players this widely rostered is worth a post. */
 const NEWS_MIN_OWNED = 30;
+
+const cardSig = (query: string) =>
+  createHmac("sha256", process.env.CV_SECRET ?? "dev-secret-change-me").update(`card:${query}`).digest("base64url").slice(0, 16);
+
+/**
+ * A signed card link. Rendering a card costs a few seconds of server time, so the card route only
+ * draws links we made (Telegram, email, the studio); made-up variations that would miss the CDN cache are refused.
+ */
+export const cardUrl = (query: string, absolute = true) => `${absolute ? SITE : ""}/api/card/social?${query}&s=${cardSig(query)}`;
+
+/** The query a card link was signed for, or null when the signature doesn't match. */
+export function verifiedCardQuery(search: string): string | null {
+  const cut = search.lastIndexOf("&s=");
+  if (cut < 0) return null;
+  const query = search.slice(0, cut), sig = search.slice(cut + 3);
+  const want = cardSig(query);
+  return sig.length === want.length && timingSafeEqual(Buffer.from(sig), Buffer.from(want)) ? query : null;
+}
 
 export const easternDate = (ms: number) => new Date(ms).toLocaleDateString("en-CA", { timeZone: "America/New_York" });
 const addDays = (d: string, n: number) => new Date(Date.parse(`${d}T12:00:00Z`) + n * 864e5).toISOString().slice(0, 10);

@@ -6,7 +6,7 @@ import { sendTelegramPhoto, TELEGRAM_ON } from "./inseason/telegramUser";
 import { savePicks, scorecard } from "./scorecard";
 import {
   easternDate, heroesCaption, newsAlerts, newsCaption, OUT, returnAlertFor, returnCaption, risersCaption, risersFallers,
-  scheduleCaption, scheduleSpots, SITE, waiverHeroes, weekOf, yesterday,
+  cardUrl, scheduleCaption, scheduleSpots, SITE, waiverHeroes, weekOf, yesterday,
 } from "./social";
 
 /**
@@ -49,7 +49,7 @@ export async function subscribePosts(chatId: number): Promise<number> {
   chats.add(chatId);
   await kv.set(OWNER_CHATS, [...chats]);
   const today = easternDate(Date.now());
-  const card = (q: string) => `${SITE}/api/card/social?${q}&v=${today}`;
+  const card = (q: string) => cardUrl(`${q}&v=${today}`);
   let sent = 0;
   const r = await risersFallers(5).catch(() => null);
   if (r?.risers.length && (await sendTelegramPhoto(chatId, card("type=trending"), risersCaption(r)))) sent++;
@@ -66,7 +66,7 @@ async function collect(now: number, posted: Set<string>, lastPlayer: Record<stri
   const monday = weekOf(today).start === today;
   const morning = new Date(now).getUTCHours() >= 12; // the 11am New York run
   // A version per day, so Telegram and email clients don't reuse yesterday's cached image.
-  const card = (q: string) => `${SITE}/api/card/social?${q}&v=${today}`;
+  const card = (q: string) => cardUrl(`${q}&v=${today}`);
   const posts: Post[] = [];
 
   // Breaking news: players ruled out (day-to-day can wait), and role changes on stars.

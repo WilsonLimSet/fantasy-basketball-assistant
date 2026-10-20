@@ -1,7 +1,7 @@
 import { ImageResponse } from "next/og";
 import { headshotUrl, teamLogoUrl } from "@/lib/espnImages";
 import { scorecard } from "@/lib/scorecard";
-import { dateRange, newsAlertFor, returnAlertFor, risersFallers, waiverHeroes, yesterday, scheduleSpots, shortDate, type Mover, SITE, streamers, type NewsAlert } from "@/lib/social";
+import { dateRange, verifiedCardQuery, newsAlertFor, returnAlertFor, risersFallers, waiverHeroes, yesterday, scheduleSpots, shortDate, type Mover, SITE, streamers, type NewsAlert } from "@/lib/social";
 
 export const dynamic = "force-dynamic";
 
@@ -127,10 +127,13 @@ const png = (el: React.ReactElement) =>
 
 /**
  * GET /api/card/social?type=news&player=<id> | type=return&player=<id> | type=heroes&date=<YYYY-MM-DD> | type=trending | type=streamers | type=schedule | type=scorecard
- * Portrait cards (1080x1350) for Instagram, TikTok photo posts and X. Public data only.
+ * Portrait cards (1080x1350) for Instagram, TikTok photo posts and X. Public data only. Links must be
+ * signed (see cardUrl).
  */
 export async function GET(req: Request) {
-  const q = new URL(req.url).searchParams;
+  const signed = verifiedCardQuery(new URL(req.url).search.slice(1));
+  if (signed === null) return new Response("Forbidden", { status: 403 });
+  const q = new URLSearchParams(signed);
   const type = q.get("type");
   try {
     if (type === "news") {

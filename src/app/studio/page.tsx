@@ -4,7 +4,7 @@ import { notFound } from "next/navigation";
 import { LogoMark } from "@/components/Logo";
 import { isOwner } from "@/lib/auth";
 import { scorecard } from "@/lib/scorecard";
-import { heroesCaption, newsAlerts, newsCaption, risersCaption, risersFallers, scheduleCaption, scheduleSpots, SITE, waiverHeroes, yesterday } from "@/lib/social";
+import { cardUrl, heroesCaption, newsAlerts, newsCaption, risersCaption, risersFallers, scheduleCaption, scheduleSpots, SITE, waiverHeroes, yesterday } from "@/lib/social";
 import { CopyButton } from "./CopyButton";
 
 export const dynamic = "force-dynamic";
@@ -39,7 +39,7 @@ export default async function Studio() {
     scorecard().catch(() => null),
     waiverHeroes(night, 5).catch(() => null),
   ]);
-  const img = (q: string) => `/api/card/social?${q}`;
+  const img = (q: string) => cardUrl(q, false);
   return (
     <main className="mx-auto max-w-7xl px-4 py-8">
       <Link href="/" className="flex items-center gap-2 text-sm font-semibold"><LogoMark size={20} /> Takeover Fantasy</Link>
