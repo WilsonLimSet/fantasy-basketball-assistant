@@ -69,7 +69,7 @@ export async function subscriptionState(id: string): Promise<SubscriptionState> 
   const start = Number(sub.current_period_start ?? item?.current_period_start ?? 0) * 1000;
   // A failed renewal (past_due) has moved into a week nobody paid for: a short grace while Stripe retries the card.
   const until = sub.status === "active" || sub.status === "trialing" ? end : sub.status === "past_due" ? Math.min(end, start + PAST_DUE_GRACE_MS) : 0;
-  return { id, until, renews: until > 0 && !sub.cancel_at_period_end && !sub.cancel_at, status: String(sub.status) };
+  return { id, until, renews: until > Date.now() && !sub.cancel_at_period_end && !sub.cancel_at, status: String(sub.status) };
 }
 
 /** When a paid checkout's access ends, including the weekly subscription (asks Stripe for its period). */
