@@ -1,7 +1,7 @@
 import { ImageResponse } from "next/og";
 import { headshotUrl, teamLogoUrl } from "@/lib/espnImages";
 import { scorecard } from "@/lib/scorecard";
-import { dateRange, newsAlertFor, risersFallers, scheduleSpots, shortDate, type Mover, SITE, streamers, type NewsAlert } from "@/lib/social";
+import { dateRange, newsAlertFor, returnAlertFor, risersFallers, waiverHeroes, yesterday, scheduleSpots, shortDate, type Mover, SITE, streamers, type NewsAlert } from "@/lib/social";
 
 export const dynamic = "force-dynamic";
 
@@ -126,7 +126,7 @@ const png = (el: React.ReactElement) =>
   new ImageResponse(el, { width: W, height: H, headers: { "Cache-Control": "public, s-maxage=1800, stale-while-revalidate=3600" } });
 
 /**
- * GET /api/card/social?type=news&player=<id> | type=trending | type=streamers | type=schedule | type=scorecard
+ * GET /api/card/social?type=news&player=<id> | type=return&player=<id> | type=heroes&date=<YYYY-MM-DD> | type=trending | type=streamers | type=schedule | type=scorecard
  * Portrait cards (1080x1350) for Instagram, TikTok photo posts and X. Public data only.
  */
 export async function GET(req: Request) {
@@ -137,6 +137,53 @@ export async function GET(req: Request) {
       const a = await newsAlertFor(Number(q.get("player")));
       if (!a) return new Response("No news for that player", { status: 404 });
       return png(<NewsCard a={a} />);
+    }
+    if (type === "return") {
+      const a = await returnAlertFor(Number(q.get("player")));
+      if (!a) return new Response("Unknown player", { status: 404 });
+      return png(
+        <Frame tag="Cleared to return" tagColor={GREEN}>
+          <div style={{ display: "flex", alignItems: "flex-end", gap: 32 }}>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={headshotUrl(a.id, 420, 306)} width={300} height={219} alt="" style={{ borderRadius: 24, background: PANEL, border: `2px solid ${LINE}` }} />
+            <div style={{ display: "flex", flexDirection: "column", paddingBottom: 8 }}>
+              <div style={{ display: "flex", fontSize: 64, fontWeight: 700, letterSpacing: -2, lineHeight: 1 }}>{a.name}</div>
+              <div style={{ display: "flex", alignItems: "center", gap: 12, marginTop: 14, fontSize: 30, color: MUTED }}>
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={teamLogoUrl(a.team, 96)} width={40} height={40} alt="" />
+                <span>{`${a.team} · ${a.pos} · ${a.pctOwned}% rostered`}</span>
+              </div>
+            </div>
+          </div>
+          <div style={{ display: "flex", marginTop: 48, fontSize: a.headline.length > 60 ? 58 : 66, fontWeight: 700, letterSpacing: -2, lineHeight: 1.08 }}>{a.headline}</div>
+          {a.note && <div style={{ display: "flex", marginTop: 28, fontSize: 34, color: "#3d3c3b", lineHeight: 1.35 }}>{a.note}</div>}
+          {a.loser && (
+            <div style={{ display: "flex", alignItems: "center", gap: 24, marginTop: "auto", marginBottom: 36, background: PANEL, border: `2px solid ${LINE}`, borderRadius: 28, padding: "24px 28px" }}>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={headshotUrl(a.loser.id, 210, 153)} width={140} height={102} alt="" />
+              <div style={{ display: "flex", flexDirection: "column" }}>
+                <div style={{ display: "flex", fontSize: 24, fontWeight: 700, letterSpacing: 2, color: RED, textTransform: "uppercase" }}>Loses minutes</div>
+                <div style={{ display: "flex", fontSize: 42, fontWeight: 700, letterSpacing: -1, marginTop: 4 }}>{a.loser.name}</div>
+                <div style={{ display: "flex", fontSize: 28, color: MUTED, marginTop: 4 }}>{`Streamed him? He's a drop candidate · ${a.loser.pctOwned}% rostered`}</div>
+              </div>
+            </div>
+          )}
+        </Frame>,
+      );
+    }
+    if (type === "heroes") {
+      const date = /^\d{4}-\d{2}-\d{2}$/.test(q.get("date") ?? "") ? q.get("date")! : yesterday();
+      const h = await waiverHeroes(date, 5);
+      if (!h.list.length) return new Response("No finished games", { status: 404 });
+      return png(
+        <Frame tag="Waiver heroes" tagColor={GREEN} right={shortDate(date)}>
+          <div style={{ display: "flex", flexShrink: 0, fontSize: 72, fontWeight: 700, letterSpacing: -3, lineHeight: 1 }}>Last night&apos;s best pickups</div>
+          <div style={{ display: "flex", flexShrink: 0, fontSize: 30, color: MUTED, marginTop: 14, marginBottom: 36 }}>{`Top fantasy games from players under 50% rostered · ${h.games} games`}</div>
+          {h.list.map((x, i) => (
+            <Row key={x.id} rank={i + 1} id={x.id} name={x.name} sub={`${x.team} · ${x.pctOwned < 1 ? "<1" : x.pctOwned}% rostered · ${x.short}`} value={String(x.fpts)} unit="fpts" />
+          ))}
+        </Frame>,
+      );
     }
     if (type === "trending") {
       const r = await risersFallers(5);

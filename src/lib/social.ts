@@ -235,6 +235,92 @@ export async function newsAlertFor(playerId: number): Promise<NewsAlert | null> 
   return p && t?.notes[0] ? toAlert(p, t, players) : null;
 }
 
+export const OUT = OUT_STATUSES;
+
+export interface ReturnAlert {
+  id: number;
+  name: string;
+  team: string;
+  pos: string;
+  pctOwned: number;
+  headline: string;
+  note: string | null;
+  /** The teammate who'd been filling in, likely to lose minutes now. */
+  loser?: NewsAlert["nextUp"];
+}
+
+/**
+ * A player back from injury, and who loses minutes. (Our latest note is usually the injury itself,
+ * so it's left out rather than contradicting the card.)
+ */
+export async function returnAlertFor(playerId: number): Promise<ReturnAlert | null> {
+  const { players } = await getPlayers();
+  const p = players.find((x) => x.id === playerId);
+  if (!p) return null;
+  return {
+    id: p.id, name: p.name, team: p.team, pos: p.pos.join("/"), pctOwned: Math.round(p.pctOwned ?? 0),
+    headline: `${p.name.split(" ").slice(-1)[0]} is back in the lineup`,
+    note: "Off the injury report and available to play.",
+    loser: nextUpFor(p, players),
+  };
+}
+
+const NBA = "https://site.api.espn.com/apis/site/v2/sports/basketball/nba";
+/** ESPN's scoreboard codes that differ from the fantasy API's (ours). */
+const BOX_TEAM: Record<string, string> = { UTAH: "UTA", GS: "GSW", NO: "NOP", NY: "NYK", SA: "SAS", WSH: "WAS" };
+/** Fantasy points in ESPN's default scoring from a box-score line. */
+const boxPoints = (b: Record<string, number>) =>
+  b.pts + b.tpm - b.fga + 2 * b.fgm - b.fta + b.ftm + b.reb + 2 * b.ast + 4 * b.stl + 4 * b.blk - 2 * b.tov;
+
+export interface Hero { id: number; name: string; team: string; pctOwned: number; fpts: number; line: string; short: string }
+
+/**
+ * The best fantasy games on a US date from players under 50% rostered, from ESPN's box scores.
+ * Only finished games count: a live game's line looks final but isn't.
+ */
+export async function waiverHeroes(date: string, limit = 5): Promise<{ date: string; games: number; list: Hero[] }> {
+  const get = async (url: string) => {
+    const r = await fetch(url, { headers: { Accept: "application/json" }, next: { revalidate: 600 } });
+    if (!r.ok) throw new Error(`ESPN ${url}: ${r.status}`);
+    return r.json();
+  };
+  const board = await get(`${NBA}/scoreboard?dates=${date.replace(/-/g, "")}`);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const done = ((board?.events ?? []) as any[]).filter((e) => e?.status?.type?.completed).map((e) => String(e.id));
+  if (!done.length) return { date, games: 0, list: [] };
+  const [{ players }, boxes] = await Promise.all([getPlayers(), Promise.all(done.map((id) => get(`${NBA}/summary?event=${id}`).catch(() => null)))]);
+  const owned = new Map(players.map((p) => [p.id, p.pctOwned ?? 0]));
+  const heroes: Hero[] = [];
+  for (const box of boxes) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    for (const side of (box?.boxscore?.players ?? []) as any[]) {
+      const st = side.statistics?.[0];
+      const keys: string[] = st?.keys ?? [];
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      for (const a of (st?.athletes ?? []) as any[]) {
+        if (a.didNotPlay || !a.stats?.length) continue;
+        const id = Number(a.athlete?.id);
+        const pct = owned.get(id) ?? 0;
+        if (pct >= STREAMER_MAX_OWNED) continue;
+        const v = (k: string) => a.stats[keys.indexOf(k)] ?? "0";
+        const split = (k: string) => v(k).split("-").map(Number);
+        const [fgm, fga] = split("fieldGoalsMade-fieldGoalsAttempted"), [tpm] = split("threePointFieldGoalsMade-threePointFieldGoalsAttempted"), [ftm, fta] = split("freeThrowsMade-freeThrowsAttempted");
+        const b = { pts: Number(v("points")), reb: Number(v("rebounds")), ast: Number(v("assists")), stl: Number(v("steals")), blk: Number(v("blocks")), tov: Number(v("turnovers")), fgm, fga, tpm, ftm, fta };
+        if (Object.values(b).some((x) => !Number.isFinite(x))) continue;
+        const extras = [b.stl >= 2 && `${b.stl} stl`, b.blk >= 2 && `${b.blk} blk`, b.tpm >= 3 && `${b.tpm} 3pm`].filter(Boolean);
+        heroes.push({
+          id, name: String(a.athlete?.displayName ?? ""), team: BOX_TEAM[side.team?.abbreviation] ?? String(side.team?.abbreviation ?? ""), pctOwned: Math.round(pct), fpts: Math.round(boxPoints(b)),
+          line: [`${b.pts} pts`, `${b.reb} reb`, `${b.ast} ast`, ...extras].join(", "),
+          short: `${b.pts}p ${b.reb}r ${b.ast}a${b.stl >= 2 ? ` ${b.stl}s` : ""}${b.blk >= 2 ? ` ${b.blk}b` : ""}`,
+        });
+      }
+    }
+  }
+  return { date, games: done.length, list: heroes.sort((x, y) => y.fpts - x.fpts).slice(0, limit) };
+}
+
+export const yesterday = (now = Date.now()) => addDays(easternDate(now), -1);
+
 /** Teams by games in the window: who to stream from and whose players will sit idle. */
 export async function scheduleSpots(now = Date.now()) {
   const window = streamWindow(now);
@@ -255,7 +341,7 @@ export async function scheduleSpots(now = Date.now()) {
 
 const TAGS = "#fantasybasketball #nbafantasy #NBA";
 const CTA = `Add/drops built for your ESPN team: ${SITE.replace(/^https?:\/\//, "")}`;
-const pct = (n: number) => `${n}% rostered`;
+const pct = (n: number) => (n < 1 ? "under 1% rostered" : `${n}% rostered`);
 
 /** Shams-style: the news first, in one plain line, then what to do about it. */
 export function newsCaption(a: NewsAlert): string {
@@ -274,6 +360,16 @@ export function risersCaption(r: Awaited<ReturnType<typeof risersFallers>>): str
   const up = r.risers.map((m) => `📈 ${row(m)}`).join("\n");
   const down = r.fallers.length ? `\n\nGetting dropped:\n${r.fallers.map((m) => `📉 ${row(m)}`).join("\n")}` : "";
   return `Who ESPN managers are adding right now 👀\n\n${up}${down}\n\nAre you early or late? ${CTA}\n${TAGS}`;
+}
+
+export function returnCaption(r: ReturnAlert): string {
+  const loser = r.loser ? `\n\nWho loses minutes: ${r.loser.name}. If you picked him up as a fill-in, he's a drop candidate.` : "";
+  return `✅ ${r.name} (${r.team}) is cleared to return.${r.note ? `\n\n${r.note}` : ""}${loser}\n\n${CTA}\n${TAGS}`;
+}
+
+export function heroesCaption(h: Awaited<ReturnType<typeof waiverHeroes>>): string {
+  const rows = h.list.map((x, i) => `${i + 1}. ${x.name} (${x.team}): ${x.fpts} fpts, ${x.line}. ${pct(x.pctOwned)}`);
+  return `Last night's waiver heroes 🦸 All under 50% rostered.\n\n${rows.join("\n")}\n\nOne-night wonder or real pickup? ${CTA}\n${TAGS}`;
 }
 
 export function scheduleCaption(s: Awaited<ReturnType<typeof scheduleSpots>>): string {
