@@ -42,6 +42,18 @@ export const isPostsUser = (username?: string) =>
 
 const wantsNews = (p: InseasonProfile) => p.alerts.news !== false;
 
+/** Draw a card by fetching our own signed link. Telegram gets the file, since it gives up on slow URLs. */
+async function cardImage(url: string): Promise<Blob | null> {
+  try {
+    const r = await fetch(url, { cache: "no-store", signal: AbortSignal.timeout(30_000) });
+    if (!r.ok) throw new Error(`card ${r.status}`);
+    return await r.blob();
+  } catch (e) {
+    console.error("[social] card failed", url, e instanceof Error ? e.message : e);
+    return null;
+  }
+}
+
 /** Subscribe a chat to the posts, and send it the current ones right away. */
 export async function subscribePosts(chatId: number): Promise<number> {
   const kv = kvStore();
@@ -50,10 +62,15 @@ export async function subscribePosts(chatId: number): Promise<number> {
   await kv.set(OWNER_CHATS, [...chats]);
   const today = easternDate(Date.now());
   const card = (q: string) => cardUrl(`${q}&v=${today}`);
-  let sent = 0;
+  const items: { img: string; caption: string }[] = [];
   const r = await risersFallers(5).catch(() => null);
-  if (r?.risers.length && (await sendTelegramPhoto(chatId, card("type=trending"), risersCaption(r)))) sent++;
-  for (const a of (await newsAlerts(3).catch(() => []))) if (await sendTelegramPhoto(chatId, card(`type=news&player=${a.id}`), newsCaption(a))) sent++;
+  if (r?.risers.length) items.push({ img: card("type=trending"), caption: risersCaption(r) });
+  for (const a of (await newsAlerts(3).catch(() => []))) items.push({ img: card(`type=news&player=${a.id}`), caption: newsCaption(a) });
+  let sent = 0;
+  for (const it of items) {
+    const image = await cardImage(it.img);
+    if (image && (await sendTelegramPhoto(chatId, image, it.caption))) sent++;
+  }
   return sent;
 }
 
@@ -144,12 +161,19 @@ export async function pushSocial(now = Date.now()): Promise<{ sent: string[]; fa
   for (const p of posts) {
     // With nobody on Telegram yet, a post still counts as sent (for the email digest).
     let ok = !TELEGRAM_ON || (!owners.length && !fans.length);
-    if (TELEGRAM_ON) {
-      for (const chat of owners) ok = (await sendTelegramPhoto(chat, p.img, p.caption)) || ok;
+    if (TELEGRAM_ON && !ok) {
+      // Upload the image once; every later send reuses Telegram's file_id.
+      let photo: Blob | string | null = await cardImage(p.img);
+      if (!photo) continue;
+      const send = async (chat: number | string, caption: string) => {
+        const id = await sendTelegramPhoto(chat, photo!, caption);
+        if (id) { photo = id; ok = true; }
+      };
+      for (const chat of owners) await send(chat, p.caption);
       // Users get the news without our hashtags, and a way to stop it.
       const fanCaption = `${p.caption.replace(/\n#\S+(\s#\S+)*\s*$/, "")}\n\n/nonews to stop news alerts`;
       for (const chat of fans) {
-        ok = (await sendTelegramPhoto(chat, p.img, fanCaption)) || ok;
+        await send(chat, fanCaption);
         await new Promise((r) => setTimeout(r, SEND_GAP_MS));
       }
     }
