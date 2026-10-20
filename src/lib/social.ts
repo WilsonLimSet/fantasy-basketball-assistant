@@ -194,7 +194,7 @@ export interface NewsAlert {
   pos: string;
   status: string;
   pctOwned: number;
-  label: "Injury" | "Role up" | "Role down" | "News";
+  label: "Injury" | "Transaction" | "Role up" | "Role down" | "News";
   headline: string;
   note: string;
   date: string;
@@ -218,13 +218,19 @@ function nextUpFor(p: Player, players: Player[]): NewsAlert["nextUp"] {
 
 const INJURY_WORDS = /injur|sprain|strain|surgery|sore|tight|ankle|knee|calf|hamstring|groin|shoulder|wrist|hip|foot|concussion|illness|day-to-day|questionable|doubtful|ruled out|sidelined|cleared|rehab/i;
 
+const TRANSACTION_WORDS = /\b(waive[ds]?|waiving|release[ds]?|traded?|trading|signs?|signed|signing|claimed|acquire[ds]?|buyout|cut)\b/i;
+
 function toAlert(p: Player, t: Take, players: Player[]): NewsAlert {
   const note = t.notes[0];
   const out = OUT_STATUSES.has(p.injury);
-  const injury = out || p.injury !== "ACTIVE" || INJURY_WORDS.test(`${note.headline} ${note.text}`);
+  const text = `${note.headline} ${note.text}`;
+  // A move (waived, traded, signed) changes a player's whole outlook, injury or not.
+  // (A contract extension "signs" too, but changes nothing this season.)
+  const transaction = p.team === "FA" || (TRANSACTION_WORDS.test(text) && !/extension/i.test(text));
+  const injury = !transaction && (out || p.injury !== "ACTIVE" || INJURY_WORDS.test(text));
   return {
     id: p.id, name: p.name, team: p.team, pos: p.pos.join("/"), status: p.injury, pctOwned: Math.round(p.pctOwned ?? 0),
-    label: injury ? "Injury" : t.kind === "boost" ? "Role up" : t.kind === "fade" ? "Role down" : "News",
+    label: transaction ? "Transaction" : injury ? "Injury" : t.kind === "boost" ? "Role up" : t.kind === "fade" ? "Role down" : "News",
     headline: note.headline, note: note.text, date: note.date,
     // Only a real absence gets a pickup; a day-to-day tag isn't worth a waiver move yet.
     nextUp: out ? nextUpFor(p, players) : undefined,
@@ -364,7 +370,7 @@ const pct = (n: number) => (n < 1 ? "under 1% rostered" : `${n}% rostered`);
 
 /** Shams-style: the news first, in one plain line, then what to do about it. */
 export function newsCaption(a: NewsAlert): string {
-  const lead = a.label === "Injury" ? "🚨 " : "";
+  const lead = a.label === "Injury" || a.label === "Transaction" ? "🚨 " : "";
   const move = a.nextUp ? `\n\nFantasy move: pick up ${a.nextUp.name} (${pct(a.nextUp.pctOwned)}, ${a.nextUp.fppg} fpts/g).` : "";
   return `${lead}${a.name} (${a.team}): ${a.headline.replace(/\.$/, "")}.\n\n${a.note}${move}\n\n${CTA}\n${TAGS}`;
 }

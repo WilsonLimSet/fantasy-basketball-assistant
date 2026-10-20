@@ -154,15 +154,39 @@ export async function sendTelegramTo(chatId: number, html: string): Promise<bool
   }
 }
 
-/** A photo (by URL, Telegram fetches it) with a caption; chat can be a numeric id or a public channel's @name. */
-export async function sendTelegramPhoto(chatId: number | string, photo: string, caption: string): Promise<boolean> {
+/**
+ * A photo with a caption; chat can be a numeric id or a public channel's @name. Pass the image file
+ * (Telegram gives up on slow URLs, and our cards take seconds to draw) or a file_id from an earlier
+ * send. Returns the photo's file_id for reuse, or null on failure.
+ */
+export async function sendTelegramPhoto(chatId: number | string, photo: Blob | string, caption: string): Promise<string | null> {
+  const token = process.env.TELEGRAM_BOT_TOKEN;
+  if (!token) return null;
+  // Captions are capped at 1024 characters.
+  const text = caption.slice(0, 1024);
   try {
-    // Captions are capped at 1024 characters.
-    await call('sendPhoto', { chat_id: chatId, photo, caption: caption.slice(0, 1024) });
-    return true;
+    let r: Response;
+    if (typeof photo === 'string') {
+      r = await fetch(`${API}/bot${token}/sendPhoto`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ chat_id: chatId, photo, caption: text }),
+        cache: 'no-store',
+      });
+    } else {
+      const form = new FormData();
+      form.set('chat_id', String(chatId));
+      form.set('caption', text);
+      form.set('photo', photo, 'card.png');
+      r = await fetch(`${API}/bot${token}/sendPhoto`, { method: 'POST', body: form, cache: 'no-store' });
+    }
+    const j = await r.json().catch(() => ({}));
+    if (!j.ok) throw new Error(j.description ?? String(r.status));
+    const sizes = j.result?.photo as { file_id: string }[] | undefined;
+    return sizes?.at(-1)?.file_id ?? null;
   } catch (e) {
     console.error('[telegram] photo failed', e instanceof Error ? e.message : e);
-    return false;
+    return null;
   }
 }
 

@@ -42,7 +42,7 @@ function Frame({ tag, tagColor = INK, right, children }: { tag: string; tagColor
 }
 
 function NewsCard({ a }: { a: NewsAlert }) {
-  const color = a.label === "Injury" ? RED : a.label === "Role up" ? GREEN : INK;
+  const color = a.label === "Injury" || a.label === "Transaction" ? RED : a.label === "Role up" ? GREEN : INK;
   return (
     <Frame tag={a.label === "Injury" ? "Injury alert" : a.label === "News" ? "Fantasy news" : a.label} tagColor={color} right={shortDate(a.date)}>
       <div style={{ display: "flex", alignItems: "flex-end", gap: 32 }}>
