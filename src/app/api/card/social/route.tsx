@@ -1,3 +1,4 @@
+import { cloneElement, isValidElement } from "react";
 import { ImageResponse } from "next/og";
 import { headshotUrl, teamLogoUrl } from "@/lib/espnImages";
 import { scorecard } from "@/lib/scorecard";
@@ -53,7 +54,7 @@ function NewsCard({ a }: { a: NewsAlert }) {
           <div style={{ display: "flex", alignItems: "center", gap: 12, marginTop: 14, fontSize: 30, color: MUTED }}>
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src={teamLogoUrl(a.team, 96)} width={40} height={40} alt="" />
-            <span>{`${a.team} · ${a.pos} · ${a.pctOwned}% rostered`}</span>
+            <span>{`${a.team === "FA" ? "Free agent" : a.team} · ${a.pos} · ${a.pctOwned}% rostered`}</span>
           </div>
         </div>
       </div>
@@ -122,8 +123,47 @@ function Logos({ teams, size }: { teams: string[]; size: number }) {
 
 const teams = (n: number) => `${n} ${n === 1 ? "team" : "teams"}`;
 
-const png = (el: React.ReactElement) =>
-  new ImageResponse(el, { width: W, height: H, headers: { "Cache-Control": "public, s-maxage=1800, stale-while-revalidate=3600" } });
+const images = new Map<string, Promise<string | null>>();
+
+/** An image as a data URI, or null when it's missing (ESPN has no logo for free agents, no headshot for some players). */
+function loadImage(url: string): Promise<string | null> {
+  let p = images.get(url);
+  if (!p) {
+    p = fetch(url, { signal: AbortSignal.timeout(8000) })
+      .then(async (r) => {
+        const type = r.headers.get("content-type") ?? "";
+        if (!r.ok || !type.startsWith("image/")) return null;
+        return `data:${type};base64,${Buffer.from(await r.arrayBuffer()).toString("base64")}`;
+      })
+      .catch(() => null);
+    if (images.size > 500) images.clear();
+    images.set(url, p);
+  }
+  return p;
+}
+
+/**
+ * Satori fails the whole card on one bad image, so load every image first: a missing one becomes an
+ * empty box of the same size. (Expands our function components to reach their images.)
+ */
+async function inlineImages(node: React.ReactNode): Promise<React.ReactNode> {
+  if (Array.isArray(node)) return Promise.all(node.map(inlineImages));
+  if (!isValidElement(node)) return node;
+  const el = node as React.ReactElement<Record<string, unknown>>;
+  if (typeof el.type === "function") return inlineImages((el.type as (p: unknown) => React.ReactNode)(el.props));
+  if (el.type === "img") {
+    const { src, width, height, style } = el.props as { src: string; width: number; height: number; style?: React.CSSProperties };
+    const data = await loadImage(src);
+    return data ? cloneElement(el, { src: data }) : <div style={{ display: "flex", width, height, ...(style?.borderRadius ? { borderRadius: style.borderRadius } : {}) }} />;
+  }
+  const children = el.props.children as React.ReactNode;
+  return children === undefined ? el : cloneElement(el, {}, await inlineImages(children));
+}
+
+const png = async (el: React.ReactElement) =>
+  new ImageResponse((await inlineImages(el)) as React.ReactElement, {
+    width: W, height: H, headers: { "Cache-Control": "public, s-maxage=1800, stale-while-revalidate=3600" },
+  });
 
 /**
  * GET /api/card/social?type=news&player=<id> | type=return&player=<id> | type=heroes&date=<YYYY-MM-DD> | type=trending | type=streamers | type=schedule | type=scorecard
@@ -154,7 +194,7 @@ export async function GET(req: Request) {
               <div style={{ display: "flex", alignItems: "center", gap: 12, marginTop: 14, fontSize: 30, color: MUTED }}>
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img src={teamLogoUrl(a.team, 96)} width={40} height={40} alt="" />
-                <span>{`${a.team} · ${a.pos} · ${a.pctOwned}% rostered`}</span>
+                <span>{`${a.team === "FA" ? "Free agent" : a.team} · ${a.pos} · ${a.pctOwned}% rostered`}</span>
               </div>
             </div>
           </div>
