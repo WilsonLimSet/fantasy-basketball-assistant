@@ -154,6 +154,18 @@ export async function sendTelegramTo(chatId: number, html: string): Promise<bool
   }
 }
 
+/** A photo (by URL, Telegram fetches it) with a caption; chat can be a numeric id or a public channel's @name. */
+export async function sendTelegramPhoto(chatId: number | string, photo: string, caption: string): Promise<boolean> {
+  try {
+    // Captions are capped at 1024 characters.
+    await call('sendPhoto', { chat_id: chatId, photo, caption: caption.slice(0, 1024) });
+    return true;
+  } catch (e) {
+    console.error('[telegram] photo failed', e instanceof Error ? e.message : e);
+    return false;
+  }
+}
+
 export function dailyTelegram(opts: {
   teamName: string;
   leagueId: string;

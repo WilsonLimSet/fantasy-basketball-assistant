@@ -1,0 +1,76 @@
+import type { Metadata } from "next";
+import Link from "next/link";
+import { notFound } from "next/navigation";
+import { LogoMark } from "@/components/Logo";
+import { isOwner } from "@/lib/auth";
+import { scorecard } from "@/lib/scorecard";
+import { newsAlerts, newsCaption, scheduleCaption, scheduleSpots, SITE, streamers, streamersCaption } from "@/lib/social";
+import { CopyButton } from "./CopyButton";
+
+export const dynamic = "force-dynamic";
+export const metadata: Metadata = { title: "Studio · Takeover Fantasy", robots: { index: false } };
+
+function Post({ title, img, caption, file }: { title: string; img: string; caption: string; file: string }) {
+  return (
+    <div className="rounded-xl border border-line bg-panel p-4 shadow-[0_1px_2px_rgba(25,25,25,0.04)]">
+      <div className="mb-3 text-sm font-medium">{title}</div>
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img src={img} alt={title} loading="lazy" className="w-full rounded-lg border border-line" />
+      <pre className="mt-3 max-h-48 overflow-auto whitespace-pre-wrap rounded-lg bg-sunken p-3 text-xs leading-relaxed">{caption}</pre>
+      <div className="mt-3 flex gap-2">
+        <CopyButton text={caption} />
+        <a href={img} download={file} className="btn-ghost">Download image</a>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Owner-only: today's ready-to-post social content. Each card is an image plus a caption; long-press
+ * the image on a phone to save it, then paste the caption into Instagram, TikTok or X.
+ */
+export default async function Studio() {
+  if (!(await isOwner())) notFound();
+  const [news, streams, schedule, card] = await Promise.all([
+    newsAlerts(8).catch(() => []),
+    streamers(5).catch(() => null),
+    scheduleSpots().catch(() => null),
+    scorecard().catch(() => null),
+  ]);
+  const img = (q: string) => `/api/card/social?${q}`;
+  return (
+    <main className="mx-auto max-w-7xl px-4 py-8">
+      <Link href="/" className="flex items-center gap-2 text-sm font-semibold"><LogoMark size={20} /> Takeover Fantasy</Link>
+      <h1 className="mt-6 text-3xl font-medium tracking-[-0.03em]">Studio</h1>
+      <p className="mt-2 max-w-2xl text-sm text-muted">
+        Today&apos;s posts. Download the image (or long-press it on your phone), copy the caption, post. New injury news also
+        goes to your Telegram automatically. Every link points to {SITE.replace(/^https?:\/\//, "")}.
+      </p>
+
+      <h2 className="mt-10 mb-4 text-lg font-medium">Breaking news</h2>
+      {news.length ? (
+        <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+          {news.map((a) => (
+            <Post key={a.key} title={`${a.label}: ${a.name}`} img={img(`type=news&player=${a.id}`)} caption={newsCaption(a)} file={`${a.name.replace(/\W+/g, "-")}.png`} />
+          ))}
+        </div>
+      ) : (
+        <p className="text-sm text-muted">No fresh news on rostered players in the last two days.</p>
+      )}
+
+      <h2 className="mt-10 mb-4 text-lg font-medium">Weekly</h2>
+      <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+        {streams && streams.list.length > 0 && <Post title="Top streamers" img={img("type=streamers")} caption={streamersCaption(streams)} file="streamers.png" />}
+        {schedule && <Post title="Schedule" img={img("type=schedule")} caption={scheduleCaption(schedule)} file="schedule.png" />}
+        {card && (
+          <Post
+            title={`Receipts, week ${card.week}${card.complete ? "" : " (in progress)"}`}
+            img={img(`type=scorecard&week=${card.week}`)}
+            caption={`Week ${card.week} receipts 🧾\n\nOur streamers: ${card.ours.fppg.toFixed(1)} fpts/g\nESPN's most added: ${card.espn.fppg.toFixed(1)} fpts/g\n\nEvery pick, every week: ${SITE.replace(/^https?:\/\//, "")}/scorecard\n#fantasybasketball #nbafantasy`}
+            file={`receipts-week-${card.week}.png`}
+          />
+        )}
+      </div>
+    </main>
+  );
+}

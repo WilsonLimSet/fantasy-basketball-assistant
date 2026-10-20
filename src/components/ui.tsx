@@ -4,6 +4,7 @@ import { Valued, League } from "@/lib/engine";
 import { TakeBadge } from "./Take";
 import { usePlayerSheet } from "./PlayerSheet";
 import { toggleAvoid, toggleStar, useAvoid, useStars } from "@/lib/stars";
+import { headshotUrl, teamLogoUrl } from "@/lib/espnImages";
 
 export const fmt = (n: number, d = 1) => (Number.isFinite(n) ? n.toFixed(d) : "–");
 
@@ -14,8 +15,6 @@ export function InjuryBadge({ s }: { s: string }) {
   return <span className={`ml-1.5 rounded px-1 text-[10px] font-semibold ${cls}`}>{label}</span>;
 }
 
-// ESPN's image CDN uses its own team codes for a few teams.
-const ESPN_LOGO_CODE: Record<string, string> = { GSW: "gs", NOP: "no", NYK: "ny", SAS: "sa", UTA: "utah", WAS: "wsh" };
 const hideOnError = (e: React.SyntheticEvent<HTMLImageElement>) => { e.currentTarget.style.visibility = "hidden"; };
 
 /** A placeholder bar or block while data loads. */
@@ -50,7 +49,7 @@ export function Headshot({ id, name, size = 32 }: { id: number; name: string; si
     >
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
-        src={`https://a.espncdn.com/combiner/i?img=/i/headshots/nba/players/full/${id}.png&w=${size * 3}&h=${Math.round(size * 2.2)}`}
+        src={headshotUrl(id, size * 3, Math.round(size * 2.2))}
         alt={name}
         width={size}
         height={size}
@@ -71,7 +70,7 @@ export function TeamLogo({ team, size = 14 }: { team: string; size?: number }) {
   return (
     // eslint-disable-next-line @next/next/no-img-element
     <img
-      src={`https://a.espncdn.com/combiner/i?img=/i/teamlogos/nba/500/${ESPN_LOGO_CODE[team] ?? team.toLowerCase()}.png&w=${size * 3}&h=${size * 3}`}
+      src={teamLogoUrl(team, size * 3)}
       alt=""
       width={size}
       height={size}

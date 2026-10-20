@@ -150,15 +150,25 @@ export type ContextResult =
   | { ok: true; ctx: LeagueContext }
   | { ok: false; status: 401 | 402 | 404; error: string };
 
+/** The signed-in user's connected league whether or not they've paid: for the free preview. */
+export async function previewContext(): Promise<LeagueContext | null> {
+  const account = await currentAccount();
+  const profile = account ? await getProfile(account.email) : null;
+  return profile ? profileContext(profile) : null;
+}
+
 /** Who's asking and which league they've connected. In-season tools are Pro once the paywall is on. */
 export async function leagueContext(): Promise<ContextResult> {
   const account = await currentAccount();
   if (!account) return { ok: false, status: 401, error: 'Sign in to use the in-season tools.' };
   const owner = isOwnerEmail(account.email);
-  if (PAYWALL_ON && !owner && !(await currentPass())) {
-    return { ok: false, status: 402, error: 'The in-season tools are part of Pro.' };
+  const [paid, profile] = await Promise.all([!PAYWALL_ON || owner ? true : currentPass().then(Boolean), getProfile(account.email)]);
+  // Connecting is free (it's how a free user sees what they'd gain), so ask for that before payment.
+  if (!paid) {
+    return profile
+      ? { ok: false, status: 402, error: 'The in-season tools are part of Pro.' }
+      : { ok: false, status: 404, error: 'Connect your ESPN league first.' };
   }
-  const profile = await getProfile(account.email);
   if (profile) return { ok: true, ctx: await profileContext(profile) };
   const fallback = owner ? await ownerContext(account.email) : null;
   if (fallback) return { ok: true, ctx: fallback };

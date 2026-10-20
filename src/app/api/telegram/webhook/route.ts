@@ -3,13 +3,16 @@
  * Telegram posts every message to the bot here (set once with setWebhook and our secret token).
  *   link code (or "/start CODE" from the deep link) -> links that chat to the account, sends this week's moves
  *   /moves -> this week's moves    /stop -> pause Telegram alerts    /help or anything else -> how it works
+ *   /posts (owner usernames only) -> get the daily social posts in this chat
  */
 
 import { NextResponse } from 'next/server';
 import { codeFrom, completeLink, movesMessage, sendTelegramTo, webhookSecret } from '@/lib/inseason/telegramUser';
 import { hasInseasonAccess, listProfiles, saveProfile } from '@/lib/inseason/profile';
+import { isPostsUser, subscribePosts } from '@/lib/socialPush';
 
 export const dynamic = 'force-dynamic';
+export const maxDuration = 60;
 
 const SITE = process.env.NEXT_PUBLIC_SITE_URL || 'https://takeoverfantasy.com';
 const CONNECT = `<a href="${SITE}/inseason/connect">takeoverfantasy.com → In-season → My league</a>`;
@@ -31,6 +34,13 @@ export async function POST(req: Request) {
   const code = command === '/start' || !command ? codeFrom(text) : null;
 
   if (code && (await completeLink(code, chat))) return NextResponse.json({ ok: true });
+
+  if (command === '/posts' && isPostsUser(chat.username)) {
+    await sendTelegramTo(chat.id, 'You\'ll get the social posts here: new injury news as it breaks, streamers every afternoon, the schedule and receipts on Mondays. Here\'s what\'s up now:');
+    const sent = await subscribePosts(chat.id);
+    if (!sent) await sendTelegramTo(chat.id, 'Nothing to post right now. New ones come with the next news run.');
+    return NextResponse.json({ ok: true });
+  }
 
   const mine = (await listProfiles()).find((p) => p.telegram?.chatId === chat.id);
   const team = (mine?.teamName ?? 'your team').replace(/[<>&]/g, '');

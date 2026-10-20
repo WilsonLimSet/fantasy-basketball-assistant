@@ -1,6 +1,8 @@
 'use client';
 
+import { track } from '@vercel/analytics';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { Headshot, InjuryBadge, SkeletonRows } from '@/components/ui';
 import { qrMatrix } from '@/lib/qr';
@@ -34,6 +36,7 @@ function LeagueForm({ onSaved, onCancel, hasLogin }: { onSaved: () => void; onCa
       if (/private|cookies/i.test(j.error ?? '')) setShowLogin(true);
       return;
     }
+    track('league_found');
     setTeams(j.teams); setLeagueId(j.leagueId); setLeagueName(j.leagueName); setTeamId(j.teamId ?? '');
   };
 
@@ -42,7 +45,7 @@ function LeagueForm({ onSaved, onCancel, hasLogin }: { onSaved: () => void; onCa
     setBusy(true); setError(null);
     const j = await post('POST', { action: 'save', leagueId, teamId, s2, swid });
     setBusy(false);
-    if (j.success) onSaved(); else setError(j.error);
+    if (j.success) { track('league_connected'); onSaved(); } else setError(j.error);
   };
 
   return (
@@ -303,8 +306,76 @@ function Alerts({ profile, me, reload }: { profile: MeProfile; me: Me; reload: (
   );
 }
 
+const shortDay = (ms: number) => new Date(ms).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+
+/** The weekly subscription: when it renews, and cancelling, which offers the season first. */
+function WeeklyPlan({ seasonUrl }: { seasonUrl?: string | null }) {
+  const [sub, setSub] = useState<{ until: number; renews: boolean } | null | undefined>(undefined);
+  const [step, setStep] = useState<'idle' | 'offer' | 'busy'>('idle');
+  const [error, setError] = useState<string | null>(null);
+  useEffect(() => {
+    fetch('/api/inseason/subscription').then((r) => r.json()).then((j) => setSub(j.success ? j.subscription : null)).catch(() => setSub(null));
+  }, []);
+  if (!sub) return null;
+  const change = async (action: 'cancel' | 'resume') => {
+    setStep('busy'); setError(null);
+    const j = await fetch('/api/inseason/subscription', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ action }) }).then((r) => r.json()).catch(() => ({ success: false }));
+    if (j.success) { setSub(j.subscription); track(action === 'cancel' ? 'weekly_cancelled' : 'weekly_resumed'); } else setError(j.error ?? 'That didn’t work. Try again.');
+    setStep('idle');
+  };
+  return (
+    <Panel title="Your plan" sub={sub.renews ? `Weekly, $5. Renews ${shortDay(sub.until)}.` : `Weekly, cancelled. You keep everything until ${shortDay(sub.until)}.`}>
+      {step === 'offer' ? (
+        <div className="max-w-xl space-y-3">
+          <p className="text-sm">
+            <span className="font-medium">Before you go: the Season pass is $39 once, through the playoffs.</span>{' '}
+            <span className="text-muted">That’s less than 8 weeks of weekly. Buy it and your weekly stops on its own.</span>
+          </p>
+          <div className="flex flex-wrap gap-2">
+            {seasonUrl && <a href={seasonUrl} onClick={() => track('checkout_click', { plan: 'save_season' })} className="btn-accent">Switch to Season</a>}
+            <button className="btn-ghost" onClick={() => change('cancel')}>Cancel anyway</button>
+            <button className="btn-ghost" onClick={() => setStep('idle')}>Keep weekly</button>
+          </div>
+        </div>
+      ) : (
+        <div className="flex flex-wrap gap-2">
+          {sub.renews ? (
+            <>
+              {seasonUrl && <a href={seasonUrl} onClick={() => track('checkout_click', { plan: 'upgrade' })} className="btn-accent">Switch to Season, $39</a>}
+              <button className="btn-ghost" disabled={step === 'busy'} onClick={() => { setStep('offer'); track('cancel_started'); }}>Cancel weekly</button>
+            </>
+          ) : (
+            <button className="btn-accent" disabled={step === 'busy'} onClick={() => change('resume')}>{step === 'busy' ? 'Resuming…' : 'Resume weekly'}</button>
+          )}
+        </div>
+      )}
+      {error && <div className="mt-3"><ErrorBox>{error}</ErrorBox></div>}
+    </Panel>
+  );
+}
+
+function Referral({ url }: { url: string }) {
+  const [copied, setCopied] = useState(false);
+  return (
+    <Panel title="Give a friend a free week" sub="When someone buys any pass through your link, you both get a week free. Share it with friends in other leagues.">
+      <div className="flex max-w-xl gap-2">
+        <input readOnly value={url} className="input min-w-0 flex-1 py-1.5" onFocus={(e) => e.currentTarget.select()} aria-label="Your referral link" />
+        <button
+          className="btn-accent shrink-0"
+          onClick={async () => {
+            try { await navigator.clipboard.writeText(url); setCopied(true); track('referral_copied'); setTimeout(() => setCopied(false), 1500); } catch { /* blocked */ }
+          }}
+        >
+          {copied ? 'Copied' : 'Copy link'}
+        </button>
+      </div>
+    </Panel>
+  );
+}
+
 export default function MyLeaguePage() {
   const { me, reload } = useMeContext();
+  const router = useRouter();
   const [editing, setEditing] = useState(false);
   const [confirming, setConfirming] = useState(false);
 
@@ -319,7 +390,8 @@ export default function MyLeaguePage() {
   };
 
   if (!profile || editing) {
-    return <LeagueForm hasLogin={profile?.hasLogin} onCancel={profile ? () => setEditing(false) : undefined} onSaved={async () => { setEditing(false); await reload(); }} />;
+    // A first connect goes straight to the week's moves (or, without a pass, the free preview).
+    return <LeagueForm hasLogin={profile?.hasLogin} onCancel={profile ? () => setEditing(false) : undefined} onSaved={async () => { setEditing(false); await reload(); if (!profile) { invalidateCached(MOVES_URL); router.push('/inseason'); } }} />;
   }
 
   return (
@@ -345,6 +417,8 @@ export default function MyLeaguePage() {
         <p className="text-sm text-muted">Signed in as {me.email}. We refresh your league twice a day; hit Refresh on This week for the latest.</p>
       </Panel>
       <div id="alerts"><Alerts profile={profile} me={me} reload={reload} /></div>
+      {me.plans?.weekly && me.passUntil && <WeeklyPlan seasonUrl={me.plans.season} />}
+      {me.referralUrl && <Referral url={me.referralUrl} />}
       {me.pro ? <CorePicker key={`${profile.leagueId}-${profile.teamId}`} core={profile.core} /> : <Gate needs="pro" />}
     </div>
   );

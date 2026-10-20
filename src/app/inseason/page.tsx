@@ -1,10 +1,11 @@
 'use client';
 
 import Link from 'next/link';
-import { useCallback, useState } from 'react';
+import { track } from '@vercel/analytics';
+import { useCallback, useEffect, useState } from 'react';
 import type { DailyBriefing } from '@/types';
 import { InjuryBadge } from '@/components/ui';
-import { MatchupGamesPanel, MoveRow, StatStrip, WatchlistPanel, type MovesResponse } from './MovesPanel';
+import { MatchupGamesPanel, MoveRow, StatStrip, WatchlistPanel, type MovesPreview, type MovesResponse } from './MovesPanel';
 import { ErrorBox, formatAge, Gate, invalidateCached, Loading, MOVES_URL, Panel, useCached, useMeContext } from './useMe';
 
 function RosterAlerts({ briefing }: { briefing: DailyBriefing }) {
@@ -39,6 +40,45 @@ function RosterAlerts({ briefing }: { briefing: DailyBriefing }) {
   );
 }
 
+/** A connected league without a pass: show what they're missing, give the best move away, then the plans. */
+function Preview({ p }: { p: MovesPreview }) {
+  const games = p.after.usableGames - p.baseline.usableGames;
+  const points = Math.round(p.after.points - p.baseline.points);
+  const gain = p.pointsLeague ? `${points} points` : `${games} ${games === 1 ? 'game' : 'games'}`;
+  const hidden = p.moveCount - 1;
+  useEffect(() => { track('preview_seen', { moves: p.moveCount }); }, [p.moveCount]);
+  return (
+    <div className="mb-5 space-y-5">
+      <div>
+        <h1 className="text-3xl font-medium leading-tight tracking-[-0.03em]">
+          {p.moveCount ? `You’re leaving ${gain} on the table` : 'Your roster is set this week'}
+        </h1>
+        <p className="mt-2 text-sm text-muted">
+          {p.teamName ? `${p.teamName} · ` : ''}Week {p.week} · {p.daysLeft} {p.daysLeft === 1 ? 'day' : 'days'} left ·{' '}
+          {p.moveCount
+            ? `${p.baseline.usableGames} usable games now, ${p.after.usableGames} with ${p.moveCount} ${p.moveCount === 1 ? 'move' : 'moves'}.`
+            : `${p.baseline.usableGames} usable games. We’ll tell you when a move is worth it.`}
+        </p>
+      </div>
+      {p.firstMove && (
+        <Panel title="Your best move, free" sub="Make it on ESPN today.">
+          <MoveRow m={p.firstMove} />
+          {hidden > 0 && (
+            <div className="mt-3 border-t border-line pt-3">
+              <div aria-hidden className="select-none space-y-2 blur-[5px]">
+                {Array.from({ length: Math.min(hidden, 3) }, (_, i) => (
+                  <div key={i} className="flex justify-between text-sm"><span>Add Player Name · Drop Player Name</span><span>+00</span></div>
+                ))}
+              </div>
+              <p className="mt-2 text-sm font-medium">{hidden} more {hidden === 1 ? 'move' : 'moves'} this week with a pass.</p>
+            </div>
+          )}
+        </Panel>
+      )}
+    </div>
+  );
+}
+
 export default function ThisWeekPage() {
   const { me } = useMeContext();
   const { data: moves, reload: reloadMoves } = useCached<MovesResponse>(MOVES_URL);
@@ -64,6 +104,7 @@ export default function ThisWeekPage() {
 
   if (!moves) return <Loading what="your week" kind="week" />;
   const needs = moves.needs;
+  if (needs === 'pro' && moves.preview) return <><Preview p={moves.preview} /><Gate needs="pro" /></>;
   if (needs === 'signin' || needs === 'pro' || needs === 'connect') return <Gate needs={needs} />;
 
   const refreshButton = (
