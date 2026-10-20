@@ -86,11 +86,12 @@ async function collect(now: number, posted: Set<string>, lastPlayer: Record<stri
   const card = (q: string) => cardUrl(`${q}&v=${today}`);
   const posts: Post[] = [];
 
-  // Breaking news: players ruled out (day-to-day can wait), and role changes on stars.
+  // Breaking news: players ruled out (day-to-day can wait), moves (waived, traded, signed) on
+  // rostered players, and role changes on stars.
   // "Still out" follow-ups (same player, same status, last few days) are skipped; a status change posts.
   const followUp = (id: number, status: string) => lastPlayer[id]?.status === status && now - lastPlayer[id].at < FOLLOW_UP_MS;
   const news = (await newsAlerts(12, now).catch(() => []))
-    .filter((a) => !posted.has(a.key) && !followUp(a.id, a.status) && (a.label === "Injury" ? a.out : a.pctOwned >= 80))
+    .filter((a) => !posted.has(a.key) && !followUp(a.id, a.status) && (a.label === "Injury" ? a.out : a.label === "Transaction" || a.pctOwned >= 80))
     .slice(0, MAX_NEWS);
   for (const a of news) posts.push({ key: a.key, player: { id: a.id, status: a.status }, img: card(`type=news&player=${a.id}`), caption: newsCaption(a) });
 
