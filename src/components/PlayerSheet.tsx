@@ -5,10 +5,7 @@ import { createPortal } from "react-dom";
 import { League, Valued, fantasyPoints, tierLabel } from "@/lib/engine";
 import { playerInsights, playerNotes } from "@/lib/insights";
 import { useScouting } from "@/lib/scouting";
-import { setMyRank } from "@/lib/myRanks";
-import type { NewsCard } from "@/lib/playerNews";
 import type { StatLine } from "@/lib/types";
-import { KIND_STYLE } from "./Take";
 import { AvoidButton, Headshot, InjuryBadge, StarButton, TeamLogo, espnRankFor, fmt } from "./ui";
 
 const Ctx = createContext<((v: Valued) => void) | null>(null);
@@ -27,29 +24,10 @@ export function PlayerSheetProvider({ league, children }: { league: League; chil
   );
 }
 
-interface Notes { news: NewsCard[]; season: number; espnUrl: string }
-
-const when = (iso: string) => {
-  const d = new Date(iso);
-  return Number.isNaN(d.getTime()) ? "" : d.toLocaleDateString(undefined, { month: "short", day: "numeric" });
-};
 const pct = (m: number, a: number) => (a ? fmt((100 * m) / a) : "–");
 
 function PlayerSheet({ v, league, onClose }: { v: Valued; league: League; onClose: () => void }) {
   const { p } = v;
-  const [notes, setNotes] = useState<Notes | null>(null);
-  const [failed, setFailed] = useState(false);
-
-  useEffect(() => {
-    let stop = false;
-    setNotes(null); setFailed(false);
-    fetch(`/api/player/${p.id}`)
-      .then(async (r) => { if (!r.ok) throw new Error(); return r.json(); })
-      .then((j) => { if (!stop) setNotes(j); })
-      .catch(() => { if (!stop) setFailed(true); });
-    return () => { stop = true; };
-  }, [p.id]);
-
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
     window.addEventListener("keydown", onKey);
@@ -111,9 +89,7 @@ function PlayerSheet({ v, league, onClose }: { v: Valued; league: League; onClos
         </div>
 
         <div className="space-y-5 px-5 py-5">
-          {/* Your rank and do-not-draft */}
-          <MyRank v={v} />
-          <div className="-mt-2 flex justify-end"><AvoidButton id={p.id} name={p.name} /></div>
+          <div className="flex justify-end"><AvoidButton id={p.id} name={p.name} /></div>
 
           {/* Headline projection */}
           <section className="grid grid-cols-3 gap-3">
@@ -216,74 +192,9 @@ function PlayerSheet({ v, league, onClose }: { v: Valued; league: League; onClos
             </div>
           </Section>
 
-          {/* Our take */}
-          {v.take && (
-            <Section
-              title="Our take"
-              right={<span className={`rounded border px-1.5 py-0.5 text-[11px] font-semibold ${KIND_STYLE[v.take.kind].cls}`}>{KIND_STYLE[v.take.kind].icon} {KIND_STYLE[v.take.kind].label}</span>}
-            >
-              <div className="text-sm font-medium">{v.take.headline}</div>
-              <ul className="mt-2 space-y-2.5">
-                {v.take.notes.map((n, i) => (
-                  <li key={i} className="text-sm">
-                    <p>{n.text}</p>
-                    <div className="mt-0.5 text-[11px] text-muted">
-                      {n.date} · {n.auto ? "auto from ESPN news" : `confidence ${n.confidence}`} ·{" "}
-                      <a href={n.source} target="_blank" rel="noreferrer" className="underline hover:text-fg">{n.auto ? "ESPN" : "source"}</a>
-                    </div>
-                  </li>
-                ))}
-              </ul>
-            </Section>
-          )}
-
-          {/* News */}
-          <Section title="Latest news">
-            {!notes && !failed && <Skeleton lines={3} />}
-            {failed && <p className="text-sm text-muted">Couldn&apos;t load news right now.</p>}
-            {notes && !notes.news.length && <p className="text-sm text-muted">No recent news.</p>}
-            {notes && notes.news.length > 0 && (
-              <ul className="space-y-3">
-                {notes.news.map((n) => (
-                  <li key={n.id} className="text-sm">
-                    <div className="text-[11px] text-muted">{when(n.published)}</div>
-                    <p className="mt-0.5 font-medium">{n.headline ?? "News update"}</p>
-                    {n.note && <p className="mt-1 leading-relaxed text-muted">{n.note}</p>}
-                    <a href={n.link} target="_blank" rel="noopener noreferrer" className="mt-1 inline-block text-[11px] text-muted underline hover:text-fg">Read on ESPN</a>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </Section>
         </div>
       </aside>
     </div>
-  );
-}
-
-/** Set your own rank for a player; the whole board follows it. */
-function MyRank({ v }: { v: Valued }) {
-  const [val, setVal] = useState(v.cvRank != null ? String(v.rank) : "");
-  useEffect(() => { setVal(v.cvRank != null ? String(v.rank) : ""); }, [v.p.id, v.rank, v.cvRank]);
-  const save = () => { const n = Number(val); setMyRank(v.p.id, val.trim() && n >= 1 ? n : null); };
-  return (
-    <section className="flex flex-wrap items-center gap-2 rounded-xl border border-line bg-panel px-4 py-3 text-sm">
-      <span className="font-medium">Your rank</span>
-      <input
-        value={val}
-        onChange={(e) => setVal(e.target.value.replace(/\D/g, ""))}
-        onKeyDown={(e) => e.key === "Enter" && save()}
-        inputMode="numeric"
-        placeholder={`#${v.cvRank ?? v.rank}`}
-        aria-label="Your rank for this player"
-        className="input w-20"
-      />
-      <button onClick={save} className="btn-accent">Set</button>
-      {v.cvRank != null && <button onClick={() => { setMyRank(v.p.id, null); setVal(""); }} className="btn-ghost">Use ours (#{v.cvRank})</button>}
-      <span className="basis-full text-xs text-muted">
-        Disagree with us? Put him where you&apos;d take him. Your rankings, mocks and draft recommendations all follow it.
-      </span>
-    </section>
   );
 }
 
@@ -349,12 +260,3 @@ function Section({ title, right, children }: { title: string; right?: React.Reac
   );
 }
 
-function Skeleton({ lines }: { lines: number }) {
-  return (
-    <div className="space-y-2" aria-hidden>
-      {Array.from({ length: lines }, (_, i) => (
-        <div key={i} className="h-3 animate-pulse rounded bg-sunken" style={{ width: `${95 - i * 12}%` }} />
-      ))}
-    </div>
-  );
-}
