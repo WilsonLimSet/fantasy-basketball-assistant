@@ -1,6 +1,9 @@
 import { ImageResponse } from "next/og";
+import { seasonMode } from "@/lib/season";
 
-export const alt = "Takeover Fantasy: fantasy basketball rankings for your league";
+export const alt = "Takeover Fantasy: daily add/drops and rankings for your fantasy basketball league";
+// Re-render hourly so the season version takes over by itself (see seasonMode).
+export const revalidate = 3600;
 export const size = { width: 1200, height: 630 };
 export const contentType = "image/png";
 
@@ -18,11 +21,19 @@ export default function OpengraphImage() {
           </svg>
           <div style={{ fontSize: 48, fontWeight: 600, color: "#191919", letterSpacing: -1 }}>Takeover Fantasy</div>
         </div>
-        <div style={{ display: "flex", flexDirection: "column" }}>
-          <div style={{ fontSize: 76, fontWeight: 600, color: "#191919", letterSpacing: -2.5, lineHeight: 1.05 }}>Rankings for your league,</div>
-          <div style={{ fontSize: 76, fontWeight: 600, color: "#8a8988", letterSpacing: -2.5, lineHeight: 1.05 }}>not ESPN&apos;s default.</div>
-          <div style={{ marginTop: 28, fontSize: 30, color: "#525252" }}>Fantasy basketball draft kit · mock drafts · live ESPN draft sync</div>
-        </div>
+        {seasonMode() ? (
+          <div style={{ display: "flex", flexDirection: "column" }}>
+            <div style={{ fontSize: 76, fontWeight: 600, color: "#191919", letterSpacing: -2.5, lineHeight: 1.05 }}>Your best add/drops,</div>
+            <div style={{ fontSize: 76, fontWeight: 600, color: "#8a8988", letterSpacing: -2.5, lineHeight: 1.05 }}>every morning.</div>
+            <div style={{ marginTop: 28, fontSize: 30, color: "#525252" }}>ESPN fantasy basketball · usable games · injury alerts with the pickup</div>
+          </div>
+        ) : (
+          <div style={{ display: "flex", flexDirection: "column" }}>
+            <div style={{ fontSize: 76, fontWeight: 600, color: "#191919", letterSpacing: -2.5, lineHeight: 1.05 }}>Rankings for your league,</div>
+            <div style={{ fontSize: 76, fontWeight: 600, color: "#8a8988", letterSpacing: -2.5, lineHeight: 1.05 }}>not ESPN&apos;s default.</div>
+            <div style={{ marginTop: 28, fontSize: 30, color: "#525252" }}>Fantasy basketball draft kit · mock drafts · live ESPN draft sync</div>
+          </div>
+        )}
       </div>
     ),
     size,
