@@ -16,6 +16,7 @@ import {
  *  - TELEGRAM_CHANNEL (e.g. @takeoverfantasy), if set, gets every post too.
  *  - Every user with Telegram alerts on gets them as free news alerts, unless they turned news off.
  *  - Once a day, users with email alerts get a digest of the last day's posts.
+ *  - Postroom (POSTROOM_URL/POSTROOM_KEY), our posting tool, publishes them to Instagram, Threads and X.
  */
 
 const POSTED = "social:posted";
@@ -41,6 +42,28 @@ export const isPostsUser = (username?: string) =>
   !!username && (process.env.TELEGRAM_OWNER_USERNAMES ?? "").split(",").map((u) => u.trim().replace(/^@/, "").toLowerCase()).includes(username.toLowerCase());
 
 const wantsNews = (p: InseasonProfile) => p.alerts.news !== false;
+
+/**
+ * Hand a post to Postroom (POSTROOM_URL, POSTROOM_KEY), which publishes it to Instagram, Threads
+ * and X. The post key doubles as Postroom's sourceKey, so a retry never double-posts.
+ */
+async function sendToPostroom(p: Post): Promise<boolean> {
+  const url = process.env.POSTROOM_URL, key = process.env.POSTROOM_KEY;
+  if (!url || !key) return false;
+  try {
+    const r = await fetch(`${url}/api/v1/posts`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ caption: p.caption, media: { type: "image", url: p.img }, kind: p.key.split(":")[0].replace(/^\d+$/, "news"), platforms: ["instagram", "threads", "x"], sourceKey: p.key }),
+      signal: AbortSignal.timeout(15_000),
+    });
+    if (!r.ok) console.error("[social] postroom", r.status, (await r.text()).slice(0, 200));
+    return r.ok;
+  } catch (e) {
+    console.error("[social] postroom", e instanceof Error ? e.message : e);
+    return false;
+  }
+}
 
 /** Draw a card by fetching our own signed link. Telegram gets the file, since it gives up on slow URLs. */
 async function cardImage(url: string): Promise<Blob | null> {
@@ -160,13 +183,16 @@ export async function pushSocial(now = Date.now()): Promise<{ sent: string[]; fa
   const sent: string[] = [];
   const digest = ((await kv.get<{ img: string; caption: string; at: number }[]>(DIGEST)) ?? []).filter((d) => now - d.at < DAY);
   for (const p of posts) {
-    // With nobody on Telegram yet, a post still counts as sent (for the email digest).
-    let ok = !TELEGRAM_ON || (!owners.length && !fans.length);
-    if (TELEGRAM_ON && !ok) {
+    // Instagram, Threads and X go through Postroom; Telegram below.
+    const queued = await sendToPostroom(p);
+    const chats = TELEGRAM_ON && (owners.length > 0 || fans.length > 0);
+    // Sent once Postroom or any chat has it; with nobody to send to, it still counts (for the email digest).
+    let ok = queued || !chats;
+    if (chats) {
       // Upload the image once; every later send reuses Telegram's file_id.
       let photo: Blob | string | null = await cardImage(p.img);
-      if (!photo) continue;
       const send = async (chat: number | string, caption: string) => {
+        if (!photo) return;
         const id = await sendTelegramPhoto(chat, photo!, caption);
         if (id) { photo = id; ok = true; }
       };
