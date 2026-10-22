@@ -10,7 +10,7 @@ const W = 1080, H = 1350;
 const INK = "#191919", MUTED = "#6b6a69", LINE = "#e7e4e1", BG = "#faf8f7", PANEL = "#ffffff", GREEN = "#2f7d5d", RED = "#b42318";
 
 const MARK = (
-  <svg viewBox="0 0 100 100" width="64" height="64">
+  <svg viewBox="0 0 100 100" width="40" height="40">
       <rect width="100" height="100" rx="23" fill="#191919" />
       <circle cx="50" cy="50" r="30" fill="none" stroke="#faf8f7" strokeWidth="6" />
       <path d="M23 65C44 65 52 40 80 25M76.1 36.4L80 25L68.4 21.9" fill="none" stroke="#191919" strokeWidth="15" strokeLinecap="round" strokeLinejoin="round" />
@@ -18,24 +18,23 @@ const MARK = (
     </svg>
 );
 
-/** Brand bar, the card's content, and the site at the bottom: every card is a 1080x1350 portrait. */
+/** The tag and date, the card's content, and the brand once, in the footer: every card is a 1080x1350 portrait. */
 function Frame({ tag, tagColor = INK, right, children }: { tag: string; tagColor?: string; right?: string; children: React.ReactNode }) {
   return (
     <div style={{ width: "100%", height: "100%", display: "flex", flexDirection: "column", background: BG, padding: "64px 72px", fontFamily: "sans-serif", color: INK }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 18 }}>
-        {MARK}
-        <div style={{ display: "flex", fontSize: 36, fontWeight: 600, letterSpacing: -1 }}>Takeover Fantasy</div>
-        {right && <div style={{ display: "flex", marginLeft: "auto", fontSize: 28, color: MUTED }}>{right}</div>}
-      </div>
-      <div style={{ display: "flex", marginTop: 56 }}>
+      <div style={{ display: "flex", alignItems: "center" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 12, background: tagColor, color: "#fff", borderRadius: 999, padding: "10px 24px", fontSize: 28, fontWeight: 700, letterSpacing: 2, textTransform: "uppercase" }}>
           <div style={{ width: 14, height: 14, borderRadius: 7, background: "#fff" }} />
           {tag}
         </div>
+        {right && <div style={{ display: "flex", marginLeft: "auto", fontSize: 28, color: MUTED }}>{right}</div>}
       </div>
-      <div style={{ display: "flex", flexDirection: "column", flex: 1, marginTop: 36 }}>{children}</div>
-      <div style={{ display: "flex", justifyContent: "space-between", borderTop: `2px solid ${LINE}`, paddingTop: 28, fontSize: 28, color: MUTED }}>
-        <span>{SITE.replace(/^https?:\/\//, "")}</span>
+      <div style={{ display: "flex", flexDirection: "column", flex: 1, marginTop: 40 }}>{children}</div>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", borderTop: `2px solid ${LINE}`, paddingTop: 28, fontSize: 28, color: MUTED }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+          {MARK}
+          <span>{SITE.replace(/^https?:\/\//, "")}</span>
+        </div>
         <span>Add/drops for your fantasy team</span>
       </div>
     </div>
@@ -184,27 +183,49 @@ export async function GET(req: Request) {
     if (type === "daily-cover") {
       const date = /^\d{4}-\d{2}-\d{2}$/.test(q.get("date") ?? "") ? q.get("date")! : easternDate(Date.now());
       const c = await dailyContent(date);
-      const hero = c.heroes.list[0], riser = c.movers.risers[0], out = c.injuries.find((i) => i.kind === "out" && i.other);
-      const teasers = [
-        hero && { tag: "Best pickup last night", text: `${hero.name}: ${hero.fpts} fpts`, sub: `${hero.pctOwned < 1 ? "<1" : hero.pctOwned}% rostered · ${hero.short}`, id: hero.id },
-        riser && { tag: "Everyone's adding", text: riser.name, sub: `+${riser.pctChange}% today · now ${riser.pctOwned}% rostered`, id: riser.id },
-        out && { tag: "Injury pickup", text: `Add ${out.other!.name}`, sub: `${out.player.name} is out · ${out.other!.pctOwned}% rostered`, id: out.other!.id },
-      ].filter(Boolean) as { tag: string; text: string; sub: string; id: number }[];
+      const [hero, second] = c.heroes.list, riser = c.movers.risers[0], faller = c.movers.fallers[0];
+      const out = c.injuries.find((i) => i.kind === "out" && i.other);
+      const pctOf = (n: number) => (n < 1 ? "<1" : String(n));
+      const also = [
+        riser && { tag: "Everyone's adding", text: riser.name, value: `+${riser.pctChange}%`, color: GREEN, sub: `now ${riser.pctOwned}% rostered`, id: riser.id },
+        out && { tag: "Injury pickup", text: out.other!.name, value: `${pctOf(out.other!.pctOwned)}%`, color: GREEN, sub: `${out.player.name} is out`, id: out.other!.id },
+        !out && second && { tag: "Also went off", text: second.name, value: `${second.fpts}`, color: INK, sub: `${pctOf(second.pctOwned)}% rostered · ${second.short}`, id: second.id },
+        faller && { tag: "Getting dropped", text: faller.name, value: `−${Math.abs(faller.pctChange)}%`, color: RED, sub: `now ${faller.pctOwned}% rostered`, id: faller.id },
+      ].filter(Boolean) as { tag: string; text: string; value: string; color: string; sub: string; id: number }[];
       return png(
         <Frame tag="Takeover Daily" tagColor={INK} right={shortDate(date)}>
-          <div style={{ display: "flex", flexShrink: 0, fontSize: 88, fontWeight: 700, letterSpacing: -3.5, lineHeight: 1 }}>Your fantasy morning</div>
-          <div style={{ display: "flex", flexShrink: 0, fontSize: 32, color: MUTED, marginTop: 16, marginBottom: 44 }}>Waiver wire, trends and injuries in one swipe →</div>
-          {teasers.map((t) => (
-            <div key={t.tag} style={{ display: "flex", flexShrink: 0, alignItems: "center", gap: 24, background: PANEL, border: `2px solid ${LINE}`, borderRadius: 28, padding: "20px 28px", marginBottom: 18 }}>
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={headshotUrl(t.id, 180, 131)} width={124} height={90} alt="" />
-              <div style={{ display: "flex", flexDirection: "column" }}>
-                <div style={{ display: "flex", fontSize: 22, fontWeight: 700, letterSpacing: 2, textTransform: "uppercase", color: GREEN }}>{t.tag}</div>
-                <div style={{ display: "flex", fontSize: 40, fontWeight: 700, letterSpacing: -1 }}>{t.text}</div>
-                <div style={{ display: "flex", fontSize: 26, color: MUTED }}>{t.sub}</div>
+          {hero ? (
+            <div style={{ display: "flex", flexDirection: "column", flexShrink: 0 }}>
+              <div style={{ display: "flex", fontSize: 26, fontWeight: 700, letterSpacing: 2, textTransform: "uppercase", color: GREEN }}>Best pickup last night</div>
+              <div style={{ display: "flex", alignItems: "flex-end", gap: 28, marginTop: 20 }}>
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={headshotUrl(hero.id, 420, 306)} width={330} height={240} alt="" style={{ borderRadius: 28, background: PANEL, border: `2px solid ${LINE}` }} />
+                <div style={{ display: "flex", flexDirection: "column", paddingBottom: 6 }}>
+                  <div style={{ display: "flex", fontSize: 132, fontWeight: 700, letterSpacing: -5, lineHeight: 0.9 }}>{hero.fpts}</div>
+                  <div style={{ display: "flex", fontSize: 30, color: MUTED, marginTop: 8 }}>fantasy points</div>
+                </div>
               </div>
+              <div style={{ display: "flex", fontSize: 76, fontWeight: 700, letterSpacing: -3, lineHeight: 1, marginTop: 28 }}>{hero.name}</div>
+              <div style={{ display: "flex", fontSize: 32, color: MUTED, marginTop: 12 }}>{`${hero.short} · on waivers in ${100 - Math.round(hero.pctOwned)}% of leagues`}</div>
             </div>
-          ))}
+          ) : (
+            <div style={{ display: "flex", flexShrink: 0, fontSize: 88, fontWeight: 700, letterSpacing: -3.5, lineHeight: 1 }}>Your fantasy morning</div>
+          )}
+          <div style={{ display: "flex", flexDirection: "column", marginTop: "auto" }}>
+            {also.map((t) => (
+              <div key={t.tag} style={{ display: "flex", flexShrink: 0, alignItems: "center", gap: 22, background: PANEL, border: `2px solid ${LINE}`, borderRadius: 24, padding: "14px 26px", marginTop: 14 }}>
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={headshotUrl(t.id, 150, 109)} width={96} height={70} alt="" />
+                <div style={{ display: "flex", flexDirection: "column", flex: 1 }}>
+                  <div style={{ display: "flex", fontSize: 20, fontWeight: 700, letterSpacing: 2, textTransform: "uppercase", color: t.color }}>{t.tag}</div>
+                  <div style={{ display: "flex", fontSize: 36, fontWeight: 700, letterSpacing: -1 }}>{t.text}</div>
+                  <div style={{ display: "flex", fontSize: 24, color: MUTED }}>{t.sub}</div>
+                </div>
+                <div style={{ display: "flex", fontSize: 44, fontWeight: 700, color: t.color }}>{t.value}</div>
+              </div>
+            ))}
+            <div style={{ display: "flex", justifyContent: "flex-end", fontSize: 28, color: MUTED, marginTop: 22, marginBottom: 28 }}>Swipe for today&apos;s moves →</div>
+          </div>
         </Frame>,
       );
     }
