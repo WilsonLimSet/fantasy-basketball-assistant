@@ -118,7 +118,7 @@ export function checkUnsubscribe(email: string, t: string): boolean {
 export function newsDigestEmail(email: string, posts: { img: string; caption: string }[]) {
   const unsub = newsUnsubscribeUrl(email);
   // Captions end with our call to action and hashtags; the email has its own footer.
-  const body = (c: string) => c.replace(/\n*Add\/drops built for your ESPN team:[\s\S]*$/, '').replace(/\n*#\S+(\s#\S+)*\s*$/, '').trim();
+  const body = (c: string) => c.replace(/\n*Add\/drops built for your (?:ESPN|fantasy) team:[\s\S]*$/, '').replace(/\n*#\S+(\s#\S+)*\s*$/, '').trim();
   const first = body(posts[0].caption).split('\n')[0].replace(/^[^A-Za-z]+/, '');
   const subject = posts.length > 1 ? `${first.slice(0, 70)} (+${posts.length - 1} more)` : first.slice(0, 90);
   const html =

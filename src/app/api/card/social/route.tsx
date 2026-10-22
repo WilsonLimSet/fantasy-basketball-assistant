@@ -2,7 +2,7 @@ import { cloneElement, isValidElement } from "react";
 import { ImageResponse } from "next/og";
 import { headshotUrl, teamLogoUrl } from "@/lib/espnImages";
 import { scorecard } from "@/lib/scorecard";
-import { dateRange, verifiedCardQuery, newsAlertFor, returnAlertFor, risersFallers, waiverHeroes, yesterday, scheduleSpots, shortDate, type Mover, SITE, streamers, type NewsAlert } from "@/lib/social";
+import { dailyContent, easternDate, loadInjuries, dateRange, verifiedCardQuery, newsAlertFor, returnAlertFor, risersFallers, waiverHeroes, yesterday, scheduleSpots, shortDate, type Mover, SITE, streamers, type NewsAlert } from "@/lib/social";
 
 export const dynamic = "force-dynamic";
 
@@ -36,7 +36,7 @@ function Frame({ tag, tagColor = INK, right, children }: { tag: string; tagColor
       <div style={{ display: "flex", flexDirection: "column", flex: 1, marginTop: 36 }}>{children}</div>
       <div style={{ display: "flex", justifyContent: "space-between", borderTop: `2px solid ${LINE}`, paddingTop: 28, fontSize: 28, color: MUTED }}>
         <span>{SITE.replace(/^https?:\/\//, "")}</span>
-        <span>Add/drops for your ESPN team</span>
+        <span>Add/drops for your fantasy team</span>
       </div>
     </div>
   );
@@ -180,6 +180,69 @@ export async function GET(req: Request) {
       const a = await newsAlertFor(Number(q.get("player")));
       if (!a) return new Response("No news for that player", { status: 404 });
       return png(<NewsCard a={a} />);
+    }
+    if (type === "daily-cover") {
+      const date = /^\d{4}-\d{2}-\d{2}$/.test(q.get("date") ?? "") ? q.get("date")! : easternDate(Date.now());
+      const c = await dailyContent(date);
+      const hero = c.heroes.list[0], riser = c.movers.risers[0], out = c.injuries.find((i) => i.kind === "out" && i.other);
+      const teasers = [
+        hero && { tag: "Best pickup last night", text: `${hero.name}: ${hero.fpts} fpts`, sub: `${hero.pctOwned < 1 ? "<1" : hero.pctOwned}% rostered · ${hero.short}`, id: hero.id },
+        riser && { tag: "Everyone's adding", text: riser.name, sub: `+${riser.pctChange}% today · now ${riser.pctOwned}% rostered`, id: riser.id },
+        out && { tag: "Injury pickup", text: `Add ${out.other!.name}`, sub: `${out.player.name} is out · ${out.other!.pctOwned}% rostered`, id: out.other!.id },
+      ].filter(Boolean) as { tag: string; text: string; sub: string; id: number }[];
+      return png(
+        <Frame tag="Takeover Daily" tagColor={INK} right={shortDate(date)}>
+          <div style={{ display: "flex", flexShrink: 0, fontSize: 88, fontWeight: 700, letterSpacing: -3.5, lineHeight: 1 }}>Your fantasy morning</div>
+          <div style={{ display: "flex", flexShrink: 0, fontSize: 32, color: MUTED, marginTop: 16, marginBottom: 44 }}>Waiver wire, trends and injuries in one swipe →</div>
+          {teasers.map((t) => (
+            <div key={t.tag} style={{ display: "flex", flexShrink: 0, alignItems: "center", gap: 24, background: PANEL, border: `2px solid ${LINE}`, borderRadius: 28, padding: "20px 28px", marginBottom: 18 }}>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={headshotUrl(t.id, 180, 131)} width={124} height={90} alt="" />
+              <div style={{ display: "flex", flexDirection: "column" }}>
+                <div style={{ display: "flex", fontSize: 22, fontWeight: 700, letterSpacing: 2, textTransform: "uppercase", color: GREEN }}>{t.tag}</div>
+                <div style={{ display: "flex", fontSize: 40, fontWeight: 700, letterSpacing: -1 }}>{t.text}</div>
+                <div style={{ display: "flex", fontSize: 26, color: MUTED }}>{t.sub}</div>
+              </div>
+            </div>
+          ))}
+        </Frame>,
+      );
+    }
+    if (type === "injuries") {
+      const date = /^\d{4}-\d{2}-\d{2}$/.test(q.get("date") ?? "") ? q.get("date")! : easternDate(Date.now());
+      const items = (await loadInjuries(date)).slice(0, 5);
+      if (!items.length) return new Response("No injury news", { status: 404 });
+      return png(
+        <Frame tag="Injury pickups" tagColor={RED} right={shortDate(date)}>
+          <div style={{ display: "flex", flexShrink: 0, fontSize: 72, fontWeight: 700, letterSpacing: -3, lineHeight: 1 }}>Who&apos;s out, who to add</div>
+          <div style={{ display: "flex", flexShrink: 0, fontSize: 30, color: MUTED, marginTop: 14, marginBottom: 36 }}>Real absences only, with the teammate who gets the minutes.</div>
+          {items.map((i) => (
+            <div key={`${i.kind}${i.player.id}`} style={{ display: "flex", flexShrink: 0, alignItems: "center", gap: 20, background: PANEL, border: `2px solid ${LINE}`, borderRadius: 24, padding: "16px 24px", marginBottom: 14 }}>
+              <div style={{ display: "flex", width: 92, justifyContent: "center", borderRadius: 999, padding: "6px 0", fontSize: 20, fontWeight: 700, letterSpacing: 1, color: "#fff", background: i.kind === "out" ? RED : GREEN }}>{i.kind === "out" ? "OUT" : "BACK"}</div>
+              <div style={{ display: "flex", flexDirection: "column", flex: 1 }}>
+                <div style={{ display: "flex", fontSize: 34, fontWeight: 700, letterSpacing: -1 }}>{`${i.player.name} (${i.player.team})`}</div>
+                {i.other && <div style={{ display: "flex", fontSize: 26, color: MUTED }}>{i.kind === "out" ? `Add ${i.other.name} · ${i.other.pctOwned}% rostered` : `${i.other.name} loses minutes`}</div>}
+              </div>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              {i.other && <img src={headshotUrl(i.other.id, 150, 109)} width={96} height={70} alt="" />}
+            </div>
+          ))}
+        </Frame>,
+      );
+    }
+    if (type === "cta") {
+      return png(
+        <Frame tag="Your league" tagColor={GREEN}>
+          <div style={{ display: "flex", flexDirection: "column", flex: 1, justifyContent: "center" }}>
+            <div style={{ display: "flex", fontSize: 92, fontWeight: 700, letterSpacing: -3.5, lineHeight: 1.02 }}>Every league&apos;s waiver wire is different.</div>
+            <div style={{ display: "flex", fontSize: 40, color: MUTED, marginTop: 28, lineHeight: 1.3 }}>Connect your league and get the add/drops that win your week, and the day to make each one.</div>
+            <div style={{ display: "flex", marginTop: 56 }}>
+              <div style={{ display: "flex", background: INK, color: "#fff", borderRadius: 999, padding: "22px 40px", fontSize: 36, fontWeight: 700 }}>takeoverfantasy.com</div>
+            </div>
+            <div style={{ display: "flex", fontSize: 28, color: MUTED, marginTop: 28 }}>Free injury alerts · Weekly or season plans</div>
+          </div>
+        </Frame>,
+      );
     }
     if (type === "return") {
       const a = await returnAlertFor(Number(q.get("player")));

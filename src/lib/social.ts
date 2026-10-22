@@ -2,6 +2,7 @@ import { createHmac, timingSafeEqual } from "node:crypto";
 import { getPlayers, SEASON } from "./data";
 import { fantasyPoints, PRESETS } from "./engine";
 import { PRO_TEAM } from "./espn";
+import { kvStore } from "./inseason/storage";
 import { loadTakes, normName, type Take } from "./takes";
 import type { Player } from "./types";
 
@@ -298,12 +299,13 @@ const boxPoints = (b: Record<string, number>) =>
   b.pts + b.tpm - b.fga + 2 * b.fgm - b.fta + b.ftm + b.reb + 2 * b.ast + 4 * b.stl + 4 * b.blk - 2 * b.tov;
 
 export interface Hero { id: number; name: string; team: string; pctOwned: number; fpts: number; line: string; short: string }
+export interface BoxLine extends Hero { min: number }
 
 /**
- * The best fantasy games on a US date from players under 50% rostered, from ESPN's box scores.
- * Only finished games count: a live game's line looks final but isn't.
+ * Every player's fantasy line on a US date, from ESPN's box scores. Only finished games count:
+ * a live game's line looks final but isn't.
  */
-export async function waiverHeroes(date: string, limit = 5): Promise<{ date: string; games: number; list: Hero[] }> {
+export async function boxLines(date: string): Promise<{ date: string; games: number; lines: BoxLine[] }> {
   const get = async (url: string) => {
     const r = await fetch(url, { headers: { Accept: "application/json" }, next: { revalidate: 600 } });
     if (!r.ok) throw new Error(`ESPN ${url}: ${r.status}`);
@@ -312,10 +314,10 @@ export async function waiverHeroes(date: string, limit = 5): Promise<{ date: str
   const board = await get(`${NBA}/scoreboard?dates=${date.replace(/-/g, "")}`);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const done = ((board?.events ?? []) as any[]).filter((e) => e?.status?.type?.completed).map((e) => String(e.id));
-  if (!done.length) return { date, games: 0, list: [] };
+  if (!done.length) return { date, games: 0, lines: [] };
   const [{ players }, boxes] = await Promise.all([getPlayers(), Promise.all(done.map((id) => get(`${NBA}/summary?event=${id}`).catch(() => null)))]);
   const owned = new Map(players.map((p) => [p.id, p.pctOwned ?? 0]));
-  const heroes: Hero[] = [];
+  const lines: BoxLine[] = [];
   for (const box of boxes) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     for (const side of (box?.boxscore?.players ?? []) as any[]) {
@@ -325,23 +327,29 @@ export async function waiverHeroes(date: string, limit = 5): Promise<{ date: str
       for (const a of (st?.athletes ?? []) as any[]) {
         if (a.didNotPlay || !a.stats?.length) continue;
         const id = Number(a.athlete?.id);
-        const pct = owned.get(id) ?? 0;
-        if (pct >= STREAMER_MAX_OWNED) continue;
         const v = (k: string) => a.stats[keys.indexOf(k)] ?? "0";
         const split = (k: string) => v(k).split("-").map(Number);
         const [fgm, fga] = split("fieldGoalsMade-fieldGoalsAttempted"), [tpm] = split("threePointFieldGoalsMade-threePointFieldGoalsAttempted"), [ftm, fta] = split("freeThrowsMade-freeThrowsAttempted");
         const b = { pts: Number(v("points")), reb: Number(v("rebounds")), ast: Number(v("assists")), stl: Number(v("steals")), blk: Number(v("blocks")), tov: Number(v("turnovers")), fgm, fga, tpm, ftm, fta };
         if (Object.values(b).some((x) => !Number.isFinite(x))) continue;
         const extras = [b.stl >= 2 && `${b.stl} stl`, b.blk >= 2 && `${b.blk} blk`, b.tpm >= 3 && `${b.tpm} 3pm`].filter(Boolean);
-        heroes.push({
-          id, name: String(a.athlete?.displayName ?? ""), team: BOX_TEAM[side.team?.abbreviation] ?? String(side.team?.abbreviation ?? ""), pctOwned: Math.round(pct), fpts: Math.round(boxPoints(b)),
+        lines.push({
+          id, name: String(a.athlete?.displayName ?? ""), team: BOX_TEAM[side.team?.abbreviation] ?? String(side.team?.abbreviation ?? ""),
+          pctOwned: Math.round(owned.get(id) ?? 0), fpts: Math.round(boxPoints(b)), min: Number(v("minutes")) || 0,
           line: [`${b.pts} pts`, `${b.reb} reb`, `${b.ast} ast`, ...extras].join(", "),
           short: `${b.pts}p ${b.reb}r ${b.ast}a${b.stl >= 2 ? ` ${b.stl}s` : ""}${b.blk >= 2 ? ` ${b.blk}b` : ""}`,
         });
       }
     }
   }
-  return { date, games: done.length, list: heroes.sort((x, y) => y.fpts - x.fpts).slice(0, limit) };
+  return { date, games: done.length, lines };
+}
+
+/** The best fantasy games on a US date from players under 50% rostered. */
+export async function waiverHeroes(date: string, limit = 5): Promise<{ date: string; games: number; list: Hero[] }> {
+  const { games, lines } = await boxLines(date);
+  const list = lines.filter((l) => l.pctOwned < STREAMER_MAX_OWNED).sort((x, y) => y.fpts - x.fpts).slice(0, limit).map(({ min: _min, ...h }) => h);
+  return { date, games, list };
 }
 
 export const yesterday = (now = Date.now()) => addDays(easternDate(now), -1);
@@ -362,10 +370,46 @@ export async function scheduleSpots(now = Date.now()) {
   };
 }
 
+/* ---------------- Daily slideshow ---------------- */
+
+/** One line on the injury slide: a player ruled out (and who to add) or back (and who loses minutes). */
+export interface InjuryItem {
+  kind: "out" | "back";
+  player: { id: number; name: string; team: string; pctOwned: number };
+  other?: { id: number; name: string; pctOwned: number };
+}
+
+const injuriesKey = (date: string) => `social:injuries:${date}`;
+/** The day's injury lines are worked out once by the news run, then read by the slide and caption. */
+export const saveInjuries = (date: string, items: InjuryItem[]) => kvStore().set(injuriesKey(date), items);
+export const loadInjuries = async (date: string) => (await kvStore().get<InjuryItem[]>(injuriesKey(date)).catch(() => null)) ?? [];
+
+/** Everything on a day's slideshow (date = the US date it's posted). */
+export async function dailyContent(date: string) {
+  const night = addDays(date, -1);
+  const [heroes, movers, injuries] = await Promise.all([
+    waiverHeroes(night, 5).catch(() => ({ date: night, games: 0, list: [] as Hero[] })),
+    risersFallers(5).catch(() => ({ date, risers: [] as Mover[], fallers: [] as Mover[] })),
+    loadInjuries(date),
+  ]);
+  return { date, night, heroes, movers, injuries };
+}
+
+export function dailyCaption(c: Awaited<ReturnType<typeof dailyContent>>): string {
+  const lines = [`Takeover Daily · ${shortDate(c.date)} 🏀`, ""];
+  if (c.heroes.list.length) lines.push(`📊 Last night's best pickups: ${c.heroes.list.slice(0, 3).map((h) => `${h.name} (${h.fpts} fpts, ${pct(h.pctOwned)})`).join(", ")}`);
+  if (c.movers.risers.length) lines.push(`📈 Everyone's adding: ${c.movers.risers.slice(0, 3).map((m) => `${m.name} (+${m.pctChange}%)`).join(", ")}`);
+  if (c.movers.fallers.length) lines.push(`📉 Getting dropped: ${c.movers.fallers.slice(0, 2).map((m) => m.name).join(", ")}`);
+  const outs = c.injuries.filter((i) => i.kind === "out" && i.other);
+  if (outs.length) lines.push(`🚑 Injury pickups: ${outs.slice(0, 2).map((i) => `${i.player.name} out → add ${i.other!.name}`).join("; ")}`);
+  lines.push("", "Every league's waiver wire is different. Find the moves for yours: takeoverfantasy.com", TAGS);
+  return lines.join("\n");
+}
+
 /* ---------------- Captions ---------------- */
 
 const TAGS = "#fantasybasketball #nbafantasy #NBA";
-const CTA = `Add/drops built for your ESPN team: ${SITE.replace(/^https?:\/\//, "")}`;
+const CTA = `Add/drops built for your fantasy team: ${SITE.replace(/^https?:\/\//, "")}`;
 const pct = (n: number) => (n < 1 ? "under 1% rostered" : `${n}% rostered`);
 
 /** Shams-style: the news first, in one plain line, then what to do about it. */
