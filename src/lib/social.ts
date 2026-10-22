@@ -437,8 +437,10 @@ export async function dailyContent(date: string) {
 }
 
 export function dailyCaption(c: Awaited<ReturnType<typeof dailyContent>>): string {
-  const lines = [`Takeover Daily · ${shortDate(c.date)} 🏀`, ""];
-  if (c.top) lines.push(`🔥 Best pickup last night: ${c.top.name}, ${c.top.fpts} fpts (${c.top.short}), ${pct(c.top.pctOwned)}`);
+  // A new brand's name means nothing yet: lead with the news, the best pickup nobody has.
+  const lines = c.top
+    ? [`${c.top.name} put up ${c.top.fpts} fantasy points last night (${c.top.short}) and he's on waivers in ${100 - Math.round(c.top.pctOwned)}% of leagues 👀`, "", `Today's waiver wire, ${shortDate(c.date)}:`]
+    : [`Today's fantasy waiver wire, ${shortDate(c.date)} 🏀`, ""];
   if (c.heroes.list.length) lines.push(`📊 Also went off: ${c.heroes.list.slice(0, 3).map((h) => `${h.name} (${h.fpts} fpts, ${pct(h.pctOwned)})`).join(", ")}`);
   if (c.movers.risers.length) lines.push(`📈 Everyone's adding: ${c.movers.risers.slice(0, 3).map((m) => `${m.name} (+${m.pctChange}%)`).join(", ")}`);
   if (c.movers.fallers.length) lines.push(`📉 Getting dropped: ${c.movers.fallers.slice(0, 2).map((m) => m.name).join(", ")}`);

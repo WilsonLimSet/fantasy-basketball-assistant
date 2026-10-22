@@ -212,7 +212,7 @@ export async function GET(req: Request) {
         c.injuries.length && { label: "Injury pickups", sub: "Who\u2019s out and who gets the minutes" },
       ].filter(Boolean) as { label: string; sub: string }[];
       return png(
-        <Frame tag="Takeover Daily" tagColor={INK} right={shortDate(date)}>
+        <Frame tag="Today's waiver wire" tagColor={INK} right={shortDate(date)}>
           {hero ? (
             <div style={{ display: "flex", flexDirection: "column", flexShrink: 0 }}>
               <div style={{ display: "flex", fontSize: 26, fontWeight: 700, letterSpacing: 2, textTransform: "uppercase", color: GREEN }}>Best pickup last night</div>
