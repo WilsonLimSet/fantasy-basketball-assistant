@@ -4,7 +4,7 @@ import { notFound } from "next/navigation";
 import { LogoMark } from "@/components/Logo";
 import { isOwner } from "@/lib/auth";
 import { scorecard } from "@/lib/scorecard";
-import { cardUrl, heroesCaption, newsAlerts, newsCaption, risersCaption, risersFallers, scheduleCaption, scheduleSpots, SITE, waiverHeroes, yesterday } from "@/lib/social";
+import { cardUrl, dailyCaption, dailyContent, easternDate, heroesCaption, newsAlerts, newsCaption, risersCaption, risersFallers, scheduleCaption, scheduleSpots, SITE, waiverHeroes, yesterday } from "@/lib/social";
 import { CopyButton } from "./CopyButton";
 
 export const dynamic = "force-dynamic";
@@ -32,22 +32,42 @@ function Post({ title, img, caption, file }: { title: string; img: string; capti
 export default async function Studio() {
   if (!(await isOwner())) notFound();
   const night = yesterday();
-  const [news, movers, schedule, card, heroes] = await Promise.all([
+  const today = easternDate(Date.now());
+  const [news, movers, schedule, card, heroes, daily] = await Promise.all([
     newsAlerts(8).catch(() => []),
     risersFallers(5).catch(() => null),
     scheduleSpots().catch(() => null),
     scorecard().catch(() => null),
     waiverHeroes(night, 5).catch(() => null),
+    dailyContent(today).catch(() => null),
   ]);
+  const slides = daily
+    ? [`type=daily-cover&date=${today}`, ...(daily.heroes.list.length ? [`type=heroes&date=${daily.night}`] : []), ...(daily.movers.risers.length ? ["type=trending"] : []), ...(daily.injuries.length ? [`type=injuries&date=${today}`] : []), "type=cta"]
+    : [];
   const img = (q: string) => cardUrl(q, false);
   return (
     <main className="mx-auto max-w-7xl px-4 py-8">
       <Link href="/" className="flex items-center gap-2 text-sm font-semibold"><LogoMark size={20} /> Takeover Fantasy</Link>
       <h1 className="mt-6 text-3xl font-medium tracking-[-0.03em]">Studio</h1>
       <p className="mt-2 max-w-2xl text-sm text-muted">
-        Today&apos;s posts. Download the image (or long-press it on your phone), copy the caption, post. New injury news also
-        goes to your Telegram automatically, and players cleared to return show up there too. Every link points to {SITE.replace(/^https?:\/\//, "")}.
+        Today&apos;s posts. The daily slideshow and breaking news go to Instagram and Threads through Postroom automatically, and to your Telegram; everything else here is for posting by hand. Every link points to {SITE.replace(/^https?:\/\//, "")}.
       </p>
+
+      {daily && (
+        <>
+          <h2 className="mt-10 mb-4 text-lg font-medium">Takeover Daily · today&apos;s slideshow</h2>
+          <div className="flex snap-x gap-4 overflow-x-auto pb-2">
+            {slides.map((q, i) => (
+              <a key={q} href={cardUrl(q, false)} download={`daily-${today}-${i + 1}.png`} className="w-64 shrink-0 snap-start">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={cardUrl(q, false)} alt={`Slide ${i + 1}`} loading="lazy" className="w-full rounded-lg border border-line" />
+              </a>
+            ))}
+          </div>
+          <pre className="mt-3 max-w-2xl whitespace-pre-wrap rounded-lg bg-sunken p-3 text-xs leading-relaxed">{dailyCaption(daily)}</pre>
+          <div className="mt-2"><CopyButton text={dailyCaption(daily)} /></div>
+        </>
+      )}
 
       <h2 className="mt-10 mb-4 text-lg font-medium">Breaking news</h2>
       {news.length ? (

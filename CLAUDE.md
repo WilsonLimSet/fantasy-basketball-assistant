@@ -15,7 +15,10 @@ AI fantasy basketball tool at https://takeoverfantasy.com (Cloudflare DNS → Ve
 Draft kit free. In-season: **$5/week subscription** (STRIPE_WEEKLY_LINK, cancel from My league, which offers the season first) or **$39 season pass** (one-time, to Jul 1 2027). Old one-time week passes still honored. Stripe account is in Singapore; prod key is live. Owners (OWNER_EMAILS) and FRIEND_EMAILS always have access. Referral links give both sides a free week (capped at 10).
 
 ## Social posts
-`src/lib/social.ts` (data + captions), `src/app/api/card/social` (1080x1350 cards; links must be signed via `cardUrl`), `src/lib/socialPush.ts` (runs from the news cron at 05:00 and 15:00 UTC). Posts: injury alerts (pickup only when the player is OUT), transactions (waived/traded/signed, 30%+ rostered), cleared to return, last night's waiver heroes, risers & fallers, Monday schedule + receipts (/scorecard). Delivered to the owner's Telegram (/posts from @wilsonlimset), every Telegram-linked user (/nonews to stop), and a daily email digest. Images are uploaded to Telegram as files (it times out on slow URLs).
+`src/lib/social.ts` (data + captions), `src/app/api/card/social` (1080x1350 cards; links must be signed via `cardUrl`), `src/lib/socialPush.ts` (runs from the news cron at 05:00 and 15:00 UTC). Two kinds only, to avoid spam (~170 slideshows a season):
+- **Takeover Daily** (15:00 UTC run): one carousel: cover, last night's waiver heroes (<50% rostered, finished games only), trending adds/drops, injury pickups (real OUTs with a pickup, plus players back), and a call to action.
+- **Breaking** (max one a day): a 50%+ rostered player ruled out with a <30% rostered pickup, or a 50%+ rostered player moved or cut.
+No posts about role changes on stars or "still out" follow-ups (Wilson: obvious, priced-in news is not insightful). Branding says "your fantasy team", not ESPN; "% rostered across ESPN leagues" is fine as the data source. Posts go to Postroom (Instagram, Threads, X), the owner's Telegram (/posts), Telegram users with news on (/nonews), and a daily email digest. Box-score minutes are saved daily (`social:minutes:<date>`) for a future minutes-trends slide.
 
 ## Wilson's league
 ESPN "The Best League 27", 10 teams, points, his team is "Wilson's Waterboys" (team 5). The server's ESPN login reads it.

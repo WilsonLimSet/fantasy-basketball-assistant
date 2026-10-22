@@ -190,6 +190,31 @@ export async function sendTelegramPhoto(chatId: number | string, photo: Blob | s
   }
 }
 
+/**
+ * Up to 10 photos as one swipeable album, the caption on the first. Pass files, or file_ids from an
+ * earlier send. Returns each photo's file_id for reuse, or null on failure.
+ */
+export async function sendTelegramAlbum(chatId: number | string, photos: (Blob | string)[], caption: string): Promise<string[] | null> {
+  const token = process.env.TELEGRAM_BOT_TOKEN;
+  if (!token || !photos.length) return null;
+  try {
+    const form = new FormData();
+    form.set('chat_id', String(chatId));
+    const media = photos.slice(0, 10).map((p, i) => {
+      if (typeof p !== 'string') form.set(`p${i}`, p, `slide${i + 1}.png`);
+      return { type: 'photo', media: typeof p === 'string' ? p : `attach://p${i}`, ...(i === 0 ? { caption: caption.slice(0, 1024) } : {}) };
+    });
+    form.set('media', JSON.stringify(media));
+    const r = await fetch(`${API}/bot${token}/sendMediaGroup`, { method: 'POST', body: form, cache: 'no-store' });
+    const j = await r.json().catch(() => ({}));
+    if (!j.ok) throw new Error(j.description ?? String(r.status));
+    return (j.result as { photo?: { file_id: string }[] }[]).map((m) => m.photo?.at(-1)?.file_id ?? '');
+  } catch (e) {
+    console.error('[telegram] album failed', e instanceof Error ? e.message : e);
+    return null;
+  }
+}
+
 export function dailyTelegram(opts: {
   teamName: string;
   leagueId: string;

@@ -2,21 +2,22 @@ import { getPlayers } from "./data";
 import { EMAIL_ON, newsDigestEmail, sendEmail } from "./inseason/email";
 import { kvStore } from "./inseason/storage";
 import { isOwnerEmail, listProfiles, type InseasonProfile } from "./inseason/profile";
-import { sendTelegramPhoto, TELEGRAM_ON } from "./inseason/telegramUser";
+import { sendTelegramAlbum, sendTelegramPhoto, TELEGRAM_ON } from "./inseason/telegramUser";
 import { savePicks, scorecard } from "./scorecard";
 import {
-  easternDate, heroesCaption, newsAlerts, newsCaption, OUT, returnAlertFor, returnCaption, risersCaption, risersFallers,
-  cardUrl, scheduleCaption, scheduleSpots, SITE, waiverHeroes, weekOf, yesterday,
+  boxLines, cardUrl, dailyCaption, dailyContent, easternDate, loadInjuries, newsAlerts, newsCaption, OUT, returnAlertFor,
+  saveInjuries, SITE, weekOf, yesterday, type InjuryItem,
 } from "./social";
 
 /**
- * Sends new social posts (card + caption), from the news cron twice a day. Each post goes out once.
- *  - The owner (linked on My league, or /posts from a TELEGRAM_OWNER_USERNAMES account) gets every
- *    post with a caption ready to paste into Instagram, TikTok or X.
- *  - TELEGRAM_CHANNEL (e.g. @takeoverfantasy), if set, gets every post too.
- *  - Every user with Telegram alerts on gets them as free news alerts, unless they turned news off.
- *  - Once a day, users with email alerts get a digest of the last day's posts.
- *  - Postroom (POSTROOM_URL/POSTROOM_KEY), our posting tool, publishes them to Instagram, Threads and X.
+ * Social posts, from the news cron (about 11am and 1am New York time). Two kinds, so a season is
+ * roughly 170 slideshows plus a few dozen breaking posts, not 500 separate ones:
+ *  - Takeover Daily (the morning run): one slideshow: cover, last night's waiver heroes, who
+ *    everyone's adding and dropping, injury pickups (when there are any), and a call to action.
+ *  - Breaking (either run, at most one a day): a widely rostered player ruled out with a
+ *    low-rostered pickup, or a widely rostered player moved or cut.
+ * Each goes out once, to: Postroom (Instagram, Threads, X), the owner's Telegram and TELEGRAM_CHANNEL
+ * (captions ready to paste), every user with Telegram news on, and a daily email digest.
  */
 
 const POSTED = "social:posted";
@@ -25,15 +26,14 @@ const OWNER_CHATS = "social:ownerChats";
 const LAST_PLAYER = "social:lastPlayer";
 /** Injury status of every rostered player at the last run, to spot players coming back. */
 const STATUSES = "social:statuses";
-/** The last day's posts, for the email digest. */
-const DIGEST = "social:digest";
 const FOLLOW_UP_MS = 3 * 24 * 60 * 60 * 1000;
-const DAY = 24 * 60 * 60 * 1000;
 const KEEP = 500;
-/** At most this many news posts per run, biggest first, so a busy news day doesn't flood anyone. */
-const MAX_NEWS = 4;
-/** Players this widely rostered are worth a "cleared to return" post. */
-const RETURN_MIN_OWNED = 30;
+/** Breaking news needs a player this widely rostered... */
+const BREAKING_MIN_OWNED = 50;
+/** ...and, for an injury, a pickup this widely available. */
+const PICKUP_MAX_OWNED = 30;
+/** Players this widely rostered make the injury slide (out or back). */
+const SLIDE_MIN_OWNED = 30;
 /** Pause between Telegram sends to users: the bot API allows about 30 messages a second. */
 const SEND_GAP_MS = 50;
 
@@ -42,6 +42,9 @@ export const isPostsUser = (username?: string) =>
   !!username && (process.env.TELEGRAM_OWNER_USERNAMES ?? "").split(",").map((u) => u.trim().replace(/^@/, "").toLowerCase()).includes(username.toLowerCase());
 
 const wantsNews = (p: InseasonProfile) => p.alerts.news !== false;
+
+/** A post: one image, or a slideshow (2-10 images). */
+interface Post { key: string; kind: string; images: string[]; caption: string; player?: { id: number; status: string } }
 
 /**
  * Hand a post to Postroom (POSTROOM_URL, POSTROOM_KEY), which publishes it to Instagram, Threads
@@ -54,7 +57,10 @@ async function sendToPostroom(p: Post): Promise<boolean> {
     const r = await fetch(`${url}/api/v1/posts`, {
       method: "POST",
       headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
-      body: JSON.stringify({ caption: p.caption, media: { type: "image", url: p.img }, kind: p.key.split(":")[0].replace(/^\d+$/, "news"), platforms: ["instagram", "threads", "x"], sourceKey: p.key }),
+      body: JSON.stringify({
+        caption: p.caption, kind: p.kind, platforms: ["instagram", "threads", "x"], sourceKey: p.key,
+        ...(p.images.length > 1 ? { slides: p.images } : { media: { type: "image", url: p.images[0] } }),
+      }),
       signal: AbortSignal.timeout(15_000),
     });
     if (!r.ok) console.error("[social] postroom", r.status, (await r.text()).slice(0, 200));
@@ -77,98 +83,129 @@ async function cardImage(url: string): Promise<Blob | null> {
   }
 }
 
-/** Subscribe a chat to the posts, and send it the current ones right away. */
+/**
+ * Send a post to Telegram chats: images drawn once and uploaded once, then every later chat reuses
+ * Telegram's file_ids. Slideshows go as one album. True if any chat got it.
+ */
+async function sendToTelegram(p: Post, owners: (number | string)[], fans: number[]): Promise<boolean> {
+  const files = (await Promise.all(p.images.map(cardImage))).filter((f): f is Blob => !!f);
+  if (!files.length) return false;
+  let photos: (Blob | string)[] = files;
+  let ok = false;
+  const send = async (chat: number | string, caption: string) => {
+    const ids = photos.length > 1 ? await sendTelegramAlbum(chat, photos, caption) : [await sendTelegramPhoto(chat, photos[0], caption)];
+    if (ids?.every(Boolean)) { photos = ids as string[]; ok = true; }
+  };
+  for (const chat of owners) await send(chat, p.caption);
+  // Users get the news without our hashtags, and a way to stop it.
+  const fanCaption = `${p.caption.replace(/\n#\S+(\s#\S+)*\s*$/, "")}\n\n/nonews to stop news alerts`;
+  for (const chat of fans) {
+    await send(chat, fanCaption);
+    await new Promise((r) => setTimeout(r, SEND_GAP_MS));
+  }
+  return ok;
+}
+
+/** Subscribe a chat to the posts, and send it today's slideshow right away. */
 export async function subscribePosts(chatId: number): Promise<number> {
   const kv = kvStore();
   const chats = new Set((await kv.get<number[]>(OWNER_CHATS)) ?? []);
   chats.add(chatId);
   await kv.set(OWNER_CHATS, [...chats]);
-  const today = easternDate(Date.now());
-  const card = (q: string) => cardUrl(`${q}&v=${today}`);
-  const items: { img: string; caption: string }[] = [];
-  const r = await risersFallers(5).catch(() => null);
-  if (r?.risers.length) items.push({ img: card("type=trending"), caption: risersCaption(r) });
-  for (const a of (await newsAlerts(3).catch(() => []))) items.push({ img: card(`type=news&player=${a.id}`), caption: newsCaption(a) });
-  let sent = 0;
-  for (const it of items) {
-    const image = await cardImage(it.img);
-    if (image && (await sendTelegramPhoto(chatId, image, it.caption))) sent++;
-  }
-  return sent;
+  const daily = await dailyPost(easternDate(Date.now())).catch(() => null);
+  return daily && (await sendToTelegram(daily, [chatId], [])) ? 1 : 0;
 }
 
-interface Post { key: string; player?: { id: number; status: string }; img: string; caption: string }
-
-/** This run's new posts. Also updates the injury-status snapshot used to spot returns. */
-async function collect(now: number, posted: Set<string>, lastPlayer: Record<string, { status: string; at: number }>): Promise<Post[]> {
-  const kv = kvStore();
-  const today = easternDate(now);
-  const monday = weekOf(today).start === today;
-  const morning = new Date(now).getUTCHours() >= 12; // the 11am New York run
-  // A version per day, so Telegram and email clients don't reuse yesterday's cached image.
+/** The day's slideshow, or null when there's too little to show (no games last night and no movers). */
+async function dailyPost(today: string): Promise<Post | null> {
+  const c = await dailyContent(today);
+  if (!c.heroes.list.length && !c.movers.risers.length) return null;
   const card = (q: string) => cardUrl(`${q}&v=${today}`);
-  const posts: Post[] = [];
+  const images = [
+    card(`type=daily-cover&date=${today}`),
+    ...(c.heroes.list.length ? [card(`type=heroes&date=${c.night}`)] : []),
+    ...(c.movers.risers.length ? [card("type=trending")] : []),
+    ...(c.injuries.length ? [card(`type=injuries&date=${today}`)] : []),
+    card("type=cta"),
+  ];
+  return { key: `daily:${today}`, kind: "daily", images, caption: dailyCaption(c) };
+}
 
-  // Breaking news: players ruled out (day-to-day can wait), moves (waived, traded, signed) on
-  // rostered players, and role changes on stars.
-  // "Still out" follow-ups (same player, same status, last few days) are skipped; a status change posts.
-  const followUp = (id: number, status: string) => lastPlayer[id]?.status === status && now - lastPlayer[id].at < FOLLOW_UP_MS;
-  const news = (await newsAlerts(12, now).catch(() => []))
-    .filter((a) => !posted.has(a.key) && !followUp(a.id, a.status) && (a.label === "Injury" ? a.out : a.label === "Transaction" || a.pctOwned >= 80))
-    .slice(0, MAX_NEWS);
-  for (const a of news) posts.push({ key: a.key, player: { id: a.id, status: a.status }, img: card(`type=news&player=${a.id}`), caption: newsCaption(a) });
-
-  // Cleared to return: out at the last run, active now. The first run only records statuses.
+/** Today's injury lines: players newly ruled out (with the pickup) and players back from injury. */
+async function injuryLines(now: number, today: string, lastPlayer: Record<string, { status: string; at: number }>): Promise<InjuryItem[]> {
+  const kv = kvStore();
   const { players } = await getPlayers();
   const before = await kv.get<Record<string, string>>(STATUSES);
-  const rostered = players.filter((p) => (p.pctOwned ?? 0) >= RETURN_MIN_OWNED);
+  const rostered = players.filter((p) => (p.pctOwned ?? 0) >= SLIDE_MIN_OWNED);
   await kv.set(STATUSES, Object.fromEntries(rostered.map((p) => [p.id, p.injury])));
+  const followUp = (id: number, status: string) => lastPlayer[id]?.status === status && now - lastPlayer[id].at < FOLLOW_UP_MS;
+  const items = new Map((await loadInjuries(today)).map((i) => [`${i.kind}:${i.player.id}`, i]));
+  for (const a of await newsAlerts(20, now).catch(() => [])) {
+    if (a.label !== "Injury" || !a.out || !a.nextUp || a.pctOwned < SLIDE_MIN_OWNED || followUp(a.id, a.status)) continue;
+    items.set(`out:${a.id}`, { kind: "out", player: { id: a.id, name: a.name, team: a.team, pctOwned: a.pctOwned }, other: { id: a.nextUp.id, name: a.nextUp.name, pctOwned: a.nextUp.pctOwned } });
+  }
+  // The first run only records statuses; after that, out last run and active now means back.
   if (before) {
-    for (const p of rostered.filter((p) => OUT.has(before[p.id]) && p.injury === "ACTIVE").slice(0, MAX_NEWS)) {
-      const key = `return:${p.id}:${today}`;
-      const r = posted.has(key) ? null : await returnAlertFor(p.id).catch(() => null);
-      if (r) posts.push({ key, player: { id: p.id, status: "ACTIVE" }, img: card(`type=return&player=${p.id}`), caption: returnCaption(r) });
+    for (const p of rostered.filter((p) => OUT.has(before[p.id]) && p.injury === "ACTIVE")) {
+      const r = await returnAlertFor(p.id).catch(() => null);
+      items.set(`back:${p.id}`, { kind: "back", player: { id: p.id, name: p.name, team: p.team, pctOwned: Math.round(p.pctOwned ?? 0) }, ...(r?.loser ? { other: { id: r.loser.id, name: r.loser.name, pctOwned: r.loser.pctOwned } } : {}) });
     }
   }
+  const list = [...items.values()].sort((x, y) => (x.kind === y.kind ? y.player.pctOwned - x.player.pctOwned : x.kind === "out" ? -1 : 1)).slice(0, 5);
+  await saveInjuries(today, list);
+  return list;
+}
 
-  // The morning run: last night's waiver heroes (every game is final by then) and the day's risers & fallers.
-  if (morning) {
-    const night = yesterday(now);
-    if (!posted.has(`heroes:${night}`)) {
-      const h = await waiverHeroes(night, 5).catch(() => null);
-      if (h?.list.length) posts.push({ key: `heroes:${night}`, img: card(`type=heroes&date=${night}`), caption: heroesCaption(h) });
-    }
-    if (!posted.has(`trending:${today}`)) {
-      const r = await risersFallers(5).catch(() => null);
-      if (r?.risers.length) posts.push({ key: `trending:${today}`, img: card("type=trending"), caption: risersCaption(r) });
-    }
-  }
-
-  // Mondays: the week's schedule and last week's receipts.
-  if (monday && !posted.has(`schedule:${today}`)) {
-    const s = await scheduleSpots(now).catch(() => null);
-    if (s) posts.push({ key: `schedule:${today}`, img: card("type=schedule"), caption: scheduleCaption(s) });
-  }
-  if (monday) {
-    const c = await scorecard(undefined, now).catch(() => null);
-    if (c?.complete && !posted.has(`scorecard:${c.week}`)) {
-      posts.push({
-        key: `scorecard:${c.week}`,
-        img: card(`type=scorecard&week=${c.week}`),
-        caption: `Week ${c.week} receipts 🧾\n\nOur streamers: ${c.ours.fppg.toFixed(1)} fpts/g\nESPN's most added: ${c.espn.fppg.toFixed(1)} fpts/g\n\n${SITE.replace(/^https?:\/\//, "")}/scorecard`,
-      });
-    }
-  }
-  return posts;
+/** At most one breaking post a day: the biggest real absence with a pickup, or a big name moved or cut. */
+async function breakingPost(now: number, today: string, posted: Set<string>, lastPlayer: Record<string, { status: string; at: number }>): Promise<Post | null> {
+  if ([...posted].some((k) => k.startsWith(`breaking:${today}:`))) return null;
+  const followUp = (id: number, status: string) => lastPlayer[id]?.status === status && now - lastPlayer[id].at < FOLLOW_UP_MS;
+  const a = (await newsAlerts(20, now).catch(() => []))
+    .filter((x) => !posted.has(`breaking:${today}:${x.key}`) && !followUp(x.id, x.status) && x.pctOwned >= BREAKING_MIN_OWNED)
+    .find((x) => (x.label === "Injury" && x.out && x.nextUp && x.nextUp.pctOwned < PICKUP_MAX_OWNED) || x.label === "Transaction");
+  if (!a) return null;
+  return {
+    key: `breaking:${today}:${a.key}`, kind: a.label === "Injury" ? "injury" : "transaction",
+    images: [cardUrl(`type=news&player=${a.id}&v=${today}`)], caption: newsCaption(a), player: { id: a.id, status: a.status },
+  };
 }
 
 export async function pushSocial(now = Date.now()): Promise<{ sent: string[]; fans: number; emailed: number; picksSaved: boolean }> {
   // Receipts need this week's picks saved whether or not anything gets posted.
   const picksSaved = await savePicks(now).catch((e) => { console.error("[social] picks", e); return false; });
   const kv = kvStore();
+  const today = easternDate(now);
+  const morning = new Date(now).getUTCHours() >= 12; // the 11am New York run
   const posted = new Set((await kv.get<string[]>(POSTED)) ?? []);
   const lastPlayer = (await kv.get<Record<string, { status: string; at: number }>>(LAST_PLAYER)) ?? {};
-  const posts = await collect(now, posted, lastPlayer);
+
+  // Last night's minutes for every player, kept for a future minutes-trends slide.
+  if (morning) {
+    const night = yesterday(now);
+    if (!(await kv.get(`social:minutes:${night}`))) {
+      const b = await boxLines(night).catch(() => null);
+      if (b?.lines.length) await kv.set(`social:minutes:${night}`, Object.fromEntries(b.lines.map((l) => [l.id, l.min])));
+    }
+  }
+
+  await injuryLines(now, today, lastPlayer).catch((e) => console.error("[social] injuries", e));
+  const posts: Post[] = [];
+  const breaking = await breakingPost(now, today, posted, lastPlayer).catch(() => null);
+  if (breaking) posts.push(breaking);
+  if (morning && !posted.has(`daily:${today}`)) {
+    const daily = await dailyPost(today).catch((e) => { console.error("[social] daily", e); return null; });
+    if (daily) posts.push(daily);
+  }
+  // Mondays: last week's receipts, as a single post.
+  if (morning && weekOf(today).start === today) {
+    const c = await scorecard(undefined, now).catch(() => null);
+    if (c?.complete && !posted.has(`scorecard:${c.week}`)) {
+      posts.push({
+        key: `scorecard:${c.week}`, kind: "receipts", images: [cardUrl(`type=scorecard&week=${c.week}&v=${today}`)],
+        caption: `Week ${c.week} receipts 🧾\n\nOur streamers: ${c.ours.fppg.toFixed(1)} fpts/g\nESPN's most added: ${c.espn.fppg.toFixed(1)} fpts/g\n\n${SITE.replace(/^https?:\/\//, "")}/scorecard`,
+      });
+    }
+  }
 
   const profiles = await listProfiles();
   const channel = process.env.TELEGRAM_CHANNEL?.trim();
@@ -181,47 +218,27 @@ export async function pushSocial(now = Date.now()): Promise<{ sent: string[]; fa
     .filter((id) => !owners.includes(id));
 
   const sent: string[] = [];
-  const digest = ((await kv.get<{ img: string; caption: string; at: number }[]>(DIGEST)) ?? []).filter((d) => now - d.at < DAY);
   for (const p of posts) {
-    // Instagram, Threads and X go through Postroom; Telegram below.
     const queued = await sendToPostroom(p);
     const chats = TELEGRAM_ON && (owners.length > 0 || fans.length > 0);
     // Sent once Postroom or any chat has it; with nobody to send to, it still counts (for the email digest).
-    let ok = queued || !chats;
-    if (chats) {
-      // Upload the image once; every later send reuses Telegram's file_id.
-      let photo: Blob | string | null = await cardImage(p.img);
-      const send = async (chat: number | string, caption: string) => {
-        if (!photo) return;
-        const id = await sendTelegramPhoto(chat, photo!, caption);
-        if (id) { photo = id; ok = true; }
-      };
-      for (const chat of owners) await send(chat, p.caption);
-      // Users get the news without our hashtags, and a way to stop it.
-      const fanCaption = `${p.caption.replace(/\n#\S+(\s#\S+)*\s*$/, "")}\n\n/nonews to stop news alerts`;
-      for (const chat of fans) {
-        await send(chat, fanCaption);
-        await new Promise((r) => setTimeout(r, SEND_GAP_MS));
-      }
-    }
+    const ok = (chats ? await sendToTelegram(p, owners, fans) : false) || queued || !chats;
     if (!ok) continue;
     posted.add(p.key);
     sent.push(p.key);
-    digest.push({ img: p.img, caption: p.caption, at: now });
     if (p.player) lastPlayer[p.player.id] = { status: p.player.status, at: now };
   }
   if (sent.length) {
     await kv.set(POSTED, [...posted].slice(-KEEP));
-    await kv.set(DIGEST, digest);
     // Forget players not posted about in a month, so the map stays small.
     await kv.set(LAST_PLAYER, Object.fromEntries(Object.entries(lastPlayer).filter(([, v]) => now - v.at < 30 * FOLLOW_UP_MS)));
   }
 
-  // One email a day (the morning run) with the last day's posts, to stay within Resend's daily limit.
+  // One email a day (the morning run): the day's slideshow, to stay within Resend's daily limit.
   let emailed = 0;
-  const today = easternDate(now);
-  if (EMAIL_ON && new Date(now).getUTCHours() >= 12 && digest.length && (await kv.claim(`social:digestSent:${today}`, now))) {
-    const items = digest.slice(-8).map(({ img, caption }) => ({ img, caption }));
+  const daily = posts.find((p) => p.kind === "daily" && sent.includes(p.key));
+  if (EMAIL_ON && daily && (await kv.claim(`social:digestSent:${today}`, now))) {
+    const items = daily.images.map((img, i) => ({ img, caption: i === 0 ? daily.caption : "" }));
     for (const p of profiles.filter((p) => p.alerts.email && wantsNews(p))) {
       if (await sendEmail(p.email, newsDigestEmail(p.email, items))) emailed++;
     }
