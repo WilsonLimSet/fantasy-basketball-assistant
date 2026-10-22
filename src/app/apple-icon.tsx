@@ -8,10 +8,10 @@ export default function AppleIcon() {
   return new ImageResponse(
     (
       <div style={{ width: "100%", height: "100%", display: "flex", background: "#191919" }}>
-        <svg viewBox="0 0 64 64" width="180" height="180">
-          <path d="M32 4v56" stroke="#faf8f7" strokeWidth="4.5" strokeLinecap="round" />
-          <circle cx="32" cy="32" r="14" fill="#191919" stroke="#faf8f7" strokeWidth="4.5" />
-          <circle cx="32" cy="32" r="5" fill="#3fa37a" />
+        <svg viewBox="0 0 100 100" width="180" height="180">
+          <circle cx="50" cy="50" r="30" fill="none" stroke="#faf8f7" strokeWidth="6" />
+          <path d="M23 65C44 65 52 40 80 25M76.1 36.4L80 25L68.4 21.9" fill="none" stroke="#191919" strokeWidth="15" strokeLinecap="round" strokeLinejoin="round" />
+          <path d="M23 65C44 65 52 40 80 25M76.1 36.4L80 25L68.4 21.9" fill="none" stroke="#3fa37a" strokeWidth="7" strokeLinecap="round" strokeLinejoin="round" />
         </svg>
       </div>
     ),

@@ -10,12 +10,12 @@ const W = 1080, H = 1350;
 const INK = "#191919", MUTED = "#6b6a69", LINE = "#e7e4e1", BG = "#faf8f7", PANEL = "#ffffff", GREEN = "#2f7d5d", RED = "#b42318";
 
 const MARK = (
-  <svg viewBox="0 0 64 64" width="64" height="64">
-    <rect width="64" height="64" rx="15" fill={INK} />
-    <path d="M32 6v52" stroke={BG} strokeWidth="5" strokeLinecap="round" />
-    <circle cx="32" cy="32" r="15" fill={INK} stroke={BG} strokeWidth="5" />
-    <circle cx="32" cy="32" r="5.5" fill="#3fa37a" />
-  </svg>
+  <svg viewBox="0 0 100 100" width="64" height="64">
+      <rect width="100" height="100" rx="23" fill="#191919" />
+      <circle cx="50" cy="50" r="30" fill="none" stroke="#faf8f7" strokeWidth="6" />
+      <path d="M23 65C44 65 52 40 80 25M76.1 36.4L80 25L68.4 21.9" fill="none" stroke="#191919" strokeWidth="15" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M23 65C44 65 52 40 80 25M76.1 36.4L80 25L68.4 21.9" fill="none" stroke="#3fa37a" strokeWidth="7" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
 );
 
 /** Brand bar, the card's content, and the site at the bottom: every card is a 1080x1350 portrait. */
