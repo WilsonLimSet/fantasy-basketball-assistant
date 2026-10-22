@@ -74,7 +74,8 @@ function extractPlayerStats(espnPlayer: ESPNPlayer): Player['stats'] {
     return undefined;
   }
 
-  const season = Math.max(...espnPlayer.stats.map((s) => Number(String(s.id).slice(2)) || 0));
+  // Per-game entries ("05<gameId>") aren't season keys; reading them as one hid every stat.
+  const season = Math.max(...espnPlayer.stats.map((s) => (/^\d{6}$/.test(String(s.id)) ? Number(String(s.id).slice(2)) : 0)));
   const stats: Player['stats'] = {};
 
   for (const stat of espnPlayer.stats) {

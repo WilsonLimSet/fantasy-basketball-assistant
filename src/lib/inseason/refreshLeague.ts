@@ -5,6 +5,7 @@
 
 import { getLeagueSnapshot, withLeague } from './espnClient';
 import { buildLeagueSnapshot, calculateSnapshotDiff } from './dataTransform';
+import { saveProfile } from './profile';
 import { updateInjuryHistory } from './injuryTracker';
 import type { LeagueContext } from './profile';
 import type { LeagueSnapshot, LeagueTransaction, SnapshotDiff, Watchlist } from '@/types';
@@ -55,4 +56,21 @@ export async function refreshLeague(ctx: LeagueContext): Promise<RefreshedLeague
   }));
 
   return { snapshot, diff, watchlist, transactions };
+}
+
+/** Older than this, a page view reloads the league from ESPN (free) instead of waiting for the cron. */
+export const VIEW_REFRESH_MS = 30 * 60 * 1000;
+
+/** The stored snapshot, reloaded first when it's missing or older than maxAgeMs. */
+export async function freshSnapshot(ctx: LeagueContext, maxAgeMs = VIEW_REFRESH_MS): Promise<LeagueSnapshot | null> {
+  const snapshot = await ctx.storage.getLatestSnapshot(ctx.leagueId, ctx.seasonId);
+  if (snapshot && Date.now() - snapshot.fetchedAt <= maxAgeMs) return snapshot;
+  try {
+    const fresh = (await refreshLeague(ctx)).snapshot;
+    if (ctx.profile) await saveProfile({ ...ctx.profile, lastRefreshAt: Date.now() });
+    return fresh;
+  } catch (e) {
+    console.error('[refreshLeague] view refresh failed', e);
+    return snapshot;
+  }
 }

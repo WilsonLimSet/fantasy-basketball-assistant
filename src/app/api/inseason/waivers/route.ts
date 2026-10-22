@@ -5,6 +5,7 @@
 
 import { NextResponse } from 'next/server';
 import { requireLeague } from '@/lib/inseason/routeContext';
+import { freshSnapshot } from '@/lib/inseason/refreshLeague';
 import { getWaiverRecommendations, getDropRecommendations } from '@/lib/inseason/optimizer';
 import type { WaiverRecommendation, Player } from '@/types';
 
@@ -32,7 +33,7 @@ export async function GET(request: Request) {
     const { storage } = ctx;
 
     // Get latest snapshot
-    const snapshot = await storage.getLatestSnapshot(leagueId, seasonId);
+    const snapshot = await freshSnapshot(ctx);
     if (!snapshot) {
       return NextResponse.json(
         {

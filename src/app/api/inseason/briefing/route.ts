@@ -5,6 +5,7 @@
 
 import { NextResponse } from 'next/server';
 import { requireLeague } from '@/lib/inseason/routeContext';
+import { freshSnapshot } from '@/lib/inseason/refreshLeague';
 import { generateDailyBriefing } from '@/lib/inseason/optimizer';
 import type { DailyBriefing } from '@/types';
 
@@ -26,7 +27,7 @@ export async function GET() {
     const { storage } = ctx;
 
     // Get latest snapshot
-    const snapshot = await storage.getLatestSnapshot(leagueId, seasonId);
+    const snapshot = await freshSnapshot(ctx);
     if (!snapshot) {
       return NextResponse.json(
         {

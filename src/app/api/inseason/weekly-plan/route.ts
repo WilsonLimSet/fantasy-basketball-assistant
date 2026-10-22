@@ -5,6 +5,7 @@
 
 import { NextResponse } from 'next/server';
 import { requireLeague } from '@/lib/inseason/routeContext';
+import { freshSnapshot } from '@/lib/inseason/refreshLeague';
 import { generateWeeklyStreamingPlan, getWaiverRecommendations } from '@/lib/inseason/optimizer';
 import { compareMatchupGames } from '@/lib/inseason/matchupGames';
 import type { WeeklyStreamingPlan, NBATeamSchedule, WaiverRecommendation, MatchupGamesComparison, MatchupWeekSchedule } from '@/types';
@@ -36,7 +37,7 @@ export async function GET(request: Request) {
     const { storage } = ctx;
 
     // Get latest snapshot
-    const snapshot = await storage.getLatestSnapshot(leagueId, seasonId);
+    const snapshot = await freshSnapshot(ctx);
     if (!snapshot) {
       return NextResponse.json(
         {

@@ -6,8 +6,8 @@
 
 import { NextResponse } from 'next/server';
 import { requireLeague } from '@/lib/inseason/routeContext';
-import { previewContext, saveProfile } from '@/lib/inseason/profile';
-import { refreshLeague } from '@/lib/inseason/refreshLeague';
+import { previewContext } from '@/lib/inseason/profile';
+import { freshSnapshot } from '@/lib/inseason/refreshLeague';
 import { buildStreamingPlan, expectedFppg } from '@/lib/inseason/streaming';
 import { compareMatchupGames } from '@/lib/inseason/matchupGames';
 import { espnAddUrl } from '@/lib/inseason/email';
@@ -15,7 +15,7 @@ import { espnAddUrl } from '@/lib/inseason/email';
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
 
-/** Free users' league data is refreshed when they look, at most this often (paid leagues refresh by cron). */
+/** Free users' league data is refreshed when they look, at most this often (paid leagues every 30 minutes). */
 const PREVIEW_REFRESH_MS = 12 * 60 * 60 * 1000;
 
 /**
@@ -25,15 +25,7 @@ const PREVIEW_REFRESH_MS = 12 * 60 * 60 * 1000;
 async function preview() {
   const ctx = await previewContext();
   if (!ctx?.profile) return null;
-  let snapshot = await ctx.storage.getLatestSnapshot(ctx.leagueId, ctx.seasonId);
-  if (!snapshot || Date.now() - snapshot.fetchedAt > PREVIEW_REFRESH_MS) {
-    try {
-      snapshot = (await refreshLeague(ctx)).snapshot;
-      await saveProfile({ ...ctx.profile, lastRefreshAt: Date.now() });
-    } catch (e) {
-      console.error('[moves] preview refresh failed', e);
-    }
-  }
+  const snapshot = await freshSnapshot(ctx, PREVIEW_REFRESH_MS);
   if (!snapshot) return null;
   const plan = buildStreamingPlan(snapshot, ctx.core, []);
   if (!plan) return null;
@@ -57,7 +49,7 @@ export async function GET() {
     return p ? NextResponse.json({ success: false, needs: 'pro', preview: p }, { status: 402 }) : error;
   }
   const [snapshot, watchlist] = await Promise.all([
-    ctx.storage.getLatestSnapshot(ctx.leagueId, ctx.seasonId),
+    freshSnapshot(ctx),
     ctx.storage.getWatchlist(ctx.leagueId, ctx.seasonId),
   ]);
   if (!snapshot) {
