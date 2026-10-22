@@ -17,6 +17,7 @@ import { buildStreamingPlan } from '@/lib/inseason/streaming';
 import { compareMatchupGames } from '@/lib/inseason/matchupGames';
 import { dailyEmail, EMAIL_ON, sendEmail } from '@/lib/inseason/email';
 import { dailyTelegram, sendTelegramTo, TELEGRAM_ON } from '@/lib/inseason/telegramUser';
+import { injuryReport, recordInjuryHistory } from '@/lib/inseason/stash';
 import type { LeagueSnapshot } from '@/types';
 
 export const dynamic = 'force-dynamic';
@@ -83,6 +84,8 @@ export async function GET(request: Request) {
   } catch (e) {
     console.error('[Refresh] owner league failed:', e);
   }
+  // Keeps the injured stash's timeline history moving even when nobody opens the page.
+  await injuryReport().then(recordInjuryHistory).catch((e) => console.error('[Refresh] injury history failed:', e));
 
   // Only accounts with a running pass (or no paywall): an expired week pass stops the work and the alerts.
   const profiles = await withAccess(await listProfiles());

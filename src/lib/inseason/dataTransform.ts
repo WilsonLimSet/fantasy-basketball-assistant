@@ -86,6 +86,7 @@ function extractPlayerStats(espnPlayer: ESPNPlayer): Player['stats'] {
       if (split === '00') {
         stats.seasonAvg = stat.appliedAverage;
         stats.gamesPlayed = stat.stats?.['42']; // GP
+        stats.seasonMin = stat.averageStats?.['40'];
       }
       if (split === '01') stats.last7Avg = stat.appliedAverage;
       if (split === '02') stats.last15Avg = stat.appliedAverage;
@@ -93,6 +94,7 @@ function extractPlayerStats(espnPlayer: ESPNPlayer): Player['stats'] {
     }
     if (stat.statSourceId === 1 && split === '10') {
       stats.projectedAvg = stat.appliedAverage;
+      stats.projectedMin = stat.averageStats?.['40'];
       if (stat.appliedTotal !== undefined) stats.projectedTotal = stat.appliedTotal;
     }
   }
