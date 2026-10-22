@@ -67,6 +67,8 @@ export interface ESPNPlayerStats {
   appliedTotal?: number;
   appliedAverage?: number;
   stats?: Record<string, number>;
+  /** Per-game averages by stat id (40 = minutes). */
+  averageStats?: Record<string, number>;
   proTeamId?: number;
   scoringPeriodId?: number;
   seasonId?: number;

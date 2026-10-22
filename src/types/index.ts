@@ -32,6 +32,9 @@ export interface PlayerSeasonStats {
   last15Avg?: number;
   last30Avg?: number;
   gamesPlayed?: number;
+  /** Minutes per game this season, and projected. */
+  seasonMin?: number;
+  projectedMin?: number;
 }
 
 // Roster entry with player details

@@ -121,7 +121,11 @@ interface Candidate {
   delay?: number;
 }
 
-/** Expected fantasy points per game: projection early in the season, recent form once there's a sample. */
+/**
+ * Expected fantasy points per game: minutes times points per minute. Minutes are the first thing
+ * to move with a new role (a crowded rotation, a starter's injury), so this season's minutes take
+ * over within a few games; points per minute is noisier and leans on the projection longer.
+ */
 export function expectedFppg(p: Player): number {
   const s = p.stats;
   if (!s) return 0;
@@ -129,11 +133,18 @@ export function expectedFppg(p: Player): number {
   const gp = s.gamesPlayed ?? 0;
   const proj = s.projectedAvg ?? season;
   if (gp <= 0 || !season) return proj;
+  if (s.seasonMin && s.projectedMin && proj) {
+    const minutes = blend(s.seasonMin, s.projectedMin, gp / (gp + 1.5));
+    const perMin = blend(season / s.seasonMin, proj / s.projectedMin, gp / (gp + 5));
+    return minutes * perMin;
+  }
   const recent = s.last15Avg || season;
   const played = 0.5 * recent + 0.5 * season;
   const w = Math.min(1, gp / 10); // lean on the projection until about 10 games in
   return w * played + (1 - w) * proj;
 }
+
+const blend = (actual: number, projected: number, w: number) => w * actual + (1 - w) * projected;
 
 const isPointsLeague = (snapshot: LeagueSnapshot) => (snapshot.scoringType ?? '').includes('POINTS');
 

@@ -17,6 +17,7 @@ const DRAFT_TABS = [
 const VIEWS = [
   { href: '/inseason', label: 'This week' },
   { href: '/inseason/waivers', label: 'Free agents' },
+  { href: '/inseason/stash', label: 'Injured stash' },
   { href: '/inseason/weekly', label: 'Schedule' },
   { href: '/inseason/connect', label: 'My league' },
 ];

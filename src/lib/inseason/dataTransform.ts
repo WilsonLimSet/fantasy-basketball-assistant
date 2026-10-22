@@ -74,7 +74,8 @@ function extractPlayerStats(espnPlayer: ESPNPlayer): Player['stats'] {
     return undefined;
   }
 
-  const season = Math.max(...espnPlayer.stats.map((s) => Number(String(s.id).slice(2)) || 0));
+  // Per-game entries ("05<gameId>") aren't season keys; reading them as one hid every stat.
+  const season = Math.max(...espnPlayer.stats.map((s) => (/^\d{6}$/.test(String(s.id)) ? Number(String(s.id).slice(2)) : 0)));
   const stats: Player['stats'] = {};
 
   for (const stat of espnPlayer.stats) {
@@ -85,6 +86,7 @@ function extractPlayerStats(espnPlayer: ESPNPlayer): Player['stats'] {
       if (split === '00') {
         stats.seasonAvg = stat.appliedAverage;
         stats.gamesPlayed = stat.stats?.['42']; // GP
+        stats.seasonMin = stat.averageStats?.['40'];
       }
       if (split === '01') stats.last7Avg = stat.appliedAverage;
       if (split === '02') stats.last15Avg = stat.appliedAverage;
@@ -92,6 +94,7 @@ function extractPlayerStats(espnPlayer: ESPNPlayer): Player['stats'] {
     }
     if (stat.statSourceId === 1 && split === '10') {
       stats.projectedAvg = stat.appliedAverage;
+      stats.projectedMin = stat.averageStats?.['40'];
       if (stat.appliedTotal !== undefined) stats.projectedTotal = stat.appliedTotal;
     }
   }

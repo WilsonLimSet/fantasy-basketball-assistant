@@ -381,6 +381,11 @@ export async function getFreeAgents(params?: {
   });
 }
 
+/** The most rostered free agents and waiver players, healthy or not (for the injured stash list). */
+export async function getFreeAgentPool(limit = 300, scoringPeriodId?: number): Promise<ESPNFreeAgentResponse> {
+  return espnFetchFreeAgents({ limit, scoringPeriodId });
+}
+
 /**
  * Get NBA pro team schedule from ESPN
  */
