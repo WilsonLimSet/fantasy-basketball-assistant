@@ -2,7 +2,7 @@ import { cloneElement, isValidElement } from "react";
 import { ImageResponse } from "next/og";
 import { headshotUrl, teamLogoUrl } from "@/lib/espnImages";
 import { scorecard } from "@/lib/scorecard";
-import { dailyContent, easternDate, loadInjuries, dateRange, verifiedCardQuery, newsAlertFor, returnAlertFor, risersFallers, waiverHeroes, yesterday, scheduleSpots, shortDate, type Mover, SITE, streamers, type NewsAlert } from "@/lib/social";
+import { dailyContent, easternDate, loadInjuries, dateRange, verifiedCardQuery, newsAlertFor, returnAlertFor, risersFallers, minutesWatch, type MinutesMove, waiverHeroes, yesterday, scheduleSpots, shortDate, type Mover, SITE, streamers, type NewsAlert } from "@/lib/social";
 
 export const dynamic = "force-dynamic";
 
@@ -10,7 +10,7 @@ const W = 1080, H = 1350;
 const INK = "#191919", MUTED = "#6b6a69", LINE = "#e7e4e1", BG = "#faf8f7", PANEL = "#ffffff", GREEN = "#2f7d5d", RED = "#b42318";
 
 const MARK = (
-  <svg viewBox="0 0 100 100" width="64" height="64">
+  <svg viewBox="0 0 100 100" width="40" height="40">
       <rect width="100" height="100" rx="23" fill="#191919" />
       <circle cx="50" cy="50" r="30" fill="none" stroke="#faf8f7" strokeWidth="6" />
       <path d="M23 65C44 65 52 40 80 25M76.1 36.4L80 25L68.4 21.9" fill="none" stroke="#191919" strokeWidth="15" strokeLinecap="round" strokeLinejoin="round" />
@@ -18,24 +18,23 @@ const MARK = (
     </svg>
 );
 
-/** Brand bar, the card's content, and the site at the bottom: every card is a 1080x1350 portrait. */
+/** The tag and date, the card's content, and the brand once, in the footer: every card is a 1080x1350 portrait. */
 function Frame({ tag, tagColor = INK, right, children }: { tag: string; tagColor?: string; right?: string; children: React.ReactNode }) {
   return (
     <div style={{ width: "100%", height: "100%", display: "flex", flexDirection: "column", background: BG, padding: "64px 72px", fontFamily: "sans-serif", color: INK }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 18 }}>
-        {MARK}
-        <div style={{ display: "flex", fontSize: 36, fontWeight: 600, letterSpacing: -1 }}>Takeover Fantasy</div>
-        {right && <div style={{ display: "flex", marginLeft: "auto", fontSize: 28, color: MUTED }}>{right}</div>}
-      </div>
-      <div style={{ display: "flex", marginTop: 56 }}>
+      <div style={{ display: "flex", alignItems: "center" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 12, background: tagColor, color: "#fff", borderRadius: 999, padding: "10px 24px", fontSize: 28, fontWeight: 700, letterSpacing: 2, textTransform: "uppercase" }}>
           <div style={{ width: 14, height: 14, borderRadius: 7, background: "#fff" }} />
           {tag}
         </div>
+        {right && <div style={{ display: "flex", marginLeft: "auto", fontSize: 28, color: MUTED }}>{right}</div>}
       </div>
-      <div style={{ display: "flex", flexDirection: "column", flex: 1, marginTop: 36 }}>{children}</div>
-      <div style={{ display: "flex", justifyContent: "space-between", borderTop: `2px solid ${LINE}`, paddingTop: 28, fontSize: 28, color: MUTED }}>
-        <span>{SITE.replace(/^https?:\/\//, "")}</span>
+      <div style={{ display: "flex", flexDirection: "column", flex: 1, marginTop: 40 }}>{children}</div>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", borderTop: `2px solid ${LINE}`, paddingTop: 28, fontSize: 28, color: MUTED }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+          {MARK}
+          <span>{SITE.replace(/^https?:\/\//, "")}</span>
+        </div>
         <span>Add/drops for your fantasy team</span>
       </div>
     </div>
@@ -103,6 +102,24 @@ function MoverRow({ m, up }: { m: Mover; up: boolean }) {
         <div style={{ display: "flex", fontSize: 24, color: MUTED }}>{`${m.team} · ${m.pos} · ${m.pctOwned}% rostered`}</div>
       </div>
       <div style={{ display: "flex", fontSize: 40, fontWeight: 700, color: up ? GREEN : RED }}>{`${up ? "▲" : "▼"} ${Math.abs(m.pctChange)}%`}</div>
+    </div>
+  );
+}
+
+function MinutesRow({ m, up }: { m: MinutesMove; up: boolean }) {
+  const diff = Math.round((m.min - m.lastMin) * 10) / 10;
+  return (
+    <div style={{ display: "flex", flexShrink: 0, alignItems: "center", gap: 20, background: PANEL, border: `2px solid ${LINE}`, borderRadius: 24, padding: "10px 24px", marginBottom: 12 }}>
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img src={headshotUrl(m.id, 150, 109)} width={96} height={70} alt="" />
+      <div style={{ display: "flex", flexDirection: "column", flex: 1 }}>
+        <div style={{ display: "flex", fontSize: 34, fontWeight: 700, letterSpacing: -1 }}>{m.name}</div>
+        <div style={{ display: "flex", fontSize: 24, color: MUTED }}>{`${m.team} · ${m.pctOwned}% rostered · ${m.lastMin} min last season`}</div>
+      </div>
+      <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end" }}>
+        <div style={{ display: "flex", fontSize: 40, fontWeight: 700 }}>{`${m.min} min`}</div>
+        <div style={{ display: "flex", fontSize: 24, fontWeight: 700, color: up ? GREEN : RED }}>{`${up ? "▲" : "▼"} ${Math.abs(diff)}`}</div>
+      </div>
     </div>
   );
 }
@@ -175,6 +192,8 @@ export async function GET(req: Request) {
   if (signed === null) return new Response("Forbidden", { status: 403 });
   const q = new URLSearchParams(signed);
   const type = q.get("type");
+  // A slide of the daily slideshow: it skips players already on an earlier slide.
+  const daily = /^\d{4}-\d{2}-\d{2}$/.test(q.get("daily") ?? "") ? q.get("daily")! : null;
   try {
     if (type === "news") {
       const a = await newsAlertFor(Number(q.get("player")));
@@ -184,27 +203,46 @@ export async function GET(req: Request) {
     if (type === "daily-cover") {
       const date = /^\d{4}-\d{2}-\d{2}$/.test(q.get("date") ?? "") ? q.get("date")! : easternDate(Date.now());
       const c = await dailyContent(date);
-      const hero = c.heroes.list[0], riser = c.movers.risers[0], out = c.injuries.find((i) => i.kind === "out" && i.other);
-      const teasers = [
-        hero && { tag: "Best pickup last night", text: `${hero.name}: ${hero.fpts} fpts`, sub: `${hero.pctOwned < 1 ? "<1" : hero.pctOwned}% rostered · ${hero.short}`, id: hero.id },
-        riser && { tag: "Everyone's adding", text: riser.name, sub: `+${riser.pctChange}% today · now ${riser.pctOwned}% rostered`, id: riser.id },
-        out && { tag: "Injury pickup", text: `Add ${out.other!.name}`, sub: `${out.player.name} is out · ${out.other!.pctOwned}% rostered`, id: out.other!.id },
-      ].filter(Boolean) as { tag: string; text: string; sub: string; id: number }[];
+      const hero = c.top;
+      // What the other slides hold, as a contents list (no player repeats).
+      const inside = [
+        c.heroes.list.length && { label: "More waiver heroes", sub: `${c.heroes.list.length} more big games from players under 50% rostered` },
+        c.movers.risers.length && { label: "Who everyone\u2019s adding", sub: "Biggest jumps in % rostered, and who\u2019s getting dropped" },
+        c.minutes.up.length >= 2 && { label: "Minutes watch", sub: "Bigger roles this season, still on waivers" },
+        c.injuries.length && { label: "Injury pickups", sub: "Who\u2019s out and who gets the minutes" },
+      ].filter(Boolean) as { label: string; sub: string }[];
       return png(
-        <Frame tag="Takeover Daily" tagColor={INK} right={shortDate(date)}>
-          <div style={{ display: "flex", flexShrink: 0, fontSize: 88, fontWeight: 700, letterSpacing: -3.5, lineHeight: 1 }}>Your fantasy morning</div>
-          <div style={{ display: "flex", flexShrink: 0, fontSize: 32, color: MUTED, marginTop: 16, marginBottom: 44 }}>Waiver wire, trends and injuries in one swipe →</div>
-          {teasers.map((t) => (
-            <div key={t.tag} style={{ display: "flex", flexShrink: 0, alignItems: "center", gap: 24, background: PANEL, border: `2px solid ${LINE}`, borderRadius: 28, padding: "20px 28px", marginBottom: 18 }}>
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={headshotUrl(t.id, 180, 131)} width={124} height={90} alt="" />
-              <div style={{ display: "flex", flexDirection: "column" }}>
-                <div style={{ display: "flex", fontSize: 22, fontWeight: 700, letterSpacing: 2, textTransform: "uppercase", color: GREEN }}>{t.tag}</div>
-                <div style={{ display: "flex", fontSize: 40, fontWeight: 700, letterSpacing: -1 }}>{t.text}</div>
-                <div style={{ display: "flex", fontSize: 26, color: MUTED }}>{t.sub}</div>
+        <Frame tag="Today's waiver wire" tagColor={INK} right={shortDate(date)}>
+          {hero ? (
+            <div style={{ display: "flex", flexDirection: "column", flexShrink: 0 }}>
+              <div style={{ display: "flex", fontSize: 26, fontWeight: 700, letterSpacing: 2, textTransform: "uppercase", color: GREEN }}>Best pickup last night</div>
+              <div style={{ display: "flex", alignItems: "flex-end", gap: 28, marginTop: 20 }}>
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={headshotUrl(hero.id, 420, 306)} width={330} height={240} alt="" style={{ borderRadius: 28, background: PANEL, border: `2px solid ${LINE}` }} />
+                <div style={{ display: "flex", flexDirection: "column", paddingBottom: 6 }}>
+                  <div style={{ display: "flex", fontSize: 132, fontWeight: 700, letterSpacing: -5, lineHeight: 0.9 }}>{hero.fpts}</div>
+                  <div style={{ display: "flex", fontSize: 30, color: MUTED, marginTop: 8 }}>fantasy points</div>
+                </div>
               </div>
+              <div style={{ display: "flex", fontSize: 76, fontWeight: 700, letterSpacing: -3, lineHeight: 1, marginTop: 28 }}>{hero.name}</div>
+              <div style={{ display: "flex", fontSize: 32, color: MUTED, marginTop: 12 }}>{`${hero.short} · on waivers in ${100 - Math.round(hero.pctOwned)}% of leagues`}</div>
             </div>
-          ))}
+          ) : (
+            <div style={{ display: "flex", flexShrink: 0, fontSize: 88, fontWeight: 700, letterSpacing: -3.5, lineHeight: 1 }}>Your fantasy morning</div>
+          )}
+          <div style={{ display: "flex", flexDirection: "column", marginTop: "auto" }}>
+            <div style={{ display: "flex", fontSize: 22, fontWeight: 700, letterSpacing: 2, textTransform: "uppercase", color: MUTED, marginBottom: 6 }}>Inside today</div>
+            {inside.map((t, i) => (
+              <div key={t.label} style={{ display: "flex", flexShrink: 0, alignItems: "center", gap: 24, borderTop: `2px solid ${LINE}`, padding: "16px 0" }}>
+                <div style={{ display: "flex", width: 52, height: 52, borderRadius: 26, background: INK, color: "#fff", alignItems: "center", justifyContent: "center", fontSize: 26, fontWeight: 700 }}>{String(i + 2)}</div>
+                <div style={{ display: "flex", flexDirection: "column" }}>
+                  <div style={{ display: "flex", fontSize: 34, fontWeight: 700, letterSpacing: -1 }}>{t.label}</div>
+                  <div style={{ display: "flex", fontSize: 24, color: MUTED }}>{t.sub}</div>
+                </div>
+              </div>
+            ))}
+            <div style={{ display: "flex", justifyContent: "flex-end", fontSize: 28, color: MUTED, marginTop: 22, marginBottom: 28 }}>Swipe for today&apos;s moves →</div>
+          </div>
         </Frame>,
       );
     }
@@ -279,20 +317,20 @@ export async function GET(req: Request) {
     }
     if (type === "heroes") {
       const date = /^\d{4}-\d{2}-\d{2}$/.test(q.get("date") ?? "") ? q.get("date")! : yesterday();
-      const h = await waiverHeroes(date, 5);
+      const h = daily ? (await dailyContent(daily)).heroes : await waiverHeroes(date, 5);
       if (!h.list.length) return new Response("No finished games", { status: 404 });
       return png(
         <Frame tag="Waiver heroes" tagColor={GREEN} right={shortDate(date)}>
-          <div style={{ display: "flex", flexShrink: 0, fontSize: 72, fontWeight: 700, letterSpacing: -3, lineHeight: 1 }}>Last night&apos;s best pickups</div>
+          <div style={{ display: "flex", flexShrink: 0, fontSize: 72, fontWeight: 700, letterSpacing: -3, lineHeight: 1 }}>{daily ? "More waiver heroes" : "Last night\u2019s best pickups"}</div>
           <div style={{ display: "flex", flexShrink: 0, fontSize: 30, color: MUTED, marginTop: 14, marginBottom: 36 }}>{`Top fantasy games from players under 50% rostered · ${h.games} games`}</div>
           {h.list.map((x, i) => (
-            <Row key={x.id} rank={i + 1} id={x.id} name={x.name} sub={`${x.team} · ${x.pctOwned < 1 ? "<1" : x.pctOwned}% rostered · ${x.short}`} value={String(x.fpts)} unit="fpts" />
+            <Row key={x.id} rank={i + (daily ? 2 : 1)} id={x.id} name={x.name} sub={`${x.team} · ${x.pctOwned < 1 ? "<1" : x.pctOwned}% rostered · ${x.short}`} value={String(x.fpts)} unit="fpts" />
           ))}
         </Frame>,
       );
     }
     if (type === "trending") {
-      const r = await risersFallers(5);
+      const r = daily ? (await dailyContent(daily)).movers : await risersFallers(5);
       if (!r.risers.length) return new Response("No movers yet", { status: 404 });
       return png(
         <Frame tag="Trending" tagColor={GREEN} right={shortDate(r.date)}>
@@ -303,6 +341,24 @@ export async function GET(req: Request) {
             <div style={{ display: "flex", flexShrink: 0, flexDirection: "column", marginTop: 12 }}>
               <div style={{ display: "flex", fontSize: 26, fontWeight: 700, letterSpacing: 2, textTransform: "uppercase", color: RED, marginBottom: 12 }}>Getting dropped</div>
               {r.fallers.slice(0, 2).map((m) => <MoverRow key={m.id} m={m} up={false} />)}
+            </div>
+          )}
+        </Frame>,
+      );
+    }
+    if (type === "minutes") {
+      const r = daily ? (await dailyContent(daily)).minutes : await minutesWatch();
+      if (!r.up.length) return new Response("No minutes moves yet", { status: 404 });
+      const games = Math.max(...r.up.map((m) => m.gp));
+      return png(
+        <Frame tag="Minutes watch" tagColor={GREEN} right={shortDate(r.date)}>
+          <div style={{ display: "flex", flexShrink: 0, fontSize: 64, fontWeight: 700, letterSpacing: -2.5, lineHeight: 1.05 }}>Bigger roles, still available</div>
+          <div style={{ display: "flex", flexShrink: 0, fontSize: 28, color: MUTED, marginTop: 10, marginBottom: 24 }}>{`Minutes per game this season vs last. Under 50% rostered.${games < 5 ? " Early: watch, don't panic." : ""}`}</div>
+          {r.up.map((m) => <MinutesRow key={m.id} m={m} up />)}
+          {r.down.length > 0 && (
+            <div style={{ display: "flex", flexShrink: 0, flexDirection: "column", marginTop: 12 }}>
+              <div style={{ display: "flex", fontSize: 26, fontWeight: 700, letterSpacing: 2, textTransform: "uppercase", color: RED, marginBottom: 12 }}>Losing minutes</div>
+              {r.down.map((m) => <MinutesRow key={m.id} m={m} up={false} />)}
             </div>
           )}
         </Frame>,

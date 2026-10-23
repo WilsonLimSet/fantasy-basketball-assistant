@@ -55,7 +55,7 @@ export default async function Studio() {
 
       {daily && (
         <>
-          <h2 className="mt-10 mb-4 text-lg font-medium">Takeover Daily · today&apos;s slideshow</h2>
+          <h2 className="mt-10 mb-4 text-lg font-medium">Today&apos;s waiver wire · daily slideshow</h2>
           <div className="flex snap-x gap-4 overflow-x-auto pb-2">
             {slides.map((q, i) => (
               <a key={q} href={cardUrl(q, false)} download={`daily-${today}-${i + 1}.png`} className="w-64 shrink-0 snap-start">

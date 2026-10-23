@@ -187,6 +187,32 @@ export async function risersFallers(limit = 5): Promise<{ date: string; risers: 
   };
 }
 
+export interface MinutesMove { id: number; name: string; team: string; pos: string; pctOwned: number; min: number; lastMin: number; gp: number; fppg: number; healthy: boolean }
+
+/** Minutes this season worth a slide: a starter's job or a real rotation spot, not garbage time. */
+const MINUTES_MIN = 22;
+
+/**
+ * Minutes this season against last season: available players whose role grew (the first sign of a
+ * breakout, before the box scores make it obvious) and rostered ones whose role shrank.
+ */
+export async function minutesWatch(limit = 4): Promise<{ date: string; up: MinutesMove[]; down: MinutesMove[] }> {
+  const { players } = await getPlayers();
+  const moves = players
+    .filter((p) => p.team !== "FA" && p.cur?.gp && p.last?.gp && p.last.gp >= 10 && p.pctOwned != null)
+    .map((p) => ({
+      id: p.id, name: p.name, team: p.team, pos: p.pos.join("/"), pctOwned: Math.round(p.pctOwned ?? 0),
+      min: round1(p.cur!.min), lastMin: round1(p.last!.min), gp: p.cur!.gp, fppg: round1(fppg(p)), healthy: p.injury === "ACTIVE",
+    }));
+  const gain = (m: MinutesMove) => m.min - m.lastMin;
+  return {
+    date: easternDate(Date.now()),
+    up: moves.filter((m) => m.pctOwned < STREAMER_MAX_OWNED && m.min >= MINUTES_MIN && gain(m) >= 4).sort((a, b) => gain(b) - gain(a)).slice(0, limit),
+    // Banged-up players play fewer minutes for a reason that isn't their role.
+    down: moves.filter((m) => m.healthy && m.pctOwned >= STREAMER_MAX_OWNED && gain(m) <= -5).sort((a, b) => gain(a) - gain(b)).slice(0, 2),
+  };
+}
+
 export interface NewsAlert {
   /** Player id: the card shows this player's latest take. */
   id: number;
@@ -385,21 +411,40 @@ export const saveInjuries = (date: string, items: InjuryItem[]) => kvStore().set
 export const loadInjuries = async (date: string) => (await kvStore().get<InjuryItem[]>(injuriesKey(date)).catch(() => null)) ?? [];
 
 /** Everything on a day's slideshow (date = the US date it's posted). */
+/**
+ * The day's slideshow content, each player shown once: the cover's best pickup, then the next
+ * waiver heroes, then trending and minutes moves that aren't already on an earlier slide.
+ */
 export async function dailyContent(date: string) {
   const night = addDays(date, -1);
-  const [heroes, movers, injuries] = await Promise.all([
-    waiverHeroes(night, 5).catch(() => ({ date: night, games: 0, list: [] as Hero[] })),
-    risersFallers(5).catch(() => ({ date, risers: [] as Mover[], fallers: [] as Mover[] })),
+  const [allHeroes, allMovers, injuries, allMinutes] = await Promise.all([
+    waiverHeroes(night, 6).catch(() => ({ date: night, games: 0, list: [] as Hero[] })),
+    risersFallers(10).catch(() => ({ date, risers: [] as Mover[], fallers: [] as Mover[] })),
     loadInjuries(date),
+    minutesWatch(10).catch(() => ({ date, up: [] as MinutesMove[], down: [] as MinutesMove[] })),
   ]);
-  return { date, night, heroes, movers, injuries };
+  const seen = new Set<number>();
+  const fresh = <T extends { id: number }>(list: T[], n: number) => {
+    const out = list.filter((x) => !seen.has(x.id)).slice(0, n);
+    out.forEach((x) => seen.add(x.id));
+    return out;
+  };
+  const [top] = fresh(allHeroes.list, 1);
+  const heroes = { ...allHeroes, list: fresh(allHeroes.list, 5) };
+  const movers = { ...allMovers, risers: fresh(allMovers.risers, 4), fallers: fresh(allMovers.fallers, 2) };
+  const minutes = { ...allMinutes, up: fresh(allMinutes.up, 4), down: fresh(allMinutes.down, 2) };
+  return { date, night, top, heroes, movers, injuries, minutes };
 }
 
 export function dailyCaption(c: Awaited<ReturnType<typeof dailyContent>>): string {
-  const lines = [`Takeover Daily · ${shortDate(c.date)} 🏀`, ""];
-  if (c.heroes.list.length) lines.push(`📊 Last night's best pickups: ${c.heroes.list.slice(0, 3).map((h) => `${h.name} (${h.fpts} fpts, ${pct(h.pctOwned)})`).join(", ")}`);
+  // A new brand's name means nothing yet: lead with the news, the best pickup nobody has.
+  const lines = c.top
+    ? [`${c.top.name} put up ${c.top.fpts} fantasy points last night (${c.top.short}) and he's on waivers in ${100 - Math.round(c.top.pctOwned)}% of leagues 👀`, "", `Today's waiver wire, ${shortDate(c.date)}:`]
+    : [`Today's fantasy waiver wire, ${shortDate(c.date)} 🏀`, ""];
+  if (c.heroes.list.length) lines.push(`📊 Also went off: ${c.heroes.list.slice(0, 3).map((h) => `${h.name} (${h.fpts} fpts, ${pct(h.pctOwned)})`).join(", ")}`);
   if (c.movers.risers.length) lines.push(`📈 Everyone's adding: ${c.movers.risers.slice(0, 3).map((m) => `${m.name} (+${m.pctChange}%)`).join(", ")}`);
   if (c.movers.fallers.length) lines.push(`📉 Getting dropped: ${c.movers.fallers.slice(0, 2).map((m) => m.name).join(", ")}`);
+  if (c.minutes.up.length) lines.push(`⏱️ Minutes up: ${c.minutes.up.slice(0, 3).map((m) => `${m.name} (${m.min} min, ${m.lastMin} last season)`).join(", ")}`);
   const outs = c.injuries.filter((i) => i.kind === "out" && i.other);
   if (outs.length) lines.push(`🚑 Injury pickups: ${outs.slice(0, 2).map((i) => `${i.player.name} out → add ${i.other!.name}`).join("; ")}`);
   lines.push("", "Every league's waiver wire is different. Find the moves for yours: takeoverfantasy.com", TAGS);

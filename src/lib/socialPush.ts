@@ -119,12 +119,14 @@ export async function subscribePosts(chatId: number): Promise<number> {
 /** The day's slideshow, or null when there's too little to show (no games last night and no movers). */
 async function dailyPost(today: string): Promise<Post | null> {
   const c = await dailyContent(today);
-  if (!c.heroes.list.length && !c.movers.risers.length) return null;
+  if (!c.top && !c.movers.risers.length) return null;
   const card = (q: string) => cardUrl(`${q}&v=${today}`);
   const images = [
     card(`type=daily-cover&date=${today}`),
-    ...(c.heroes.list.length ? [card(`type=heroes&date=${c.night}`)] : []),
-    ...(c.movers.risers.length ? [card("type=trending")] : []),
+    // daily= makes each slide skip players already on an earlier one.
+    ...(c.heroes.list.length ? [card(`type=heroes&date=${c.night}&daily=${today}`)] : []),
+    ...(c.movers.risers.length ? [card(`type=trending&daily=${today}`)] : []),
+    ...(c.minutes.up.length >= 2 ? [card(`type=minutes&daily=${today}`)] : []),
     ...(c.injuries.length ? [card(`type=injuries&date=${today}`)] : []),
     card("type=cta"),
   ];
