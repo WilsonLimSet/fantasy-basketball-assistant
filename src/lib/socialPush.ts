@@ -5,8 +5,8 @@ import { isOwnerEmail, listProfiles, type InseasonProfile } from "./inseason/pro
 import { sendTelegramAlbum, sendTelegramPhoto, TELEGRAM_ON } from "./inseason/telegramUser";
 import { savePicks, scorecard } from "./scorecard";
 import {
-  boxLines, cardUrl, dailyCaption, dailyContent, easternDate, loadInjuries, newsAlerts, newsCaption, OUT, returnAlertFor,
-  saveInjuries, SITE, weekOf, yesterday, type InjuryItem,
+  boxLines, cardUrl, dailyCaption, dailyContent, easternDate, heroesCaption, loadInjuries, newsAlerts, newsCaption, OUT,
+  returnAlertFor, risersCaption, risersFallers, saveInjuries, SITE, waiverHeroes, weekOf, yesterday, type InjuryItem,
 } from "./social";
 
 /**
@@ -18,6 +18,9 @@ import {
  *    low-rostered pickup, or a widely rostered player moved or cut.
  * Each goes out once, to: Postroom (Instagram, Threads, X), the owner's Telegram and TELEGRAM_CHANNEL
  * (captions ready to paste), every user with Telegram news on, and a daily email digest.
+ * The slideshow goes to Instagram only. Threads and X get two standalone posts instead (who ESPN
+ * managers are adding, then last night's waiver heroes): on Threads those single-topic posts drew
+ * 400-700 views each, the combined slideshow about 40.
  */
 
 const POSTED = "social:posted";
@@ -44,7 +47,11 @@ export const isPostsUser = (username?: string) =>
 const wantsNews = (p: InseasonProfile) => p.alerts.news !== false;
 
 /** A post: one image, or a slideshow (2-10 images). */
-interface Post { key: string; kind: string; images: string[]; caption: string; player?: { id: number; status: string } }
+interface Post {
+  key: string; kind: string; images: string[]; caption: string; player?: { id: number; status: string };
+  /** Postroom platforms (all three when unset); postroomOnly skips Telegram and the email. */
+  platforms?: string[]; postroomOnly?: boolean; scheduledAt?: string;
+}
 
 /**
  * Hand a post to Postroom (POSTROOM_URL, POSTROOM_KEY), which publishes it to Instagram, Threads
@@ -58,7 +65,8 @@ async function sendToPostroom(p: Post): Promise<boolean> {
       method: "POST",
       headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
       body: JSON.stringify({
-        caption: p.caption, kind: p.kind, platforms: ["instagram", "threads", "x"], sourceKey: p.key,
+        caption: p.caption, kind: p.kind, platforms: p.platforms ?? ["instagram", "threads", "x"], sourceKey: p.key,
+        ...(p.scheduledAt ? { scheduledAt: p.scheduledAt } : {}),
         ...(p.images.length > 1 ? { slides: p.images } : { media: { type: "image", url: p.images[0] } }),
       }),
       signal: AbortSignal.timeout(15_000),
@@ -130,7 +138,21 @@ async function dailyPost(today: string): Promise<Post | null> {
     ...(c.injuries.length ? [card(`type=injuries&date=${today}`)] : []),
     card("type=cta"),
   ];
-  return { key: `daily:${today}`, kind: "daily", images, caption: dailyCaption(c) };
+  return { key: `daily:${today}`, kind: "daily", images, caption: dailyCaption(c), platforms: ["instagram"] };
+}
+
+/** Threads and X: who's being added now, then last night's waiver heroes two hours later. */
+async function textPosts(now: number, today: string): Promise<Post[]> {
+  const night = yesterday(now);
+  const [r, h] = await Promise.all([risersFallers(5).catch(() => null), waiverHeroes(night, 5).catch(() => null)]);
+  const base = { kind: "list", platforms: ["threads", "x"], postroomOnly: true };
+  return [
+    ...(r?.risers.length ? [{ ...base, key: `adds:${today}`, images: [cardUrl(`type=trending&v=${today}`)], caption: risersCaption(r) }] : []),
+    ...(h?.list.length ? [{
+      ...base, key: `heroes:${today}`, images: [cardUrl(`type=heroes&date=${night}&v=${today}`)], caption: heroesCaption(h),
+      scheduledAt: new Date(now + 2 * 60 * 60 * 1000).toISOString(),
+    }] : []),
+  ];
 }
 
 /** Today's injury lines: players newly ruled out (with the pickup) and players back from injury. */
@@ -198,6 +220,7 @@ export async function pushSocial(now = Date.now()): Promise<{ sent: string[]; fa
     const daily = await dailyPost(today).catch((e) => { console.error("[social] daily", e); return null; });
     if (daily) posts.push(daily);
   }
+  if (morning) posts.push(...(await textPosts(now, today).catch(() => [])).filter((p) => !posted.has(p.key)));
   // Mondays: last week's receipts, as a single post.
   if (morning && weekOf(today).start === today) {
     const c = await scorecard(undefined, now).catch(() => null);
@@ -222,6 +245,10 @@ export async function pushSocial(now = Date.now()): Promise<{ sent: string[]; fa
   const sent: string[] = [];
   for (const p of posts) {
     const queued = await sendToPostroom(p);
+    if (p.postroomOnly) {
+      if (queued) { posted.add(p.key); sent.push(p.key); }
+      continue;
+    }
     const chats = TELEGRAM_ON && (owners.length > 0 || fans.length > 0);
     // Sent once Postroom or any chat has it; with nobody to send to, it still counts (for the email digest).
     const ok = (chats ? await sendToTelegram(p, owners, fans) : false) || queued || !chats;
