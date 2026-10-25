@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { track } from "@vercel/analytics/server";
 import { cookies } from "next/headers";
 import { kvStore } from "@/lib/inseason/storage";
+import { recordFunnel } from "@/lib/funnel";
 import { cleanCode, REF_COOKIE, rewardReferral } from "@/lib/referral";
 import { stopWeeklyFor } from "@/lib/subscription";
 import { accessFor, checkoutAccessEnd, isWeeklyCheckout, checkLicense, currentAccount, linkPassToAccount, makePass, PASS_COOKIE, passCookieOptions, SEASON_END } from "@/lib/auth";
@@ -56,6 +57,9 @@ export async function GET(req: Request) {
   const res = NextResponse.redirect(new URL(bonus ? "/unlocked?bonus=1" : "/unlocked", u));
   res.cookies.set(PASS_COOKIE, makePass(email, end), { ...passCookieOptions, expires: new Date(end) });
   if (bonus) res.cookies.delete(REF_COOKIE);
+  // Credited to the visitor's first source when the browser has our funnel cookie.
+  const vid = jar.get("tf_vid")?.value?.replace(/[^a-z0-9]/gi, "") || createHash("sha256").update(email.toLowerCase()).digest("hex").slice(0, 32);
+  await recordFunnel("purchase", vid, "", req.headers.get("x-vercel-ip-country") ?? "").catch((e) => console.error("[unlock] funnel", e));
   await track("purchase", { plan: until === SEASON_END ? "season" : isWeeklyCheckout(s) ? "weekly" : "week", referred: bonus > 0 }).catch(() => {});
   return res;
 }
