@@ -204,13 +204,14 @@ export async function GET(req: Request) {
       const date = /^\d{4}-\d{2}-\d{2}$/.test(q.get("date") ?? "") ? q.get("date")! : easternDate(Date.now());
       const c = await dailyContent(date);
       const hero = c.top;
-      // What the other slides hold, as a contents list (no player repeats).
-      const inside = [
-        c.heroes.list.length && { label: "More waiver heroes", sub: `${c.heroes.list.length} more big games from players under 50% rostered` },
-        c.movers.risers.length && { label: "Who everyone\u2019s adding", sub: "Biggest jumps in % rostered, and who\u2019s getting dropped" },
-        c.minutes.up.length >= 2 && { label: "Minutes watch", sub: "Bigger roles this season, still on waivers" },
-        c.injuries.length && { label: "Injury pickups", sub: "Who\u2019s out and who gets the minutes" },
-      ].filter(Boolean) as { label: string; sub: string }[];
+      // The day at a glance, like the caption: names on the cover itself, details on the slides after.
+      const outs = c.injuries.filter((i) => i.kind === "out" && i.other);
+      const glance = [
+        c.heroes.list.length && { label: "Also went off", text: c.heroes.list.slice(0, 3).map((h) => `${h.name} ${h.fpts}`).join(" · ") },
+        c.movers.risers.length && { label: "Everyone\u2019s adding", text: c.movers.risers.slice(0, 3).map((m) => `${m.name} +${Math.round(m.pctChange)}%`).join(" · ") },
+        c.minutes.up.length && { label: "Minutes up", text: c.minutes.up.slice(0, 2).map((m) => `${m.name} ${Math.round(m.min)} min (was ${Math.round(m.lastMin)})`).join(" · ") },
+        outs.length && { label: "Injury pickups", text: outs.slice(0, 2).map((i) => `${i.player.name} out → ${i.other!.name}`).join(" · ") },
+      ].filter(Boolean) as { label: string; text: string }[];
       return png(
         <Frame tag="Today's waiver wire" tagColor={INK} right={shortDate(date)}>
           {hero ? (
@@ -231,14 +232,10 @@ export async function GET(req: Request) {
             <div style={{ display: "flex", flexShrink: 0, fontSize: 88, fontWeight: 700, letterSpacing: -3.5, lineHeight: 1 }}>Your fantasy morning</div>
           )}
           <div style={{ display: "flex", flexDirection: "column", marginTop: "auto" }}>
-            <div style={{ display: "flex", fontSize: 22, fontWeight: 700, letterSpacing: 2, textTransform: "uppercase", color: MUTED, marginBottom: 6 }}>Inside today</div>
-            {inside.map((t, i) => (
-              <div key={t.label} style={{ display: "flex", flexShrink: 0, alignItems: "center", gap: 24, borderTop: `2px solid ${LINE}`, padding: "16px 0" }}>
-                <div style={{ display: "flex", width: 52, height: 52, borderRadius: 26, background: INK, color: "#fff", alignItems: "center", justifyContent: "center", fontSize: 26, fontWeight: 700 }}>{String(i + 2)}</div>
-                <div style={{ display: "flex", flexDirection: "column" }}>
-                  <div style={{ display: "flex", fontSize: 34, fontWeight: 700, letterSpacing: -1 }}>{t.label}</div>
-                  <div style={{ display: "flex", fontSize: 24, color: MUTED }}>{t.sub}</div>
-                </div>
+            {glance.map((t) => (
+              <div key={t.label} style={{ display: "flex", flexDirection: "column", flexShrink: 0, borderTop: `2px solid ${LINE}`, padding: "14px 0" }}>
+                <div style={{ display: "flex", fontSize: 22, fontWeight: 700, letterSpacing: 2, textTransform: "uppercase", color: GREEN }}>{t.label}</div>
+                <div style={{ display: "flex", fontSize: 31, fontWeight: 600, letterSpacing: -0.5, lineHeight: 1.25, marginTop: 4 }}>{t.text}</div>
               </div>
             ))}
             <div style={{ display: "flex", justifyContent: "flex-end", fontSize: 28, color: MUTED, marginTop: 22, marginBottom: 28 }}>Swipe for today&apos;s moves →</div>
