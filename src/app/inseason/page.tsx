@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { track } from '@vercel/analytics';
+import { funnel } from '@/components/funnel';
 import { useCallback, useEffect, useState } from 'react';
 import type { DailyBriefing } from '@/types';
 import { InjuryBadge } from '@/components/ui';
@@ -46,7 +47,7 @@ function Preview({ p }: { p: MovesPreview }) {
   const points = Math.round(p.after.points - p.baseline.points);
   const gain = p.pointsLeague ? `${points} points` : `${games} ${games === 1 ? 'game' : 'games'}`;
   const hidden = p.moveCount - 1;
-  useEffect(() => { track('preview_seen', { moves: p.moveCount }); }, [p.moveCount]);
+  useEffect(() => { track('preview_seen', { moves: p.moveCount }); funnel('preview_seen'); }, [p.moveCount]);
   return (
     <div className="mb-5 space-y-5">
       <div>

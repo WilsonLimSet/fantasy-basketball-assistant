@@ -1,6 +1,7 @@
 'use client';
 
 import { track } from '@vercel/analytics';
+import { funnel } from '@/components/funnel';
 import Link from 'next/link';
 import { Skeleton, SkeletonRows } from '@/components/ui';
 import { createContext, useCallback, useContext, useEffect, useState, useSyncExternalStore } from 'react';
@@ -233,7 +234,7 @@ function PlanCard({ href, name, price, note, fine, strong }: { href: string; nam
   return (
     <a
       href={href}
-      onClick={() => track('checkout_click', { plan: strong ? 'season' : 'week' })}
+      onClick={() => { track('checkout_click', { plan: strong ? 'season' : 'week' }); funnel('checkout_click'); }}
       className={`block rounded-xl border p-4 transition-shadow hover:shadow-[0_8px_30px_rgba(25,25,25,0.08)] ${strong ? 'border-ink' : 'border-line'}`}
     >
       <div className="text-sm font-medium">{name}</div>

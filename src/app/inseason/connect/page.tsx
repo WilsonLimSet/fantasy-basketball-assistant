@@ -1,6 +1,7 @@
 'use client';
 
 import { track } from '@vercel/analytics';
+import { funnel } from '@/components/funnel';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
@@ -36,7 +37,7 @@ function LeagueForm({ onSaved, onCancel, hasLogin }: { onSaved: () => void; onCa
       if (/private|cookies/i.test(j.error ?? '')) setShowLogin(true);
       return;
     }
-    track('league_found');
+    track('league_found'); funnel('league_found');
     setTeams(j.teams); setLeagueId(j.leagueId); setLeagueName(j.leagueName); setTeamId(j.teamId ?? '');
   };
 
@@ -45,7 +46,7 @@ function LeagueForm({ onSaved, onCancel, hasLogin }: { onSaved: () => void; onCa
     setBusy(true); setError(null);
     const j = await post('POST', { action: 'save', leagueId, teamId, s2, swid });
     setBusy(false);
-    if (j.success) { track('league_connected'); onSaved(); } else setError(j.error);
+    if (j.success) { track('league_connected'); funnel('league_connected'); onSaved(); } else setError(j.error);
   };
 
   return (
@@ -349,7 +350,7 @@ function WeeklyPlan({ seasonUrl }: { seasonUrl?: string | null }) {
             <span className="text-muted">That’s less than 8 weeks of weekly. Buy it and your weekly stops on its own.</span>
           </p>
           <div className="flex flex-wrap gap-2">
-            {seasonUrl && <a href={seasonUrl} onClick={() => track('checkout_click', { plan: 'save_season' })} className="btn-accent">Switch to Season</a>}
+            {seasonUrl && <a href={seasonUrl} onClick={() => { track('checkout_click', { plan: 'save_season' }); funnel('checkout_click'); }} className="btn-accent">Switch to Season</a>}
             <button className="btn-ghost" onClick={() => change('cancel')}>Cancel anyway</button>
             <button className="btn-ghost" onClick={() => setStep('idle')}>Keep weekly</button>
           </div>
@@ -358,7 +359,7 @@ function WeeklyPlan({ seasonUrl }: { seasonUrl?: string | null }) {
         <div className="flex flex-wrap gap-2">
           {sub.renews ? (
             <>
-              {seasonUrl && <a href={seasonUrl} onClick={() => track('checkout_click', { plan: 'upgrade' })} className="btn-accent">Switch to Season, $39</a>}
+              {seasonUrl && <a href={seasonUrl} onClick={() => { track('checkout_click', { plan: 'upgrade' }); funnel('checkout_click'); }} className="btn-accent">Switch to Season, $39</a>}
               <button className="btn-ghost" disabled={step === 'busy'} onClick={() => { setStep('offer'); track('cancel_started'); }}>Cancel weekly</button>
             </>
           ) : (
