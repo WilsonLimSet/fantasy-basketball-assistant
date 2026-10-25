@@ -265,6 +265,21 @@ export async function GET(req: Request) {
         </Frame>,
       );
     }
+    if (type === "roster") {
+      return png(
+        <Frame tag="Ask us" tagColor={GREEN} right={shortDate(easternDate(Date.now()))}>
+          <div style={{ display: "flex", flexDirection: "column", flex: 1, justifyContent: "center" }}>
+            <div style={{ display: "flex", fontSize: 120, fontWeight: 700, letterSpacing: -5, lineHeight: 0.98 }}>Drop your roster below.</div>
+            <div style={{ display: "flex", fontSize: 42, color: MUTED, marginTop: 36, lineHeight: 1.3 }}>Reply with your players and we&apos;ll answer with your weakest spot and the best add on most waiver wires tonight.</div>
+            <div style={{ display: "flex", flexDirection: "column", marginTop: 56, gap: 16 }}>
+              {["\u201cCade, Jerome, Amen, Edey, Jaquez\u2026\u201d", "\u201cMelton or Keon Ellis?\u201d"].map((t) => (
+                <div key={t} style={{ display: "flex", alignSelf: "flex-start", background: PANEL, border: `2px solid ${LINE}`, borderRadius: 28, padding: "20px 30px", fontSize: 36 }}>{t}</div>
+              ))}
+            </div>
+          </div>
+        </Frame>,
+      );
+    }
     if (type === "cta") {
       return png(
         <Frame tag="Your league" tagColor={GREEN}>

@@ -1,6 +1,7 @@
 import { getPlayers } from "./data";
 import { EMAIL_ON, newsDigestEmail, sendEmail } from "./inseason/email";
 import { kvStore } from "./inseason/storage";
+import { replyHookUrl } from "./replyBot";
 import { isOwnerEmail, listProfiles, type InseasonProfile } from "./inseason/profile";
 import { sendTelegramAlbum, sendTelegramPhoto, TELEGRAM_ON } from "./inseason/telegramUser";
 import { savePicks, scorecard } from "./scorecard";
@@ -51,6 +52,8 @@ interface Post {
   key: string; kind: string; images: string[]; caption: string; player?: { id: number; status: string };
   /** Postroom platforms (all three when unset); postroomOnly skips Telegram and the email. */
   platforms?: string[]; postroomOnly?: boolean; scheduledAt?: string;
+  /** Let Postroom answer replies through /api/reply. */
+  replies?: boolean;
 }
 
 /**
@@ -67,6 +70,7 @@ async function sendToPostroom(p: Post): Promise<boolean> {
       body: JSON.stringify({
         caption: p.caption, kind: p.kind, platforms: p.platforms ?? ["instagram", "threads", "x"], sourceKey: p.key,
         ...(p.scheduledAt ? { scheduledAt: p.scheduledAt } : {}),
+        ...(p.replies ? { replyHook: replyHookUrl() } : {}),
         ...(p.images.length > 1 ? { slides: p.images } : { media: { type: "image", url: p.images[0] } }),
       }),
       signal: AbortSignal.timeout(15_000),
@@ -141,16 +145,23 @@ async function dailyPost(today: string): Promise<Post | null> {
   return { key: `daily:${today}`, kind: "daily", images, caption: dailyCaption(c), platforms: ["instagram"] };
 }
 
-/** Threads and X: who's being added now, then last night's waiver heroes two hours later. */
+/**
+ * Threads and X: who's being added now, an hour later an invite to reply with your roster, and two
+ * hours later last night's waiver heroes. Replies to all three are answered by the reply bot.
+ */
 async function textPosts(now: number, today: string): Promise<Post[]> {
   const night = yesterday(now);
   const [r, h] = await Promise.all([risersFallers(5).catch(() => null), waiverHeroes(night, 5).catch(() => null)]);
-  const base = { kind: "list", platforms: ["threads", "x"], postroomOnly: true };
+  const base = { kind: "list", platforms: ["threads", "x"], postroomOnly: true, replies: true };
+  const later = (h: number) => new Date(now + h * 60 * 60 * 1000).toISOString();
   return [
     ...(r?.risers.length ? [{ ...base, key: `adds:${today}`, images: [cardUrl(`type=trending&v=${today}`)], caption: risersCaption(r) }] : []),
+    {
+      ...base, key: `roster:${today}`, kind: "roster", images: [cardUrl(`type=roster&v=${today}`)], scheduledAt: later(1),
+      caption: `Drop your roster below 👇\n\nI'll tell you your weakest spot and the best add on most waiver wires tonight. Or ask "X or Y?"`,
+    },
     ...(h?.list.length ? [{
-      ...base, key: `heroes:${today}`, images: [cardUrl(`type=heroes&date=${night}&v=${today}`)], caption: heroesCaption(h),
-      scheduledAt: new Date(now + 2 * 60 * 60 * 1000).toISOString(),
+      ...base, key: `heroes:${today}`, images: [cardUrl(`type=heroes&date=${night}&v=${today}`)], caption: heroesCaption(h), scheduledAt: later(2),
     }] : []),
   ];
 }
