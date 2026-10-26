@@ -3,7 +3,7 @@ import { getPlayers, SEASON } from "./data";
 import { fantasyPoints, PRESETS } from "./engine";
 import { PRO_TEAM } from "./espn";
 import { RECIPIENT_MIN, shareMinutes, type RotationPlayer } from "./inseason/opportunity";
-import { injuryReport } from "./inseason/stash";
+import { injuryReport, type InjuryReportEntry } from "./inseason/stash";
 import { kvStore } from "./inseason/storage";
 import { loadTakes, normName, type Take } from "./takes";
 import type { Player } from "./types";
@@ -288,9 +288,14 @@ const INJURY_WORDS = /injur|sprain|strain|surgery|sore|tight|ankle|knee|calf|ham
 
 const TRANSACTION_WORDS = /\b(waive[ds]?|waiving|release[ds]?|traded?|trading|signs?|signed|signing|claimed|acquire[ds]?|buyout|cut)\b/i;
 
-function toAlert(p: Player, t: Take, players: Player[], back?: string): NewsAlert {
-  const note = t.notes[0];
+function toAlert(p: Player, t: Take, players: Player[], report?: InjuryReportEntry): NewsAlert {
   const out = OUT_STATUSES.has(p.injury);
+  // ESPN's status is the truth. When ESPN updated an absence on or after our note, its comment
+  // replaces ours, so a post never says "no real absence" while ESPN has him out.
+  const espn = out && report?.note && easternDate(report.updatedAt) >= t.notes[0].date;
+  const note = espn
+    ? { headline: `${p.name.split(" ").slice(-1)[0]} ruled out${report.injury ? ` (${report.injury.toLowerCase()})` : ""}`, text: report.note, date: easternDate(report.updatedAt) }
+    : t.notes[0];
   const text = `${note.headline} ${note.text}`;
   // A move (waived, traded, signed) changes a player's whole outlook, injury or not.
   // (A contract extension "signs" too, but changes nothing this season.)
@@ -302,7 +307,7 @@ function toAlert(p: Player, t: Take, players: Player[], back?: string): NewsAler
     headline: note.headline, note: note.text, date: note.date,
     // Only a real absence gets a pickup; a day-to-day tag isn't worth a waiver move yet.
     nextUp: out ? nextUpFor(p, players) : undefined,
-    back: out ? back : undefined,
+    back: out ? report?.returnDate : undefined,
     out,
     key: `${p.id}:${note.date}:${normName(note.headline).slice(0, 40)}`,
   };
@@ -316,7 +321,7 @@ export async function newsAlerts(limit = 8, now = Date.now()): Promise<NewsAlert
   const out: NewsAlert[] = [];
   for (const t of takes) {
     const p = byName.get(t.key);
-    if (t.notes[0]?.date >= since && p && (p.pctOwned ?? 0) >= NEWS_MIN_OWNED) out.push(toAlert(p, t, players, injuries.get(p.id)?.returnDate));
+    if (t.notes[0]?.date >= since && p && (p.pctOwned ?? 0) >= NEWS_MIN_OWNED) out.push(toAlert(p, t, players, injuries.get(p.id)));
   }
   return out.sort((a, b) => b.date.localeCompare(a.date) || b.pctOwned - a.pctOwned).slice(0, limit);
 }
@@ -326,7 +331,7 @@ export async function newsAlertFor(playerId: number): Promise<NewsAlert | null> 
   const [{ players }, { takes }, injuries] = await Promise.all([getPlayers(), loadTakes(), injuryReport().catch(() => new Map())]);
   const p = players.find((x) => x.id === playerId);
   const t = p ? takes.find((x) => x.key === normName(p.name)) : undefined;
-  return p && t?.notes[0] ? toAlert(p, t, players, injuries.get(p.id)?.returnDate) : null;
+  return p && t?.notes[0] ? toAlert(p, t, players, injuries.get(p.id)) : null;
 }
 
 export const OUT = OUT_STATUSES;
