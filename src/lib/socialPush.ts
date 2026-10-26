@@ -177,7 +177,7 @@ async function injuryLines(now: number, today: string, lastPlayer: Record<string
   const items = new Map((await loadInjuries(today)).map((i) => [`${i.kind}:${i.player.id}`, i]));
   for (const a of await newsAlerts(20, now).catch(() => [])) {
     if (a.label !== "Injury" || !a.out || !a.nextUp || a.pctOwned < SLIDE_MIN_OWNED || followUp(a.id, a.status)) continue;
-    items.set(`out:${a.id}`, { kind: "out", player: { id: a.id, name: a.name, team: a.team, pctOwned: a.pctOwned }, other: { id: a.nextUp.id, name: a.nextUp.name, pctOwned: a.nextUp.pctOwned } });
+    items.set(`out:${a.id}`, { kind: "out", player: { id: a.id, name: a.name, team: a.team, pctOwned: a.pctOwned, back: a.back }, other: { id: a.nextUp.id, name: a.nextUp.name, pctOwned: a.nextUp.pctOwned, minutes: a.nextUp.minutes } });
   }
   // The first run only records statuses; after that, out last run and active now means back.
   if (before) {

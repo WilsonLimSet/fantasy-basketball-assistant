@@ -198,6 +198,8 @@ export interface LeagueSnapshot {
   acquisitions?: { limit: number | null; used: number };
   /** Points (H2H_POINTS etc.) or categories league. */
   scoringType?: string;
+  /** ESPN's estimated return dates (YYYY-MM-DD) for injured players, by player id. */
+  injuries?: Record<number, { returnDate?: string }>;
 }
 
 export interface MatchupWeekSchedule {

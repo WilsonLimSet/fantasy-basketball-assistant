@@ -56,11 +56,11 @@ export function dailyEmail(opts: {
       lines.push(
         `<div style="border:1px solid #e5e5e5;border-radius:8px;padding:12px;margin:0 0 8px">` +
           `<div style="font-weight:600">${esc(head)}</div>` +
-          `<div style="color:#666;font-size:14px;margin-top:4px">${m.kind === 'upgrade' ? 'Upgrade. ' : 'Stream. '}${esc(m.reason + waivers)}</div>` +
+          `<div style="color:#666;font-size:14px;margin-top:4px">${esc(`${m.hold} ${m.reason}${waivers}`)}</div>` +
           [m.nextWeekWarning, m.keepWarning].filter(Boolean).map((w) => `<div style="color:#b91c1c;font-size:13px;margin-top:4px">${esc(w!)}</div>`).join('') +
           `</div>`
       );
-      text.push(`- ${head}. ${m.kind === 'upgrade' ? 'Upgrade. ' : 'Stream. '}${m.reason}${waivers}${[m.nextWeekWarning, m.keepWarning].filter(Boolean).map((w) => ` ${w}`).join('')}`);
+      text.push(`- ${head}. ${m.hold} ${m.reason}${waivers}${[m.nextWeekWarning, m.keepWarning].filter(Boolean).map((w) => ` ${w}`).join('')}`);
     }
   } else {
     const line = 'No add/drop beats your current roster this week. Sit tight.';

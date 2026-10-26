@@ -2,7 +2,7 @@ import { cloneElement, isValidElement } from "react";
 import { ImageResponse } from "next/og";
 import { headshotUrl, teamLogoUrl } from "@/lib/espnImages";
 import { scorecard } from "@/lib/scorecard";
-import { dailyContent, easternDate, loadInjuries, dateRange, verifiedCardQuery, newsAlertFor, returnAlertFor, risersFallers, minutesWatch, type MinutesMove, waiverHeroes, yesterday, scheduleSpots, shortDate, type Mover, SITE, streamers, type NewsAlert } from "@/lib/social";
+import { absence, dailyContent, easternDate, injuryPickupLine, loadInjuries, dateRange, verifiedCardQuery, newsAlertFor, returnAlertFor, risersFallers, minutesWatch, type MinutesMove, waiverHeroes, yesterday, scheduleSpots, shortDate, type Mover, SITE, streamers, type NewsAlert } from "@/lib/social";
 
 export const dynamic = "force-dynamic";
 
@@ -66,7 +66,8 @@ function NewsCard({ a }: { a: NewsAlert }) {
           <div style={{ display: "flex", flexDirection: "column" }}>
             <div style={{ display: "flex", fontSize: 24, fontWeight: 700, letterSpacing: 2, color: GREEN, textTransform: "uppercase" }}>Fantasy move</div>
             <div style={{ display: "flex", fontSize: 42, fontWeight: 700, letterSpacing: -1, marginTop: 4 }}>{`Pick up ${a.nextUp.name}`}</div>
-            <div style={{ display: "flex", fontSize: 28, color: MUTED, marginTop: 4 }}>{`${a.nextUp.team} · ${a.nextUp.pctOwned}% rostered · ${a.nextUp.fppg} fpts/g`}</div>
+            <div style={{ display: "flex", fontSize: 28, color: MUTED, marginTop: 4 }}>{`${a.nextUp.team} · ${a.nextUp.pctOwned}% rostered${a.nextUp.minutes ? ` · +${a.nextUp.minutes} min` : ""} · ${a.nextUp.fppg} fpts/g`}</div>
+            {absence(a.back) && <div style={{ display: "flex", fontSize: 28, fontWeight: 600, marginTop: 4 }}>{absence(a.back)!.hold ? `Hold: ${a.name.split(" ").slice(-1)[0]} ${absence(a.back)!.label}` : `Stream: ${a.name.split(" ").slice(-1)[0]} ${absence(a.back)!.label}`}</div>}
           </div>
         </div>
       )}
@@ -210,7 +211,7 @@ export async function GET(req: Request) {
         c.heroes.list.length && { label: "Also went off", text: c.heroes.list.slice(0, 3).map((h) => `${h.name} ${h.fpts}`).join(" · ") },
         c.movers.risers.length && { label: "Everyone\u2019s adding", text: c.movers.risers.slice(0, 3).map((m) => `${m.name} +${Math.round(m.pctChange)}%`).join(" · ") },
         c.minutes.up.length && { label: "Minutes up", text: c.minutes.up.slice(0, 2).map((m) => `${m.name} ${Math.round(m.min)} min (was ${Math.round(m.lastMin)})`).join(" · ") },
-        outs.length && { label: "Injury pickups", text: outs.slice(0, 2).map((i) => `${i.player.name} out → ${i.other!.name}`).join(" · ") },
+        outs.length && { label: "Injury pickups", text: outs.slice(0, 2).map((i) => injuryPickupLine(i).replace(" → add ", " → ")).join(" · ") },
       ].filter(Boolean) as { label: string; text: string }[];
       return png(
         <Frame tag="Today's waiver wire" tagColor={INK} right={shortDate(date)}>
@@ -256,7 +257,7 @@ export async function GET(req: Request) {
               <div style={{ display: "flex", width: 92, justifyContent: "center", borderRadius: 999, padding: "6px 0", fontSize: 20, fontWeight: 700, letterSpacing: 1, color: "#fff", background: i.kind === "out" ? RED : GREEN }}>{i.kind === "out" ? "OUT" : "BACK"}</div>
               <div style={{ display: "flex", flexDirection: "column", flex: 1 }}>
                 <div style={{ display: "flex", fontSize: 34, fontWeight: 700, letterSpacing: -1 }}>{`${i.player.name} (${i.player.team})`}</div>
-                {i.other && <div style={{ display: "flex", fontSize: 26, color: MUTED }}>{i.kind === "out" ? `Add ${i.other.name} · ${i.other.pctOwned}% rostered` : `${i.other.name} loses minutes`}</div>}
+                {i.other && <div style={{ display: "flex", fontSize: 26, color: MUTED }}>{i.kind === "out" ? `Add ${i.other.name} · ${i.other.pctOwned}% rostered${i.other.minutes ? ` · +${i.other.minutes} min` : ""}${absence(i.player.back) ? ` · ${absence(i.player.back)!.hold ? "hold" : "stream"} till ${absence(i.player.back)!.label.split("about ")[1]}` : ""}` : `${i.other.name} loses minutes`}</div>}
               </div>
               {/* eslint-disable-next-line @next/next/no-img-element */}
               {i.other && <img src={headshotUrl(i.other.id, 150, 109)} width={96} height={70} alt="" />}

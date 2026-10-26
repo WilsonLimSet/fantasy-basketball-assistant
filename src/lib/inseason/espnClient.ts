@@ -650,7 +650,8 @@ export async function getLeagueSnapshot(): Promise<{
   const [teams, matchups, freeAgents, nbaSchedule, rawTransactions] = await Promise.all([
     getLeagueRosters(scoringPeriodId),
     getMatchups(settings.currentMatchupPeriod),
-    getFreeAgents({ limit: 100, scoringPeriodId }),
+    // Deep enough to reach bench players who pick up minutes when a teammate is out.
+    getFreeAgents({ limit: 250, scoringPeriodId }),
     getNBAProTeamSchedule(),
     getRecentTransactions(),
   ]);

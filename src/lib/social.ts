@@ -2,6 +2,8 @@ import { createHmac, timingSafeEqual } from "node:crypto";
 import { getPlayers, SEASON } from "./data";
 import { fantasyPoints, PRESETS } from "./engine";
 import { PRO_TEAM } from "./espn";
+import { RECIPIENT_MIN, shareMinutes, type RotationPlayer } from "./inseason/opportunity";
+import { injuryReport, type InjuryReportEntry } from "./inseason/stash";
 import { kvStore } from "./inseason/storage";
 import { loadTakes, normName, type Take } from "./takes";
 import type { Player } from "./types";
@@ -225,8 +227,10 @@ export interface NewsAlert {
   headline: string;
   note: string;
   date: string;
-  /** The pickup who gains most when this player sits. */
-  nextUp?: { id: number; name: string; team: string; pctOwned: number; fppg: number };
+  /** The pickup who gains most when this player sits: his extra minutes, and points per game with them. */
+  nextUp?: { id: number; name: string; team: string; pctOwned: number; fppg: number; minutes?: number };
+  /** ESPN's estimated return date (YYYY-MM-DD), when it has one. */
+  back?: string;
   /** Ruled out, rather than day-to-day or questionable. Only these get a pickup and an auto post. */
   out: boolean;
   /** Stable id for de-duplicating auto posts. */
@@ -235,21 +239,63 @@ export interface NewsAlert {
 
 const OUT_STATUSES = new Set(["OUT", "INJURY_RESERVE", "SUSPENSION", "DOUBTFUL"]);
 
-/** A teammate at the same position, likely on waivers, who'd soak up the minutes. */
-function nextUpFor(p: Player, players: Player[]): NewsAlert["nextUp"] {
-  const pick = players
-    .filter((q) => q.team === p.team && q.id !== p.id && streamable(q) && (q.pctOwned ?? 100) < STREAMER_MAX_OWNED && q.pos.some((x) => p.pos.includes(x)))
-    .sort((a, b) => fppg(b) - fppg(a))[0];
-  return pick ? { id: pick.id, name: pick.name, team: pick.team, pctOwned: Math.round(pick.pctOwned ?? 0), fppg: round1(fppg(pick)) } : undefined;
+/** Expected minutes: this season's take over from the projection within a few games (as in the app). */
+function rotationOf(p: Player): RotationPlayer {
+  const gp = p.cur?.gp ?? 0;
+  const projected = (p.proj ?? p.last)?.min ?? 0;
+  const w = p.cur?.min && gp > 0 ? gp / (gp + 1.5) : 0;
+  return { id: p.id, positions: p.pos, minutes: w * (p.cur?.min ?? 0) + (1 - w) * projected, fppg: fppg(p), minutesWeight: w, gamesPlayed: gp };
+}
+
+/** A pickup must gain at least this many minutes to be the injury fill-in. */
+const FILL_IN_MIN = 2;
+
+/**
+ * The teammates who soak up p's minutes while he sits, most first. `fresh` counts the whole share
+ * (for a player just back: who'd been filling in); otherwise games he's already missed are discounted.
+ */
+function fillIns(p: Player, players: Player[], fresh = false) {
+  const team = players.filter((q) => q.team === p.team && q.id !== p.id);
+  const healthy = team.filter(streamable).map(rotationOf).filter((r) => r.minutes >= RECIPIENT_MIN);
+  const teamGames = fresh ? 0 : Math.max(0, ...team.map((q) => q.cur?.gp ?? 0));
+  const byId = new Map(team.map((q) => [q.id, q]));
+  return shareMinutes(rotationOf(p), healthy, teamGames)
+    .filter((s) => s.minutes >= FILL_IN_MIN && (byId.get(s.id)!.pctOwned ?? 100) < STREAMER_MAX_OWNED)
+    .map((s) => ({ p: byId.get(s.id)!, minutes: s.minutes, fppg: fppg(byId.get(s.id)!) + s.fppg }));
+}
+
+/** Smaller bumps are real but read as nothing in a post, so only these get a "+N min". */
+const SHOW_MINUTES = 4;
+
+const nextUp = (x: { p: Player; minutes: number; fppg: number } | undefined): NewsAlert["nextUp"] =>
+  x && { id: x.p.id, name: x.p.name, team: x.p.team, pctOwned: Math.round(x.p.pctOwned ?? 0), fppg: round1(x.fppg), minutes: x.minutes >= SHOW_MINUTES ? Math.round(x.minutes) : undefined };
+
+/** The best pickup while p sits: the most points per game among teammates who gain real minutes. */
+const nextUpFor = (p: Player, players: Player[]) => nextUp(fillIns(p, players).sort((a, b) => b.fppg - a.fppg)[0]);
+
+/** Absences at least this long make the pickup a hold rather than a stream. */
+const HOLD_DAYS = 14;
+
+/** How long the pickup lasts, for captions and cards: "out until about Nov 22" and whether to hold him. */
+export function absence(back: string | undefined, now = Date.now()) {
+  if (!back) return null;
+  const days = Math.round((Date.parse(back) - Date.parse(easternDate(now))) / 864e5);
+  if (days <= 0) return null;
+  return { days, hold: days >= HOLD_DAYS, label: days >= HOLD_DAYS ? `out until about ${shortDate(back)}` : `back about ${shortDate(back)}` };
 }
 
 const INJURY_WORDS = /injur|sprain|strain|surgery|sore|tight|ankle|knee|calf|hamstring|groin|shoulder|wrist|hip|foot|concussion|illness|day-to-day|questionable|doubtful|ruled out|sidelined|cleared|rehab/i;
 
 const TRANSACTION_WORDS = /\b(waive[ds]?|waiving|release[ds]?|traded?|trading|signs?|signed|signing|claimed|acquire[ds]?|buyout|cut)\b/i;
 
-function toAlert(p: Player, t: Take, players: Player[]): NewsAlert {
-  const note = t.notes[0];
+function toAlert(p: Player, t: Take, players: Player[], report?: InjuryReportEntry): NewsAlert {
   const out = OUT_STATUSES.has(p.injury);
+  // ESPN's status is the truth. When ESPN updated an absence on or after our note, its comment
+  // replaces ours, so a post never says "no real absence" while ESPN has him out.
+  const espn = out && report?.note && easternDate(report.updatedAt) >= t.notes[0].date;
+  const note = espn
+    ? { headline: `${p.name.split(" ").slice(-1)[0]} ruled out${report.injury ? ` (${report.injury.toLowerCase()})` : ""}`, text: report.note, date: easternDate(report.updatedAt) }
+    : t.notes[0];
   const text = `${note.headline} ${note.text}`;
   // A move (waived, traded, signed) changes a player's whole outlook, injury or not.
   // (A contract extension "signs" too, but changes nothing this season.)
@@ -261,6 +307,7 @@ function toAlert(p: Player, t: Take, players: Player[]): NewsAlert {
     headline: note.headline, note: note.text, date: note.date,
     // Only a real absence gets a pickup; a day-to-day tag isn't worth a waiver move yet.
     nextUp: out ? nextUpFor(p, players) : undefined,
+    back: out ? report?.returnDate : undefined,
     out,
     key: `${p.id}:${note.date}:${normName(note.headline).slice(0, 40)}`,
   };
@@ -268,23 +315,23 @@ function toAlert(p: Player, t: Take, players: Player[]): NewsAlert {
 
 /** Fresh news (last 2 days) on rostered players, from our takes, newest and biggest names first. */
 export async function newsAlerts(limit = 8, now = Date.now()): Promise<NewsAlert[]> {
-  const [{ players }, { takes }] = await Promise.all([getPlayers(), loadTakes()]);
+  const [{ players }, { takes }, injuries] = await Promise.all([getPlayers(), loadTakes(), injuryReport().catch(() => new Map())]);
   const byName = new Map(players.map((p) => [normName(p.name), p]));
   const since = addDays(easternDate(now), -2);
   const out: NewsAlert[] = [];
   for (const t of takes) {
     const p = byName.get(t.key);
-    if (t.notes[0]?.date >= since && p && (p.pctOwned ?? 0) >= NEWS_MIN_OWNED) out.push(toAlert(p, t, players));
+    if (t.notes[0]?.date >= since && p && (p.pctOwned ?? 0) >= NEWS_MIN_OWNED) out.push(toAlert(p, t, players, injuries.get(p.id)));
   }
   return out.sort((a, b) => b.date.localeCompare(a.date) || b.pctOwned - a.pctOwned).slice(0, limit);
 }
 
 /** The latest news card for one player. */
 export async function newsAlertFor(playerId: number): Promise<NewsAlert | null> {
-  const [{ players }, { takes }] = await Promise.all([getPlayers(), loadTakes()]);
+  const [{ players }, { takes }, injuries] = await Promise.all([getPlayers(), loadTakes(), injuryReport().catch(() => new Map())]);
   const p = players.find((x) => x.id === playerId);
   const t = p ? takes.find((x) => x.key === normName(p.name)) : undefined;
-  return p && t?.notes[0] ? toAlert(p, t, players) : null;
+  return p && t?.notes[0] ? toAlert(p, t, players, injuries.get(p.id)) : null;
 }
 
 export const OUT = OUT_STATUSES;
@@ -313,7 +360,8 @@ export async function returnAlertFor(playerId: number): Promise<ReturnAlert | nu
     id: p.id, name: p.name, team: p.team, pos: p.pos.join("/"), pctOwned: Math.round(p.pctOwned ?? 0),
     headline: `${p.name.split(" ").slice(-1)[0]} is back in the lineup`,
     note: "Off the injury report and available to play.",
-    loser: nextUpFor(p, players),
+    // Whoever had been getting the most of his minutes.
+    loser: nextUp(fillIns(p, players, true).sort((a, b) => b.minutes - a.minutes)[0]),
   };
 }
 
@@ -401,8 +449,16 @@ export async function scheduleSpots(now = Date.now()) {
 /** One line on the injury slide: a player ruled out (and who to add) or back (and who loses minutes). */
 export interface InjuryItem {
   kind: "out" | "back";
-  player: { id: number; name: string; team: string; pctOwned: number };
-  other?: { id: number; name: string; pctOwned: number };
+  /** back: ESPN's estimated return date for a player ruled out. */
+  player: { id: number; name: string; team: string; pctOwned: number; back?: string };
+  /** minutes: what the pickup gains while the player is out. */
+  other?: { id: number; name: string; pctOwned: number; minutes?: number };
+}
+
+/** "Embiid out until about Nov 22 → add Adem Bona (+7 min)", for the caption and cover. */
+export function injuryPickupLine(i: InjuryItem, now = Date.now()) {
+  const a = absence(i.player.back, now);
+  return `${i.player.name} ${a ? a.label.replace(/^back/, "out, back") : "out"} → add ${i.other!.name}${i.other!.minutes ? ` (+${i.other!.minutes} min)` : ""}`;
 }
 
 const injuriesKey = (date: string) => `social:injuries:${date}`;
@@ -446,7 +502,7 @@ export function dailyCaption(c: Awaited<ReturnType<typeof dailyContent>>): strin
   if (c.movers.fallers.length) lines.push(`📉 Getting dropped: ${c.movers.fallers.slice(0, 2).map((m) => m.name).join(", ")}`);
   if (c.minutes.up.length) lines.push(`⏱️ Minutes up: ${c.minutes.up.slice(0, 3).map((m) => `${m.name} (${m.min} min, ${m.lastMin} last season)`).join(", ")}`);
   const outs = c.injuries.filter((i) => i.kind === "out" && i.other);
-  if (outs.length) lines.push(`🚑 Injury pickups: ${outs.slice(0, 2).map((i) => `${i.player.name} out → add ${i.other!.name}`).join("; ")}`);
+  if (outs.length) lines.push(`🚑 Injury pickups: ${outs.slice(0, 2).map((i) => injuryPickupLine(i)).join("; ")}`);
   lines.push("", "Every league's waiver wire is different. Find the moves for yours: takeoverfantasy.com", TAGS);
   return lines.join("\n");
 }
@@ -460,8 +516,17 @@ const pct = (n: number) => (n < 1 ? "under 1% rostered" : `${n}% rostered`);
 /** Shams-style: the news first, in one plain line, then what to do about it. */
 export function newsCaption(a: NewsAlert): string {
   const lead = a.label === "Injury" || a.label === "Transaction" ? "🚨 " : "";
-  const move = a.nextUp ? `\n\nFantasy move: pick up ${a.nextUp.name} (${pct(a.nextUp.pctOwned)}, ${a.nextUp.fppg} fpts/g).` : "";
+  const move = a.nextUp ? `\n\nFantasy move: ${pickupAdvice(a)}` : "";
   return `${lead}${a.name} (${a.team}): ${a.headline.replace(/\.$/, "")}.\n\n${a.note}${move}\n\n${CTA}\n${TAGS}`;
+}
+
+/** "pick up X (4% rostered). He gets about +7 min while Embiid sits, ~24 fpts/g. Embiid is out until about Nov 22, so X is a hold, not a one-night stream." */
+export function pickupAdvice(a: NewsAlert, now = Date.now()): string {
+  const n = a.nextUp!, last = a.name.split(" ").slice(-1)[0];
+  const head = n.minutes ? `pick up ${n.name} (${pct(n.pctOwned)}). He gets about +${n.minutes} min while ${last} sits, ~${n.fppg} fpts/g.` : `pick up ${n.name} (${pct(n.pctOwned)}, ${n.fppg} fpts/g).`;
+  const d = absence(a.back, now);
+  const length = !d ? "" : d.hold ? ` ${last} is ${d.label}, so ${n.name} is a hold, not a one-night stream.` : ` ${last} is ${d.label}, so ${n.name} is a short-term stream.`;
+  return `${head}${length}`;
 }
 
 export function streamersCaption(s: Awaited<ReturnType<typeof streamers>>): string {
