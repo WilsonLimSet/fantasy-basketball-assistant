@@ -63,6 +63,7 @@ export async function rateMove(dropId: number, addId: number, now = Date.now()):
   for (const s of [add, drop]) {
     if (s.temporary) reasons.push(`${s.name}'s minutes are up while ${s.temporary.because} is out (back around ${s.temporary.until}); expect about ${s.temporary.minutesAfter} after`);
     else if (s.min != null && s.lastMin != null && Math.abs(s.min - s.lastMin) >= 4) reasons.push(`${s.name} is playing ${s.min > s.lastMin ? "more" : "less"}: about ${s.min} minutes a game, ${s.lastMin} last season`);
+    if (s.health === "in-and-out") reasons.push(`${s.name} sits often: about ${Math.round(s.durability * 100)}% of games over the last few seasons, not counting long injuries`);
     if (s.status === "OUT") reasons.push(`${s.name} is out${s.returnDate ? ` until about ${s.returnDate}` : ""}`);
     else if (s.status === "DAY_TO_DAY") reasons.push(`${s.name} is day-to-day`);
   }

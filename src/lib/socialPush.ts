@@ -1,7 +1,8 @@
-import { getPlayers } from "./data";
+import { getPlayers, SEASON } from "./data";
 import { EMAIL_ON, newsDigestEmail, sendEmail } from "./inseason/email";
 import { kvStore } from "./inseason/storage";
 import { replyHookUrl } from "./replyBot";
+import { refreshHealth } from "./healthHistory";
 import { recordPredictions, scorePredictions } from "./value";
 import { isOwnerEmail, listProfiles, type InseasonProfile } from "./inseason/profile";
 import { sendTelegramAlbum, sendTelegramPhoto, TELEGRAM_ON } from "./inseason/telegramUser";
@@ -227,6 +228,9 @@ export async function pushSocial(now = Date.now()): Promise<{ sent: string[]; fa
       }
     }
     if (!(await kv.get(`value:pred:${today}`))) await recordPredictions(today).catch((e) => console.error("[social] predictions", e));
+    // Injury histories (from game logs) for newly relevant players; a few a day keeps the run short.
+    const relevant = (await getPlayers()).players.filter((p) => p.team !== "FA" && (p.pctOwned ?? 0) >= 3).map((p) => p.id);
+    await refreshHealth(relevant, [SEASON - 3, SEASON - 2, SEASON - 1], { maxAgeDays: 120, limit: 15 }).catch((e) => console.error("[social] health", e));
   }
 
   await injuryLines(now, today, lastPlayer).catch((e) => console.error("[social] injuries", e));

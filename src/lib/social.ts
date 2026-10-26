@@ -1,8 +1,9 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
 import { getPlayers, SEASON } from "./data";
-import { fantasyPoints, PRESETS } from "./engine";
 import { PRO_TEAM } from "./espn";
 import { kvStore } from "./inseason/storage";
+import { perGameCore } from "./valueCore";
+import { loadHealth, type HealthProfile } from "./healthHistory";
 import { loadTakes, normName, type Take } from "./takes";
 import type { Player } from "./types";
 
@@ -13,7 +14,6 @@ import type { Player } from "./types";
  */
 
 export const SITE = process.env.NEXT_PUBLIC_SITE_URL || "https://takeoverfantasy.com";
-const SCORING = PRESETS[0].league.scoring; // ESPN default points: what most leagues use
 const SEASON_START = process.env.NBA_SEASON_START ?? "2026-10-20";
 /** Below this share of ESPN leagues, a player is probably on your waiver wire. */
 const STREAMER_MAX_OWNED = 50;
@@ -61,14 +61,8 @@ export function weekNumber(date: string) {
   return Math.max(1, Math.floor((Date.parse(weekOf(date).start) - first) / (7 * 864e5)) + 1);
 }
 
-/** Per-game fantasy points in ESPN's default scoring: the projection early on, this season's games as they add up. */
-export function fppg(p: Player): number {
-  const base = p.proj ?? p.last;
-  const proj = base ? fantasyPoints(base, SCORING) : 0;
-  if (!p.cur?.gp) return proj;
-  const w = Math.min(1, p.cur.gp / 10);
-  return w * fantasyPoints(p.cur, SCORING) + (1 - w) * proj;
-}
+/** Per-game fantasy points in ESPN's default scoring when he plays (see src/lib/valueCore.ts). */
+export const fppg = (p: Player): number => perGameCore(p).perGame;
 
 export const round1 = (n: number) => Math.round(n * 10) / 10;
 
@@ -235,11 +229,17 @@ export interface NewsAlert {
 
 const OUT_STATUSES = new Set(["OUT", "INJURY_RESERVE", "SUSPENSION", "DOUBTFUL"]);
 
-/** A teammate at the same position, likely on waivers, who'd soak up the minutes. */
-function nextUpFor(p: Player, players: Player[]): NewsAlert["nextUp"] {
+type Health = Record<string, HealthProfile>;
+
+/**
+ * A teammate at the same position, likely on waivers, who'd soak up the minutes. Players who sit
+ * often (from their game logs) rank lower: a pickup who misses the games doesn't help.
+ */
+function nextUpFor(p: Player, players: Player[], health: Health = {}): NewsAlert["nextUp"] {
+  const score = (q: Player) => fppg(q) * (health[q.id] && health[q.id].label !== "unknown" ? health[q.id].baseline : 0.88);
   const pick = players
     .filter((q) => q.team === p.team && q.id !== p.id && streamable(q) && (q.pctOwned ?? 100) < STREAMER_MAX_OWNED && q.pos.some((x) => p.pos.includes(x)))
-    .sort((a, b) => fppg(b) - fppg(a))[0];
+    .sort((a, b) => score(b) - score(a))[0];
   return pick ? { id: pick.id, name: pick.name, team: pick.team, pctOwned: Math.round(pick.pctOwned ?? 0), fppg: round1(fppg(pick)) } : undefined;
 }
 
@@ -247,7 +247,7 @@ const INJURY_WORDS = /injur|sprain|strain|surgery|sore|tight|ankle|knee|calf|ham
 
 const TRANSACTION_WORDS = /\b(waive[ds]?|waiving|release[ds]?|traded?|trading|signs?|signed|signing|claimed|acquire[ds]?|buyout|cut)\b/i;
 
-function toAlert(p: Player, t: Take, players: Player[]): NewsAlert {
+function toAlert(p: Player, t: Take, players: Player[], health: Health = {}): NewsAlert {
   const note = t.notes[0];
   const out = OUT_STATUSES.has(p.injury);
   const text = `${note.headline} ${note.text}`;
@@ -260,7 +260,7 @@ function toAlert(p: Player, t: Take, players: Player[]): NewsAlert {
     label: transaction ? "Transaction" : injury ? "Injury" : t.kind === "boost" ? "Role up" : t.kind === "fade" ? "Role down" : "News",
     headline: note.headline, note: note.text, date: note.date,
     // Only a real absence gets a pickup; a day-to-day tag isn't worth a waiver move yet.
-    nextUp: out ? nextUpFor(p, players) : undefined,
+    nextUp: out ? nextUpFor(p, players, health) : undefined,
     out,
     key: `${p.id}:${note.date}:${normName(note.headline).slice(0, 40)}`,
   };
@@ -268,23 +268,23 @@ function toAlert(p: Player, t: Take, players: Player[]): NewsAlert {
 
 /** Fresh news (last 2 days) on rostered players, from our takes, newest and biggest names first. */
 export async function newsAlerts(limit = 8, now = Date.now()): Promise<NewsAlert[]> {
-  const [{ players }, { takes }] = await Promise.all([getPlayers(), loadTakes()]);
+  const [{ players }, { takes }, health] = await Promise.all([getPlayers(), loadTakes(), loadHealth()]);
   const byName = new Map(players.map((p) => [normName(p.name), p]));
   const since = addDays(easternDate(now), -2);
   const out: NewsAlert[] = [];
   for (const t of takes) {
     const p = byName.get(t.key);
-    if (t.notes[0]?.date >= since && p && (p.pctOwned ?? 0) >= NEWS_MIN_OWNED) out.push(toAlert(p, t, players));
+    if (t.notes[0]?.date >= since && p && (p.pctOwned ?? 0) >= NEWS_MIN_OWNED) out.push(toAlert(p, t, players, health));
   }
   return out.sort((a, b) => b.date.localeCompare(a.date) || b.pctOwned - a.pctOwned).slice(0, limit);
 }
 
 /** The latest news card for one player. */
 export async function newsAlertFor(playerId: number): Promise<NewsAlert | null> {
-  const [{ players }, { takes }] = await Promise.all([getPlayers(), loadTakes()]);
+  const [{ players }, { takes }, health] = await Promise.all([getPlayers(), loadTakes(), loadHealth()]);
   const p = players.find((x) => x.id === playerId);
   const t = p ? takes.find((x) => x.key === normName(p.name)) : undefined;
-  return p && t?.notes[0] ? toAlert(p, t, players) : null;
+  return p && t?.notes[0] ? toAlert(p, t, players, health) : null;
 }
 
 export const OUT = OUT_STATUSES;

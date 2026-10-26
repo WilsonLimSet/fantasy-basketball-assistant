@@ -1,9 +1,10 @@
 import { getPlayers } from "./data";
-import { fantasyPoints, PRESETS } from "./engine";
+import { loadHealth, type HealthProfile } from "./healthHistory";
 import { injuryReport, type InjuryReportEntry } from "./inseason/stash";
 import { kvStore } from "./inseason/storage";
 import { easternDate, teamTips } from "./social";
-import type { Player, StatKey, StatLine } from "./types";
+import type { Player } from "./types";
+import { isRookie, perGameCore } from "./valueCore";
 
 /**
  * How Takeover values a player. Expected fantasy points = chance he plays × minutes × points per
@@ -18,9 +19,6 @@ import type { Player, StatKey, StatLine } from "./types";
  * the floor/ceiling spread. Players on bad teams get no penalty: empty stats still count.
  */
 
-const SCORING = PRESETS[0].league.scoring;
-/** The settled part of a stat line. */
-const RELIABLE: StatKey[] = ["reb", "oreb", "dreb", "ast", "stl", "blk", "tov", "dd", "td"];
 const OUT = new Set(["OUT", "INJURY_RESERVE", "SUSPENSION"]);
 const DAY = 864e5;
 
@@ -32,20 +30,23 @@ export interface ValueContext {
   tips: Map<string, number[]>;
   /** Minutes in each recent game played, newest first (from the nightly box-score snapshots). */
   recentMin: Map<number, number[]>;
+  /** Injury history from game logs (src/lib/healthHistory.ts), by player id. */
+  health: Record<string, HealthProfile>;
 }
 
 export async function valueContext(now = Date.now()): Promise<ValueContext> {
   const kv = kvStore();
   const nights = Array.from({ length: 10 }, (_, i) => easternDate(now - (i + 1) * DAY));
-  const [{ players }, injuries, tips, snaps] = await Promise.all([
+  const [{ players }, injuries, tips, health, snaps] = await Promise.all([
     getPlayers(),
     injuryReport().catch(() => new Map<number, InjuryReportEntry>()),
     teamTips().catch(() => new Map<string, number[]>()),
+    loadHealth(),
     Promise.all(nights.map((d) => kv.get<Record<string, number>>(`social:minutes:${d}`).catch(() => null))),
   ]);
   const recentMin = new Map<number, number[]>();
   for (const snap of snaps) for (const [id, min] of Object.entries(snap ?? {})) if (min > 0) recentMin.set(Number(id), [...(recentMin.get(Number(id)) ?? []), min]);
-  return { now, players, byId: new Map(players.map((p) => [p.id, p])), injuries, tips, recentMin };
+  return { now, players, byId: new Map(players.map((p) => [p.id, p])), injuries, tips, recentMin, health };
 }
 
 export interface PlayerValue {
@@ -67,12 +68,12 @@ export interface PlayerValue {
   window: number;
   /** Rest of season: expected points per team game left, durability included. */
   ros: number;
+  /** From game logs: durable, one-off (a long injury, healthy otherwise), in-and-out (sits often). */
+  health: HealthProfile["label"];
+  /** Share of games he plays when not on a long injury. */
+  durability: number;
 }
 
-const blend = (cur: number, prior: number, w: number) => w * cur + (1 - w) * prior;
-const part = (line: StatLine, keep: (k: StatKey) => boolean) =>
-  Object.fromEntries(Object.entries(line).map(([k, v]) => [k, k === "gp" || keep(k as StatKey) ? v : 0])) as StatLine;
-const median = (xs: number[]) => { const s = [...xs].sort((a, b) => a - b); return s.length % 2 ? s[(s.length - 1) / 2] : (s[s.length / 2 - 1] + s[s.length / 2]) / 2; };
 const group = (p: Player) => (p.pos.includes("C") && !p.pos.includes("SF") ? "C" : p.pos.includes("PG") || p.pos.includes("SG") ? "G" : "F");
 
 function statusOf(p: Player, ctx: ValueContext): { status: string; returnDate?: string } {
@@ -92,43 +93,27 @@ function playChance(t: number, st: { status: string; returnDate?: string }, firs
   return 0.97;
 }
 
-const isRookie = (p: Player) => p.bio?.years === 0 || (p.bio?.years == null && !p.last && (p.age ?? 22) <= 22);
 
 /**
- * Long-term durability: share of games he plays when not on a known injury. Last season's games
- * only count for players who were in the rotation (20+ minutes): a bench player's missed games are
- * mostly coach's decisions, not injuries. Kept in a narrow band, since one season is a noisy guide.
+ * Long-term durability: share of games he plays when not on a known injury. From his game logs
+ * when we have them: games played with one-off long injuries taken out, so a player who missed 40
+ * games once isn't marked fragile, while one who sits every other week is. Otherwise from last
+ * season's games, counted only for rotation players (a bench player's missed games are mostly
+ * coach's decisions).
  */
-function durability(p: Player): number {
+function durability(p: Player, h?: HealthProfile): number {
+  const age = (p.age ?? 0) >= 33 ? 0.04 : (p.age ?? 0) >= 30 ? 0.02 : 0;
+  if (h && h.label !== "unknown") return Math.min(0.97, Math.max(0.55, h.baseline - age));
   const rotation = (p.last?.gp ?? 0) > 0 && (p.last?.min ?? 0) >= 20;
   // No games last season: fine for a rookie, a risk for a veteran (usually a long injury).
   const lastRate = rotation ? Math.min(1, p.last!.gp / 72) : !p.last?.gp && !isRookie(p) && (p.bio?.years ?? 0) >= 2 ? 0.6 : 0.88;
-  let d = 0.4 * lastRate + 0.6 * 0.88;
-  if ((p.age ?? 0) >= 33) d -= 0.05;
-  else if ((p.age ?? 0) >= 30) d -= 0.02;
-  return Math.min(0.95, Math.max(0.7, d));
+  return Math.min(0.95, Math.max(0.7, 0.4 * lastRate + 0.6 * 0.88 - age));
 }
 
 export function valuePlayer(p: Player, ctx: ValueContext, window?: { from: string; to: string }): PlayerValue {
   const st = statusOf(p, ctx);
   const prior = p.proj?.min ? p.proj : p.last?.min ? p.last : null;
-  const cur = p.cur?.gp && p.cur.min ? p.cur : null;
-  const gp = cur?.gp ?? 0;
-  // A rookie's projection is a guess, so his own games take over faster.
-  const [kMin, kRel, kScore] = isRookie(p) ? [1, 2, 5] : [3, 3, 10];
-
-  // Minutes: recent games (median) and the season so far, then the prior until games pile up.
-  const recent = (ctx.recentMin.get(p.id) ?? []).slice(0, 5);
-  const now = cur ? (recent.length >= 2 ? 0.6 * median(recent) + 0.4 * cur.min : cur.min) : prior?.min ?? 0;
-  const minutes = prior ? blend(now, prior.min, gp / (gp + kMin)) : now;
-
-  // Points per minute, settled and volatile parts separately.
-  const rate = (line: StatLine | null, keep: (k: StatKey) => boolean) => (line?.min ? fantasyPoints(part(line, keep), SCORING) / line.min : 0);
-  const isRel = (k: StatKey) => RELIABLE.includes(k), isScore = (k: StatKey) => !RELIABLE.includes(k);
-  const relPM = cur && prior ? blend(rate(cur, isRel), rate(prior, isRel), gp / (gp + kRel)) : rate(cur ?? prior, isRel);
-  const scoPM = cur && prior ? blend(rate(cur, isScore), rate(prior, isScore), gp / (gp + kScore)) : rate(cur ?? prior, isScore);
-  const relPts = minutes * relPM, scoPts = minutes * scoPM;
-  const perGame = Math.max(0, relPts + scoPts);
+  const { minutes, relPts, scoPts, perGame } = perGameCore(p, (ctx.recentMin.get(p.id) ?? []).slice(0, 5));
   const sd = Math.sqrt((0.45 * Math.max(0, scoPts)) ** 2 + (0.25 * Math.max(0, relPts)) ** 2);
 
   // A role that exists only while a teammate is out: minutes well above his norm, and a regular
@@ -148,7 +133,7 @@ export function valuePlayer(p: Player, ctx: ValueContext, window?: { from: strin
   const tips = (ctx.tips.get(p.team) ?? []).filter((t) => t > ctx.now);
   const inWindow = window ? tips.filter((t) => easternDate(t) >= window.from && easternDate(t) <= window.to) : [];
   const windowPts = inWindow.reduce((s, t, i) => s + playChance(t, st, i === 0, ctx.now) * perGameAt(t), 0);
-  const dur = durability(p);
+  const dur = durability(p, ctx.health[p.id]);
   const rosPts = tips.reduce((s, t, i) => s + (st.status === "ACTIVE" ? dur : Math.min(dur, playChance(t, st, i === 0, ctx.now))) * perGameAt(t), 0);
 
   const r1 = (n: number) => Math.round(n * 10) / 10;
@@ -156,6 +141,7 @@ export function valuePlayer(p: Player, ctx: ValueContext, window?: { from: strin
     id: p.id, perGame: r1(perGame), floor: r1(Math.max(0, perGame - sd)), ceiling: r1(perGame + sd), minutes: r1(minutes),
     steady: perGame ? Math.round((relPts / perGame) * 100) / 100 : 0, status: st.status, returnDate: st.returnDate, temporary,
     games: inWindow.length, window: r1(windowPts), ros: r1(tips.length ? rosPts / tips.length : 0),
+    health: ctx.health[p.id]?.label ?? "unknown", durability: Math.round(dur * 100) / 100,
   };
 }
 
