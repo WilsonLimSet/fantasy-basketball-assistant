@@ -86,10 +86,11 @@ export function MoveRow({ m }: { m: StreamMove }) {
       </div>
       <p className="mt-2 text-xs text-muted">
         <span className="mr-1.5 rounded bg-sunken px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-fg">
-          {m.kind === 'upgrade' ? 'Upgrade' : 'Stream'}
+          {m.kind === 'upgrade' ? 'Upgrade' : m.kind === 'opportunity' ? 'While out' : 'Stream'}
         </span>
         {m.reason}
       </p>
+      {m.hold && <p className="mt-1 text-xs font-medium text-fg">{m.hold}</p>}
       {m.nextWeekWarning && <p className="mt-1 text-xs font-medium text-red-700">{m.nextWeekWarning}</p>}
       {m.keepWarning && <p className="mt-1 text-xs font-medium text-red-700">{m.keepWarning}</p>}
     </div>
@@ -190,7 +191,7 @@ export function WatchlistPanel({ notes }: { notes: WatchlistNote[] }) {
             <div className="min-w-0 flex-1">
               <div className="truncate text-sm">{w.player.name}<InjuryBadge s={w.player.status} /></div>
               <div className="truncate text-xs text-muted">
-                {w.player.nbaTeamAbbrev} · {w.player.gamesLeft} left{w.player.gamesNext !== undefined ? ` · ${w.player.gamesNext} next wk` : ''} · {w.player.fppg} pts/g{w.player.onWaivers ? ' · waivers' : ''}
+                {w.player.nbaTeamAbbrev} · {w.player.gamesLeft} left{w.player.gamesNext !== undefined ? ` · ${w.player.gamesNext} next wk` : ''} · {w.player.fppg} pts/g{w.player.onWaivers ? ' · waivers' : ''}{w.player.opportunity ? ` · ${w.player.opportunity}` : ''}
               </div>
             </div>
             <div className="text-right text-xs">

@@ -7,6 +7,7 @@
  */
 
 import type { FreeAgentEntry, LeagueSnapshot, MatchupWeekSchedule, Player, PlayerStatus } from '@/types';
+import { boostOn, longBoost, teammateBoosts, type TeammateBoost } from './opportunity';
 
 const BENCH_SLOT = 12;
 const IR_SLOT = 13;
@@ -56,6 +57,8 @@ export interface StreamPlayer {
   usableLeft: number;
   /** Games next matchup week (when we know next week's schedule). */
   gamesNext?: number;
+  /** Extra minutes while teammates are out, e.g. "+6 min with Stephen Curry out (back about Oct 29)". */
+  opportunity?: string;
 }
 
 export interface StreamMove {
@@ -71,8 +74,14 @@ export interface StreamMove {
   nextWeek?: { pointsChange: number; addGames: number; dropGames: number };
   /** Set when the move costs points next week, e.g. dropping someone with a big week coming. */
   nextWeekWarning?: string;
-  /** upgrade: the pickup is at least as good per game, keep him. stream: a short-term pickup for a better player. */
-  kind: 'upgrade' | 'stream';
+  /**
+   * upgrade: at least as good per game, keep him. opportunity: as good while a teammate is out
+   * for weeks, keep him until then. stream: a short-term pickup (this week's games, or a teammate
+   * out for a game or two).
+   */
+  kind: 'upgrade' | 'opportunity' | 'stream';
+  /** How long to keep the pickup, in a sentence. */
+  hold: string;
   /** Set for a stream that drops a better, widely rostered player who may not come back. */
   keepWarning?: string;
 }
@@ -119,7 +128,12 @@ interface Candidate {
   until?: number;
   /** Days between making a pickup and the player counting (waiver claims). */
   delay?: number;
+  /** Extra points per game while teammates are out (points leagues). */
+  boosts?: TeammateBoost[];
 }
+
+/** What a candidate's game on this date is worth, with any teammate boost still running. */
+const valueOn = (c: Candidate, date: string) => c.value + boostOn(c.boosts, date);
 
 /**
  * Expected fantasy points per game: minutes times points per minute. Minutes are the first thing
@@ -134,9 +148,10 @@ export function expectedFppg(p: Player): number {
   const proj = s.projectedAvg ?? season;
   if (gp <= 0 || !season) return proj;
   if (s.seasonMin && s.projectedMin && proj) {
-    const minutes = blend(s.seasonMin, s.projectedMin, gp / (gp + 1.5));
-    const perMin = blend(season / s.seasonMin, proj / s.projectedMin, gp / (gp + 5));
-    return minutes * perMin;
+    // Preseason projections can overrate a player per minute (Day'Ron Sharpe: 1.23 projected,
+    // 0.88 real), so real games take over by about game 3.
+    const perMin = blend(season / s.seasonMin, proj / s.projectedMin, gp / (gp + 3));
+    return expectedMinutes(p) * perMin;
   }
   const recent = s.last15Avg || season;
   const played = 0.5 * recent + 0.5 * season;
@@ -145,6 +160,20 @@ export function expectedFppg(p: Player): number {
 }
 
 const blend = (actual: number, projected: number, w: number) => w * actual + (1 - w) * projected;
+
+/** Share of the minutes projection that rests on this season's games. */
+const minutesWeight = (p: Player) => {
+  const gp = p.stats?.gamesPlayed ?? 0;
+  return p.stats?.seasonMin && gp > 0 ? gp / (gp + 1.5) : 0;
+};
+
+/** Expected minutes per game: this season's minutes take over from the projection within a few games. */
+export function expectedMinutes(p: Player): number {
+  const s = p.stats;
+  if (!s) return 0;
+  if (!s.projectedMin) return s.seasonMin ?? 0;
+  return blend(s.seasonMin ?? 0, s.projectedMin, minutesWeight(p));
+}
 
 const isPointsLeague = (snapshot: LeagueSnapshot) => (snapshot.scoringType ?? '').includes('POINTS');
 
@@ -226,7 +255,7 @@ function simulateWeek(roster: Candidate[], week: MatchupWeekSchedule, today: num
         (week.teamGames[c.player.nbaTeamId] ?? []).includes(day.scoringPeriodId)
     );
     const ahead = daysBetween(asOf, day.date);
-    const { total, started } = fillDay(playing, slots, (c) => c.value * playChance(c.player.status, ahead));
+    const { total, started } = fillDay(playing, slots, (c) => valueOn(c, day.date) * playChance(c.player.status, ahead));
     points += total;
     usableGames += started.size;
     for (const id of started) usableById.set(id, (usableById.get(id) ?? 0) + 1);
@@ -238,7 +267,24 @@ function gamesLeft(p: Player, week: MatchupWeekSchedule, from: number): number {
   return (week.teamGames[p.nbaTeamId] ?? []).filter((d) => d >= from).length;
 }
 
-function describe(p: Player, value: number, week: MatchupWeekSchedule, today: number, usable: number, from = today, next?: MatchupWeekSchedule): StreamPlayer {
+const dateLabel = (date: string) =>
+  new Date(`${date}T12:00:00Z`).toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' });
+const names = (bs: TeammateBoost[]) => bs.map((b) => b.out.name).join(' and ');
+const isAre = (bs: TeammateBoost[]) => (bs.length === 1 ? 'is' : 'are');
+
+/** "+6 min with Stephen Curry out (back about Oct 29)", for the boosts still running on asOf. */
+function opportunityNote(boosts: TeammateBoost[] | undefined, asOf: string): string | undefined {
+  const live = (boosts ?? []).filter((b) => asOf < b.until);
+  const minutes = Math.round(live.reduce((sum, b) => sum + b.minutes, 0));
+  if (minutes < 1) return undefined;
+  const dated = live.filter((b) => b.dated).map((b) => b.until).sort();
+  const back = dated.length === live.length ? ` (back about ${dateLabel(dated[0])})` : '';
+  return `+${minutes} min with ${names(live)} out${back}`;
+}
+
+function describe(c: Candidate, week: MatchupWeekSchedule, today: number, usable: number, asOf: string, from = today, next?: MatchupWeekSchedule): StreamPlayer {
+  const p = c.player;
+  const value = valueOn(c, asOf);
   return {
     id: p.id,
     name: p.name,
@@ -249,6 +295,7 @@ function describe(p: Player, value: number, week: MatchupWeekSchedule, today: nu
     gamesLeft: gamesLeft(p, week, Math.max(today, from)),
     usableLeft: usable,
     gamesNext: next ? (next.teamGames[p.nbaTeamId] ?? []).length : undefined,
+    opportunity: opportunityNote(c.boosts, asOf),
   };
 }
 
@@ -265,10 +312,12 @@ export function buildStreamingPlan(snapshot: LeagueSnapshot, core: number[], wat
 
   const pointsLeague = isPointsLeague(snapshot);
   const valueOf = (p: Player) => playerValue(snapshot, p);
+  // Categories leagues count every game the same, so extra minutes don't change a game's value there.
+  const boosts = pointsLeague ? teammateBoosts(snapshot, asOf, { fppg: expectedFppg, minutes: expectedMinutes, minutesWeight }) : new Map<number, TeammateBoost[]>();
 
   const roster: Candidate[] = me.roster
     .filter((e) => e.lineupSlotId !== IR_SLOT)
-    .map((e) => ({ player: e.player, value: valueOf(e.player), from: today }));
+    .map((e) => ({ player: e.player, value: valueOf(e.player), from: today, boosts: boosts.get(e.player.id) }));
 
   const coreIsDefault = core.length === 0;
   const coreIds = new Set(
@@ -282,6 +331,7 @@ export function buildStreamingPlan(snapshot: LeagueSnapshot, core: number[], wat
     value: valueOf(fa.player),
     from: today + (fa.onWaivers ? WAIVER_DELAY_DAYS : 0),
     delay: fa.onWaivers ? WAIVER_DELAY_DAYS : 0,
+    boosts: boosts.get(fa.player.id),
   });
   const freeAgents = [...pool.values()]
     .filter((fa) => (PLAY_CHANCE[fa.player.status] ?? 1) > 0)
@@ -330,10 +380,11 @@ export function buildStreamingPlan(snapshot: LeagueSnapshot, core: number[], wat
   function toMove(s: NonNullable<ReturnType<typeof bestSwap>>): StreamMove {
     const fa = pool.get(s.add.player.id);
     const usableGamesGain = s.result.usableGames - s.before.usableGames;
-    const add = describe(s.add.player, s.add.value, week!, today, s.result.usableById.get(s.add.player.id) ?? 0, s.add.from, next);
-    const drop = describe(s.drop.player, s.drop.value, week!, today, s.before.usableById.get(s.drop.player.id) ?? 0, today, next);
+    const add = describe(s.add, week!, today, s.result.usableById.get(s.add.player.id) ?? 0, asOf, s.add.from, next);
+    const drop = describe(s.drop, week!, today, s.before.usableById.get(s.drop.player.id) ?? 0, asOf, today, next);
     const extra = usableGamesGain > 0 ? `+${usableGamesGain} usable game${usableGamesGain === 1 ? '' : 's'}. ` : '';
-    let reason = `${extra}${add.name} starts ${add.usableLeft} of his ${add.gamesLeft} games left; ${drop.name} starts ${drop.usableLeft} of ${drop.gamesLeft}.`;
+    const minutes = add.opportunity ? ` ${add.name}: ${add.opportunity}.` : '';
+    let reason = `${extra}${add.name} starts ${add.usableLeft} of his ${add.gamesLeft} games left; ${drop.name} starts ${drop.usableLeft} of ${drop.gamesLeft}.${minutes}`;
     // Waiting: the dropped player keeps the games before the swap.
     let swapAfter: StreamMove['swapAfter'];
     if (s.swapDay > today) {
@@ -343,7 +394,7 @@ export function buildStreamingPlan(snapshot: LeagueSnapshot, core: number[], wat
       swapAfter = { date, label };
       reason =
         `Wait: keep ${drop.name} through ${label} (${kept} game${kept === 1 ? '' : 's'} he starts), then make this move after that day's games. ` +
-        `${extra}${add.name} starts ${add.usableLeft} of his ${add.gamesLeft} games after that.`;
+        `${extra}${add.name} starts ${add.usableLeft} of his ${add.gamesLeft} games after that.${minutes}`;
     }
     let nextWeek: StreamMove['nextWeek'];
     let nextWeekWarning: string | undefined;
@@ -359,7 +410,20 @@ export function buildStreamingPlan(snapshot: LeagueSnapshot, core: number[], wat
       }
     }
     // Points leagues only: in categories every game is worth the same, so there's no "better player" here.
-    const kind: StreamMove['kind'] = !pointsLeague || s.add.value >= s.drop.value - 0.5 ? 'upgrade' : 'stream';
+    // Long absences (weeks) count toward keeping a player; a teammate out a game or two doesn't.
+    const held = (c: Candidate) => c.value + longBoost(c.boosts, asOf);
+    const kind: StreamMove['kind'] =
+      !pointsLeague || s.add.value >= s.drop.value - 0.5 ? 'upgrade' : held(s.add) >= held(s.drop) - 0.5 ? 'opportunity' : 'stream';
+    const long = (s.add.boosts ?? []).filter((b) => longBoost([b], asOf) > 0);
+    const short = (s.add.boosts ?? []).filter((b) => asOf < b.until && !long.includes(b));
+    const hold =
+      kind === 'upgrade'
+        ? `Keep him: as good per game as ${drop.name}.`
+        : kind === 'opportunity'
+          ? `Keep him while ${names(long)} ${isAre(long)} out (back about ${dateLabel(long.map((b) => b.until).sort()[0])}), then look again.`
+          : short.length
+            ? `Short-term: worth it while ${names(short)} ${isAre(short)} out.`
+            : `Short-term: for this week's games.`;
     const owned = s.drop.player.ownership?.percentOwned ?? 0;
     const keepWarning =
       kind === 'stream' && owned >= LIKELY_CLAIMED_PCT
@@ -367,6 +431,7 @@ export function buildStreamingPlan(snapshot: LeagueSnapshot, core: number[], wat
         : undefined;
     return {
       kind,
+      hold,
       keepWarning,
       drop,
       add: { ...add, onWaivers: !!fa?.onWaivers, percentOwned: fa?.player.ownership?.percentOwned },
@@ -402,12 +467,12 @@ export function buildStreamingPlan(snapshot: LeagueSnapshot, core: number[], wat
     const fa = pool.get(id);
     if (rosterIds.has(id)) {
       const c = roster.find((r) => r.player.id === id)!;
-      watchlist.push({ player: { ...describe(c.player, c.value, week, today, baseline.usableById.get(id) ?? 0, today, next), onWaivers: false }, rostered: true });
+      watchlist.push({ player: { ...describe(c, week, today, baseline.usableById.get(id) ?? 0, asOf, today, next), onWaivers: false }, rostered: true });
     } else if (fa) {
       const c = toCandidate(fa);
       const s = bestSwap(roster, droppable, [c]);
       watchlist.push({
-        player: { ...describe(c.player, c.value, week, today, s?.result.usableById.get(id) ?? 0, c.from, next), onWaivers: !!fa.onWaivers },
+        player: { ...describe(c, week, today, s?.result.usableById.get(id) ?? 0, asOf, c.from, next), onWaivers: !!fa.onWaivers },
         bestMove: s && s.gain > 0 ? toMove(s) : undefined,
         rostered: false,
       });
@@ -419,7 +484,7 @@ export function buildStreamingPlan(snapshot: LeagueSnapshot, core: number[], wat
     const fa = pool.get(c.player.id);
     return {
       player: {
-        ...describe(c.player, c.value, week, today, s?.result.usableById.get(c.player.id) ?? 0, c.from, next),
+        ...describe(c, week, today, s?.result.usableById.get(c.player.id) ?? 0, asOf, c.from, next),
         onWaivers: !!fa?.onWaivers,
         percentOwned: fa?.player.ownership?.percentOwned,
       },
@@ -444,7 +509,7 @@ export function buildStreamingPlan(snapshot: LeagueSnapshot, core: number[], wat
     moves,
     core: [...coreIds],
     coreIsDefault,
-    droppable: droppable.map((c) => describe(c.player, c.value, week, today, baseline.usableById.get(c.player.id) ?? 0, today, next)),
+    droppable: droppable.map((c) => describe(c, week, today, baseline.usableById.get(c.player.id) ?? 0, asOf, today, next)),
     watchlist,
     freeAgents: faNotes.slice(0, 40),
   };
