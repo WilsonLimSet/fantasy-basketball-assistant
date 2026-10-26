@@ -11,7 +11,7 @@ const OUT: PlayerStatus[] = ['OUT', 'INJURY_RESERVE', 'SUSPENSION'];
 /** Only regulars leave minutes worth chasing. */
 const ROTATION_MIN = 18;
 /** Teammates playing less than this aren't in the rotation and don't pick up a share. */
-const RECIPIENT_MIN = 10;
+export const RECIPIENT_MIN = 10;
 /** Some minutes go to players deeper than the pool we track (two-way players, garbage time). */
 const TRACKED_SHARE = 0.8;
 const MAX_BONUS_MIN = 10;
@@ -39,15 +39,52 @@ export interface Projection {
   minutesWeight: (p: Player) => number;
 }
 
+/** One player's place in a rotation, from whichever player data the caller has. */
+export interface RotationPlayer {
+  id: number;
+  positions: string[];
+  /** Expected minutes and fantasy points per game. */
+  minutes: number;
+  fppg: number;
+  /** How much of the minutes projection rests on this season's games (0 to 1). */
+  minutesWeight: number;
+  gamesPlayed: number;
+}
+
 const addDays = (date: string, n: number) => new Date(Date.parse(`${date}T12:00:00Z`) + n * 86_400_000).toISOString().slice(0, 10);
 
 /** How close two players' positions are: same spot 1, next to it (PG/SG, PF/C) 0.6, else 0.25. */
-function overlap(a: Player, b: Player): number {
-  const ia = a.positions.map((p) => POSITION_ORDER.indexOf(p)).filter((i) => i >= 0);
-  const ib = b.positions.map((p) => POSITION_ORDER.indexOf(p)).filter((i) => i >= 0);
+function overlap(a: string[], b: string[]): number {
+  const ia = a.map((p) => POSITION_ORDER.indexOf(p)).filter((i) => i >= 0);
+  const ib = b.map((p) => POSITION_ORDER.indexOf(p)).filter((i) => i >= 0);
   if (!ia.length || !ib.length) return 0.25;
   const gap = Math.min(...ia.flatMap((x) => ib.map((y) => Math.abs(x - y))));
   return gap === 0 ? 1 : gap === 1 ? 0.6 : 0.25;
+}
+
+/**
+ * The minutes each healthy teammate picks up while `out` sits, and the points they add. Games he's
+ * already missed are in his teammates' minutes this season (teamGames: the team's games so far; 0
+ * counts the whole share as new). `added` carries minutes from other absences on the same team.
+ */
+export function shareMinutes(out: RotationPlayer, healthy: RotationPlayer[], teamGames: number, added = new Map<number, number>()) {
+  const missed = teamGames ? 1 - Math.min(1, out.gamesPlayed / teamGames) : 0;
+  const weight = (p: RotationPlayer) => {
+    const m = p.minutes + (added.get(p.id) ?? 0);
+    return overlap(out.positions, p.positions) * m * Math.max(0, MAX_MIN - m) / MAX_MIN;
+  };
+  const total = healthy.reduce((sum, p) => sum + weight(p), 0);
+  const pool = out.minutes * TRACKED_SHARE;
+  const shares: { id: number; minutes: number; fppg: number }[] = [];
+  if (!total) return shares;
+  for (const p of healthy) {
+    const room = MAX_MIN - p.minutes - (added.get(p.id) ?? 0);
+    const minutes = Math.min(MAX_BONUS_MIN, room, (pool * weight(p) / total) * (1 - missed * p.minutesWeight));
+    if (minutes < 1) continue;
+    added.set(p.id, (added.get(p.id) ?? 0) + minutes);
+    shares.push({ id: p.id, minutes, fppg: p.minutes > 0 ? (minutes * p.fppg) / p.minutes : 0 });
+  }
+  return shares;
 }
 
 /** Player id -> the minutes he picks up from each teammate who's out (only players who gain at least a minute). */
@@ -59,32 +96,21 @@ export function teammateBoosts(snapshot: LeagueSnapshot, asOf: string, proj: Pro
   const byTeam = new Map<number, Player[]>();
   for (const p of players.values()) if (p.nbaTeamId) byTeam.set(p.nbaTeamId, [...(byTeam.get(p.nbaTeamId) ?? []), p]);
 
+  const rotation = (p: Player): RotationPlayer => ({
+    id: p.id, positions: p.positions, minutes: proj.minutes(p), fppg: proj.fppg(p), minutesWeight: proj.minutesWeight(p), gamesPlayed: p.stats?.gamesPlayed ?? 0,
+  });
+
   const boosts = new Map<number, TeammateBoost[]>();
   for (const team of byTeam.values()) {
     const teamGames = Math.max(0, ...team.map((p) => p.stats?.gamesPlayed ?? 0));
-    const healthy = team.filter((p) => !OUT.includes(p.status) && proj.minutes(p) >= RECIPIENT_MIN);
+    const healthy = team.filter((p) => !OUT.includes(p.status) && proj.minutes(p) >= RECIPIENT_MIN).map(rotation);
     const added = new Map<number, number>();
     for (const out of team.filter((p) => OUT.includes(p.status) && proj.minutes(p) >= ROTATION_MIN)) {
       const back = snapshot.injuries?.[out.id]?.returnDate;
       const dated = !!back && back > asOf;
       const until = dated ? back! : addDays(asOf, UNDATED_DAYS);
-      // Games he's already missed are in his teammates' minutes this season, so that part isn't new.
-      const missed = teamGames ? 1 - Math.min(1, (out.stats?.gamesPlayed ?? 0) / teamGames) : 0;
-      const weight = (p: Player) => {
-        const m = proj.minutes(p) + (added.get(p.id) ?? 0);
-        return overlap(out, p) * m * Math.max(0, MAX_MIN - m) / MAX_MIN;
-      };
-      const total = healthy.reduce((sum, p) => sum + weight(p), 0);
-      if (!total) continue;
-      const pool = proj.minutes(out) * TRACKED_SHARE;
-      for (const p of healthy) {
-        const base = proj.minutes(p);
-        const room = MAX_MIN - base - (added.get(p.id) ?? 0);
-        const minutes = Math.min(MAX_BONUS_MIN, room, (pool * weight(p) / total) * (1 - missed * proj.minutesWeight(p)));
-        if (minutes < 1) continue;
-        added.set(p.id, (added.get(p.id) ?? 0) + minutes);
-        const fppg = base > 0 ? (minutes * proj.fppg(p)) / base : 0;
-        boosts.set(p.id, [...(boosts.get(p.id) ?? []), { out: { id: out.id, name: out.name }, until, dated, minutes, fppg }]);
+      for (const { id, minutes, fppg } of shareMinutes(rotation(out), healthy, teamGames, added)) {
+        boosts.set(id, [...(boosts.get(id) ?? []), { out: { id: out.id, name: out.name }, until, dated, minutes, fppg }]);
       }
     }
   }
