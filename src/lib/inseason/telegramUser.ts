@@ -230,7 +230,7 @@ export function dailyTelegram(opts: {
     plan.moves.forEach((m, i) => {
       const when = m.swapAfter ? `After ${esc(m.swapAfter.label)}'s games: ` : '';
       lines.push(`${i + 1}. ${when}<b>Add ${esc(m.add.name)}</b>, drop ${esc(m.drop.name)}: <b>+${Math.round(m.pointsGain)} projected pts</b>${m.add.onWaivers ? ' (waivers)' : ''}`);
-      lines.push(`   ${m.kind === 'upgrade' ? 'Upgrade. ' : 'Stream. '}${esc(m.reason)}`);
+      lines.push(`   ${esc(`${m.hold} ${m.reason}`)}`);
       for (const w of [m.nextWeekWarning, m.keepWarning]) if (w) lines.push(`   ⚠️ ${esc(w)}`);
     });
   } else {

@@ -59,6 +59,7 @@ export default function FreeAgentsPage() {
                           <span className="sm:hidden"> · {f.player.fppg}/g</span>
                         </span>
                       </div>
+                      {f.player.opportunity && <div className="truncate text-xs text-fg">{f.player.opportunity}</div>}
                     </div>
                   </div>
                 </td>

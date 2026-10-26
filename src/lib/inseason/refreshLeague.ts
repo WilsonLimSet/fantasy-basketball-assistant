@@ -7,6 +7,7 @@ import { getLeagueSnapshot, withLeague } from './espnClient';
 import { buildLeagueSnapshot, calculateSnapshotDiff } from './dataTransform';
 import { saveProfile } from './profile';
 import { updateInjuryHistory } from './injuryTracker';
+import { injuryReport } from './stash';
 import type { LeagueContext } from './profile';
 import type { LeagueSnapshot, LeagueTransaction, SnapshotDiff, Watchlist } from '@/types';
 
@@ -19,7 +20,14 @@ export interface RefreshedLeague {
 }
 
 export async function refreshLeague(ctx: LeagueContext): Promise<RefreshedLeague> {
-  const espnData = await withLeague(ctx.espn, () => getLeagueSnapshot());
+  const [espnData, injuries] = await Promise.all([
+    withLeague(ctx.espn, () => getLeagueSnapshot()),
+    // Return dates tell a six-week absence from a two-game one; moves still work without them.
+    injuryReport().catch((e) => {
+      console.warn('[refreshLeague] injury report failed:', e instanceof Error ? e.message : e);
+      return null;
+    }),
+  ]);
   const snapshot = buildLeagueSnapshot({
     settings: espnData.settings,
     teams: espnData.teams,
@@ -28,6 +36,7 @@ export async function refreshLeague(ctx: LeagueContext): Promise<RefreshedLeague
     nbaSchedule: espnData.nbaSchedule,
     myTeamId: ctx.myTeamId,
   });
+  if (injuries) snapshot.injuries = Object.fromEntries([...injuries].map(([id, e]) => [id, { returnDate: e.returnDate }]));
 
   const { storage, leagueId, seasonId } = ctx;
   const previous = await storage.getLatestSnapshot(leagueId, seasonId);

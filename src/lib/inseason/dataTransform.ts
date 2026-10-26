@@ -361,8 +361,8 @@ export function buildLeagueSnapshot(input: SnapshotInput): LeagueSnapshot {
 
   const teams = input.teams.map((t) => transformTeam(t, input.myTeamId));
   const matchups = input.matchups.map((m) => transformMatchup(m, input.myTeamId));
-  // Top free agents plus any watchlisted ones (fetched by id), so the pool can exceed 50.
-  const freeAgentsTopN = transformFreeAgents(input.freeAgents, scheduleIndex).slice(0, 150);
+  // Top free agents plus any watchlisted ones (fetched by id).
+  const freeAgentsTopN = transformFreeAgents(input.freeAgents, scheduleIndex).slice(0, 300);
   const statusIndex = buildStatusIndex(teams);
   const matchupPeriods = input.settings.settings?.scheduleSettings?.matchupPeriods;
   const matchupWeek = buildMatchupWeek(input.nbaSchedule || [], matchupPeriods, input.settings.currentMatchupPeriod, input.settings.scoringPeriodId);
