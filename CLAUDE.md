@@ -20,6 +20,9 @@ Draft kit free. In-season: **$5/week subscription** (STRIPE_WEEKLY_LINK, cancel 
 - **Breaking** (max one a day): a 50%+ rostered player ruled out with a <30% rostered pickup, or a 50%+ rostered player moved or cut.
 No posts about role changes on stars or "still out" follow-ups (Wilson: obvious, priced-in news is not insightful). Branding says "your fantasy team", not ESPN; "% rostered across ESPN leagues" is fine as the data source. The slideshow goes to Instagram only; Threads and X get three standalone posts instead ("Drop your roster below" an hour after the adds post; replies to all three are answered by `src/lib/replyBot.ts` via Postroom's reply hook `/api/reply`), "Who ESPN managers are adding right now" and "Last night's waiver heroes" two hours later (on Threads, single-topic posts got 400-700 views, the slideshow ~40). Posts go to Postroom (Instagram, Threads, X), the owner's Telegram (/posts), Telegram users with news on (/nonews), and a daily email digest. Box-score minutes are saved daily (`social:minutes:<date>`) for a future minutes-trends slide.
 
+## Player values
+`src/lib/value.ts` is the model (Wilson's rules): chance he plays × minutes × points per minute. Windows (streams) count only current injury status; rest of season adds durability. Minutes follow recent box-score minutes (`social:minutes:<date>`) with temporary-role flags when a same-position regular is out with a return date. Rebounds/assists/stocks trust this season fast; scoring leans on the projection longer and sets the floor/ceiling. No penalty for bad teams. The daily run saves predictions (`value:pred:<date>`) and scores them against the box scores (`value:err:<date>`). Used by the reply bot and /move; the in-season moves engine (`src/lib/inseason/streaming.ts`) still has its own `expectedFppg`.
+
 ## Wilson's league
 ESPN "The Best League 27", 10 teams, points, his team is "Wilson's Waterboys" (team 5). The server's ESPN login reads it.
 

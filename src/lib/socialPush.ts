@@ -2,6 +2,7 @@ import { getPlayers } from "./data";
 import { EMAIL_ON, newsDigestEmail, sendEmail } from "./inseason/email";
 import { kvStore } from "./inseason/storage";
 import { replyHookUrl } from "./replyBot";
+import { recordPredictions, scorePredictions } from "./value";
 import { isOwnerEmail, listProfiles, type InseasonProfile } from "./inseason/profile";
 import { sendTelegramAlbum, sendTelegramPhoto, TELEGRAM_ON } from "./inseason/telegramUser";
 import { savePicks, scorecard } from "./scorecard";
@@ -214,13 +215,18 @@ export async function pushSocial(now = Date.now()): Promise<{ sent: string[]; fa
   const posted = new Set((await kv.get<string[]>(POSTED)) ?? []);
   const lastPlayer = (await kv.get<Record<string, { status: string; at: number }>>(LAST_PLAYER)) ?? {};
 
-  // Last night's minutes for every player, kept for a future minutes-trends slide.
+  // Last night's minutes for every player (the value model reads recent minutes from these), and
+  // how close last night's player values came; then today's values, saved before the games.
   if (morning) {
     const night = yesterday(now);
     if (!(await kv.get(`social:minutes:${night}`))) {
       const b = await boxLines(night).catch(() => null);
-      if (b?.lines.length) await kv.set(`social:minutes:${night}`, Object.fromEntries(b.lines.map((l) => [l.id, l.min])));
+      if (b?.lines.length) {
+        await kv.set(`social:minutes:${night}`, Object.fromEntries(b.lines.map((l) => [l.id, l.min])));
+        await scorePredictions(night, b.lines).catch((e) => console.error("[social] score", e));
+      }
     }
+    if (!(await kv.get(`value:pred:${today}`))) await recordPredictions(today).catch((e) => console.error("[social] predictions", e));
   }
 
   await injuryLines(now, today, lastPlayer).catch((e) => console.error("[social] injuries", e));
