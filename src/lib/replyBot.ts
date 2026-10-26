@@ -1,8 +1,8 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
-import { getPlayers } from "./data";
-import { fppg, gamesIn, round1, SITE, streamWindow, teamTips } from "./social";
+import { fppg, round1, SITE, streamWindow } from "./social";
 import { normName } from "./takes";
 import type { Player } from "./types";
+import { valueContext, valuePlayer } from "./value";
 
 /**
  * The reply bot behind Postroom's reply hook: someone replies to our Threads or X post with their
@@ -18,8 +18,6 @@ export function validReplyToken(t: string | null): boolean {
   return !!t && t.length === want.length && timingSafeEqual(Buffer.from(t), Buffer.from(want));
 }
 
-const OUT = new Set(["OUT", "INJURY_RESERVE", "SUSPENSION"]);
-const healthy = (p: Player) => !OUT.has(p.injury);
 // Last names that are also everyday words or too common to trust on their own.
 const AMBIGUOUS = new Set(["green", "white", "brown", "black", "young", "love", "hart", "holiday", "allen", "johnson", "williams", "jones", "smith", "thompson", "porter", "murray", "bridges", "walker", "harris", "mitchell", "jackson", "robinson", "miller", "martin", "wells", "price", "gay", "day", "james", "george", "paul", "ball", "bey", "reed", "king"]);
 
@@ -34,7 +32,9 @@ export function findPlayers(text: string, players: Player[]): Player[] {
     const last = normName(p.name).split(" ").pop()!;
     if (last.length >= 4 && !AMBIGUOUS.has(last)) byLast.set(last, [...(byLast.get(last) ?? []), p]);
   }
-  for (const [last, list] of byLast) {
+  for (const [last, raw] of byLast) {
+    // Two players share the name: take the far more rostered one, or neither.
+    const list = raw.length === 1 ? raw : [...raw].sort((a, b) => (b.pctOwned ?? 0) - (a.pctOwned ?? 0)).filter((p, i, s) => i === 0 && (p.pctOwned ?? 0) >= 3 * (s[1].pctOwned ?? 0) + 5);
     if (list.length !== 1 || found.has(list[0].id) || !msg.includes(` ${last} `)) continue;
     // A full-name match already used this word (e.g. "Jalen Williams" vs another Williams).
     if ([...found.values()].some((f) => normName(f.name).split(" ").includes(last))) continue;
@@ -49,42 +49,53 @@ const cta = (platform: string) => platform === "x"
 const pick = <T>(list: T[], seed: string) => list[[...seed].reduce((s, c) => s + c.charCodeAt(0), 0) % list.length];
 
 export async function composeReply(text: string, platform: string, username = ""): Promise<string | null> {
-  const [{ players }, tips] = await Promise.all([getPlayers(), teamTips().catch(() => new Map<string, number[]>())]);
-  const named = findPlayers(text, players);
+  const ctx = await valueContext();
+  const named = findPlayers(text, ctx.players);
   if (!named.length) return null;
   const w = streamWindow();
-  const games = gamesIn(tips, w);
-  const g = (p: Player) => (healthy(p) ? games.get(p.team) ?? 0 : 0);
-  const f = (p: Player) => round1(fppg(p));
+  const span = w.nextWeek ? "next week" : "left this week";
+  const val = new Map(named.map((p) => [p.id, valuePlayer(p, ctx, { from: w.from, to: w.end })]));
+  const v = (p: Player) => val.get(p.id) ?? valuePlayer(p, ctx, { from: w.from, to: w.end });
   const last = (p: Player) => p.name.split(" ").slice(1).join(" ") || p.name;
 
   if (named.length >= 3) {
-    const weakest = named.filter(healthy).sort((a, b) => f(a) - f(b))[0] ?? named[0];
-    const adds = players
-      .filter((p) => p.team !== "FA" && healthy(p) && (p.pctOwned ?? 100) < 50 && !named.some((n) => n.id === p.id) && g(p) >= 2)
-      .sort((a, b) => f(b) * g(b) - f(a) * g(a));
-    const top = adds[0];
+    const weakest = named.filter((p) => v(p).status !== "OUT").sort((a, b) => v(a).ros - v(b).ros)[0] ?? named[0];
+    const pool = ctx.players
+      .filter((p) => p.team !== "FA" && (p.pctOwned ?? 100) < 50 && !named.some((n) => n.id === p.id) && fppg(p) >= 12)
+      .map((p) => ({ p, v: v(p) }))
+      .filter((x) => x.v.status === "ACTIVE");
+    const hold = [...pool].sort((a, b) => b.v.ros - a.v.ros)[0];
+    const stream = [...pool].sort((a, b) => b.v.window - a.v.window)[0];
+    const wv = v(weakest);
     const open = pick(["Your weakest spot", "The spot I'd upgrade", "Weak link"], username + weakest.name);
-    if (!top) return `${open}: ${weakest.name} (${f(weakest)} fpts/g). ${cta(platform)}`;
-    const line = f(top) > f(weakest) + 1
-      ? `Best add on most waiver wires: ${top.name} (${top.team}), ${f(top)} fpts/g with ${g(top)} games ${w.nextWeek ? "next week" : "left this week"}, available in ${100 - Math.round(top.pctOwned ?? 0)}% of leagues.`
-      : `Nothing on most wires beats him per game. If you need games, ${top.name} has ${g(top)} ${w.nextWeek ? "next week" : "left this week"}.`;
-    return `${open}: ${weakest.name} (${f(weakest)} fpts/g). ${line}\n\n${cta(platform)}`;
+    const out = named.filter((p) => v(p).status === "OUT" && v(p).returnDate && Date.parse(v(p).returnDate!) - Date.now() > 7 * 864e5).map((p) => `${last(p)} (back ~${v(p).returnDate!.slice(5)})`);
+    const ir = out.length ? ` Stash ${out.join(", ")} on IR if you can.` : "";
+    if (!hold) return `${open}: ${weakest.name} (${wv.perGame} fpts/g).${ir}\n\n${cta(platform)}`;
+    const line = hold.v.ros > wv.ros + 1.5
+      ? `Best add on most waiver wires: ${hold.p.name} (${hold.p.team}), ${hold.v.perGame} fpts/g, ${hold.v.games} games ${span}, available in ${100 - Math.round(hold.p.pctOwned ?? 0)}% of leagues.`
+      : stream && stream.v.window > wv.window + 8
+        ? `Nothing on most wires beats him long term. To stream games, ${stream.p.name} has ${stream.v.games} ${span}.`
+        : `Nothing on most wires beats him right now. Hold.`;
+    return `${open}: ${weakest.name} (${wv.perGame} fpts/g).${ir} ${line}\n\n${cta(platform)}`;
   }
   if (named.length === 2) {
-    const [a, b] = named;
-    const total = (p: Player) => f(p) * g(p);
-    const [win, lose] = total(a) === total(b) ? (f(a) >= f(b) ? [a, b] : [b, a]) : total(a) > total(b) ? [a, b] : [b, a];
-    const why = g(win) !== g(lose)
-      ? `${g(win)} games vs ${g(lose)} ${w.nextWeek ? "next week" : "left this week"}, ${f(win)} vs ${f(lose)} fpts/g`
-      : `${f(win)} vs ${f(lose)} fpts/g, same number of games`;
-    const note = !healthy(lose) ? ` ${last(lose)} is out.` : lose.injury === "DAY_TO_DAY" ? ` ${last(lose)} is day-to-day.` : "";
-    return `${win.name}: ${why}.${note}\n\n${cta(platform)}`;
+    const [a, b] = named.map((p) => ({ p, v: v(p) }));
+    // This week's games decide a start or a stream; when they're close, the rest of the season does.
+    const byWeek = Math.abs(a.v.window - b.v.window) >= 8;
+    const [win, lose] = (byWeek ? a.v.window >= b.v.window : a.v.ros >= b.v.ros) ? [a, b] : [b, a];
+    const why = byWeek
+      ? `${win.v.games} games vs ${lose.v.games} ${span}, ${win.v.perGame} vs ${lose.v.perGame} fpts/g`
+      : `${win.v.perGame} vs ${lose.v.perGame} fpts/g${win.v.games === lose.v.games ? ", same number of games" : ""}`;
+    const note = lose.v.status === "OUT" ? ` ${last(lose.p)} is out.` : lose.v.status === "DAY_TO_DAY" ? ` ${last(lose.p)} is day-to-day.` : "";
+    const temp = win.v.temporary ? ` Note: his minutes are up while ${win.v.temporary.because} is out.` : "";
+    return `${win.p.name}: ${why}.${note}${temp}\n\n${cta(platform)}`;
   }
-  const p = named[0];
-  const mins = p.cur?.gp && p.last?.gp && Math.abs(p.cur.min - p.last.min) >= 3
-    ? ` Playing ${round1(p.cur.min)} min a game (${round1(p.last.min)} last season).` : "";
-  const status = !healthy(p) ? " Out right now." : p.injury === "DAY_TO_DAY" ? " Day-to-day." : "";
-  const verdict = (p.pctOwned ?? 100) < 50 && f(p) >= 25 && healthy(p) ? " Worth an add." : "";
-  return `${p.name}: ${f(p)} fpts/g, ${g(p)} games ${w.nextWeek ? "next week" : "left this week"}.${mins}${status}${verdict}\n\n${cta(platform)}`;
+  const p = named[0], pv = v(p);
+  const mins = pv.temporary
+    ? ` His minutes are up while ${pv.temporary.because} is out (back ~${pv.temporary.until.slice(5)}).`
+    : p.cur?.gp && p.last?.gp && Math.abs(pv.minutes - p.last.min) >= 3 ? ` Playing about ${pv.minutes} min a game (${round1(p.last.min)} last season).` : "";
+  const status = pv.status === "OUT" ? ` Out${pv.returnDate ? ` until ~${pv.returnDate.slice(5)}` : " right now"}.` : pv.status === "DAY_TO_DAY" ? " Day-to-day." : "";
+  const sits = pv.health === "in-and-out" ? ` Sits often (~${Math.round(pv.durability * 100)}% of games).` : "";
+  const verdict = (p.pctOwned ?? 100) < 50 && pv.ros >= 25 && pv.status === "ACTIVE" ? " Worth an add." : "";
+  return `${p.name}: ${pv.perGame} fpts/g, ${pv.games} games ${span}.${mins}${status}${sits}${verdict}\n\n${cta(platform)}`;
 }

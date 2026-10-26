@@ -27,7 +27,7 @@ function Side({ label, s, win }: { label: string; s: MoveSide; win: boolean }) {
       <div style={{ display: "flex", flexDirection: "column" }}>
         <div style={{ display: "flex", fontSize: 20, fontWeight: 700, letterSpacing: 2, textTransform: "uppercase", color: label === "Add" ? GREEN : RED }}>{label}</div>
         <div style={{ display: "flex", fontSize: s.name.length > 15 ? 32 : 38, fontWeight: 700, letterSpacing: -1, marginTop: 4 }}>{s.name}</div>
-        <div style={{ display: "flex", fontSize: 22, color: MUTED, marginTop: 6 }}>{`${s.fppg} fpts/g · ${s.games} game${s.games === 1 ? "" : "s"} left`}</div>
+        <div style={{ display: "flex", fontSize: 22, color: MUTED, marginTop: 6 }}>{`${s.perGame} fpts/g · ${s.games} game${s.games === 1 ? "" : "s"} left`}</div>
       </div>
     </div>
   );

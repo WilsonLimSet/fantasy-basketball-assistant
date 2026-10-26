@@ -1,7 +1,9 @@
-import { getPlayers } from "./data";
+import { getPlayers, SEASON } from "./data";
 import { EMAIL_ON, newsDigestEmail, sendEmail } from "./inseason/email";
 import { kvStore } from "./inseason/storage";
 import { replyHookUrl } from "./replyBot";
+import { refreshHealth } from "./healthHistory";
+import { recordPredictions, scorePredictions } from "./value";
 import { isOwnerEmail, listProfiles, type InseasonProfile } from "./inseason/profile";
 import { sendTelegramAlbum, sendTelegramPhoto, TELEGRAM_ON } from "./inseason/telegramUser";
 import { savePicks, scorecard } from "./scorecard";
@@ -214,13 +216,21 @@ export async function pushSocial(now = Date.now()): Promise<{ sent: string[]; fa
   const posted = new Set((await kv.get<string[]>(POSTED)) ?? []);
   const lastPlayer = (await kv.get<Record<string, { status: string; at: number }>>(LAST_PLAYER)) ?? {};
 
-  // Last night's minutes for every player, kept for a future minutes-trends slide.
+  // Last night's minutes for every player (the value model reads recent minutes from these), and
+  // how close last night's player values came; then today's values, saved before the games.
   if (morning) {
     const night = yesterday(now);
     if (!(await kv.get(`social:minutes:${night}`))) {
       const b = await boxLines(night).catch(() => null);
-      if (b?.lines.length) await kv.set(`social:minutes:${night}`, Object.fromEntries(b.lines.map((l) => [l.id, l.min])));
+      if (b?.lines.length) {
+        await kv.set(`social:minutes:${night}`, Object.fromEntries(b.lines.map((l) => [l.id, l.min])));
+        await scorePredictions(night, b.lines).catch((e) => console.error("[social] score", e));
+      }
     }
+    if (!(await kv.get(`value:pred:${today}`))) await recordPredictions(today).catch((e) => console.error("[social] predictions", e));
+    // Injury histories (from game logs) for newly relevant players; a few a day keeps the run short.
+    const relevant = (await getPlayers()).players.filter((p) => p.team !== "FA" && (p.pctOwned ?? 0) >= 3).map((p) => p.id);
+    await refreshHealth(relevant, [SEASON - 3, SEASON - 2, SEASON - 1], { maxAgeDays: 120, limit: 15 }).catch((e) => console.error("[social] health", e));
   }
 
   await injuryLines(now, today, lastPlayer).catch((e) => console.error("[social] injuries", e));
