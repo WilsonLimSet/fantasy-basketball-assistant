@@ -61,13 +61,25 @@ export function weekNumber(date: string) {
   return Math.max(1, Math.floor((Date.parse(weekOf(date).start) - first) / (7 * 864e5)) + 1);
 }
 
-/** Per-game fantasy points in ESPN's default scoring: the projection early on, this season's games as they add up. */
+/**
+ * Per-game fantasy points in ESPN's default scoring, as minutes × points per minute. Minutes follow
+ * this season's games quickly (half weight after three games, so a new role shows fast but one blowout doesn't); scoring per minute moves
+ * more slowly from the projection, since a few hot or cold nights are mostly noise.
+ */
 export function fppg(p: Player): number {
   const base = p.proj ?? p.last;
   const proj = base ? fantasyPoints(base, SCORING) : 0;
-  if (!p.cur?.gp) return proj;
-  const w = Math.min(1, p.cur.gp / 10);
-  return w * fantasyPoints(p.cur, SCORING) + (1 - w) * proj;
+  const gp = p.cur?.gp ?? 0;
+  if (!gp || !p.cur) return proj;
+  const cur = fantasyPoints(p.cur, SCORING);
+  if (!base?.min || !p.cur.min) {
+    const w = gp / (gp + 5);
+    return w * cur + (1 - w) * proj;
+  }
+  const mw = gp / (gp + 3), pw = gp / (gp + 5);
+  const minutes = mw * p.cur.min + (1 - mw) * base.min;
+  const perMin = pw * (cur / p.cur.min) + (1 - pw) * (proj / base.min);
+  return minutes * perMin;
 }
 
 export const round1 = (n: number) => Math.round(n * 10) / 10;
