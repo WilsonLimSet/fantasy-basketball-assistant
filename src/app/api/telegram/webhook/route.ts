@@ -9,7 +9,9 @@
 
 import { NextResponse } from 'next/server';
 import { codeFrom, completeLink, movesMessage, sendTelegramTo, webhookSecret } from '@/lib/inseason/telegramUser';
-import { hasInseasonAccess, listProfiles, saveProfile } from '@/lib/inseason/profile';
+import { hasInseasonAccess, listProfiles, profileContext, saveProfile, type InseasonProfile } from '@/lib/inseason/profile';
+import { espnAddUrl } from '@/lib/inseason/email';
+import { backupMessage, backupPlan } from '@/lib/backupPlan';
 import { isPostsUser, subscribePosts } from '@/lib/socialPush';
 
 export const dynamic = 'force-dynamic';
@@ -55,6 +57,10 @@ export async function POST(req: Request) {
     reply = `Your pass has ended. Get a week or the season at ${CONNECT.replace('My league', 'This week')}.`;
   } else if (command === '/moves') {
     reply = (await movesMessage(mine.email)) ?? `Your league hasn't loaded yet. Open ${CONNECT} and hit Refresh on This week.`;
+  } else if (command === '/backup' && !(await hasInseasonAccess(mine.email))) {
+    reply = `The backup plan is part of the weekly and season passes: ${CONNECT.replace('My league', 'This week')}`;
+  } else if (command === '/backup') {
+    reply = (await backupReply(mine)) ?? `Your league hasn't loaded yet. Open ${CONNECT} and hit Refresh on This week.`;
   } else if (command === '/nonews' || command === '/news') {
     const on = command === '/news';
     await saveProfile({ ...mine, alerts: { ...mine.alerts, news: on } });
@@ -66,9 +72,17 @@ export async function POST(req: Request) {
     await saveProfile({ ...mine, alerts: { ...mine.alerts, telegram: true } });
     reply = `Welcome back. Morning moves for <b>${team}</b> are on again.`;
   } else {
-    reply = `You're connected for <b>${team}</b>${mine.alerts.telegram ? '' : ' (alerts paused)'}.\n\n/moves this week's add/drops\n/stop pause morning alerts\n/nonews stop news alerts (/news to restart)\n\nSettings: ${CONNECT}`;
+    reply = `You're connected for <b>${team}</b>${mine.alerts.telegram ? '' : ' (alerts paused)'}.\n\n/moves this week's add/drops\n/backup who to grab if one of your players goes down\n/stop pause morning alerts\n/nonews stop news alerts (/news to restart)\n\nSettings: ${CONNECT}`;
   }
   await sendTelegramTo(chat.id, reply);
   // Always 200 so Telegram doesn't retry.
   return NextResponse.json({ ok: true });
+}
+
+/** The /backup reply for a connected league: the best free agents by position for the next stretch of games. */
+async function backupReply(profile: InseasonProfile): Promise<string | null> {
+  const ctx = await profileContext(profile);
+  const snapshot = await ctx.storage.getLatestSnapshot(ctx.leagueId, ctx.seasonId);
+  if (!snapshot) return null;
+  return backupMessage(await backupPlan(snapshot), profile.teamName ?? 'your team', espnAddUrl(profile.leagueId, profile.teamId));
 }
