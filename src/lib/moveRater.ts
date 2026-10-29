@@ -61,7 +61,7 @@ export async function rateMove(dropId: number, addId: number, now = Date.now()):
     : `${hi.name} scores more when he plays: ${hi.perGame} vs ${lo.perGame} fantasy points`);
   if (add.games !== drop.games) reasons.push(`${w.label}: ${add.name} has ${add.games} game${add.games === 1 ? "" : "s"} left, ${drop.name} ${drop.games}`);
   for (const s of [add, drop]) {
-    if (s.temporary) reasons.push(`${s.name}'s minutes are up while ${s.temporary.because} is out (back around ${s.temporary.until}); expect about ${s.temporary.minutesAfter} after`);
+    if (s.temporary) reasons.push(`${s.name} gets extra minutes while ${s.dependsOn.map((d) => `${d.name} (back ~${d.until})`).join(" and ")} ${s.dependsOn.length > 1 ? "are" : "is"} out; about ${s.temporary.minutesAfter} a game after`);
     else if (s.min != null && s.lastMin != null && Math.abs(s.min - s.lastMin) >= 4) reasons.push(`${s.name} is playing ${s.min > s.lastMin ? "more" : "less"}: about ${s.min} minutes a game, ${s.lastMin} last season`);
     if (s.health === "in-and-out") reasons.push(`${s.name} sits often: about ${Math.round(s.durability * 100)}% of games over the last few seasons, not counting long injuries`);
     if (s.status === "OUT") reasons.push(`${s.name} is out${s.returnDate ? ` until about ${s.returnDate}` : ""}`);

@@ -1,5 +1,6 @@
 import { getPlayers } from "./data";
 import { loadHealth, type HealthProfile } from "./healthHistory";
+import { RECIPIENT_MIN, shareMinutes, type RotationPlayer } from "./inseason/opportunity";
 import { injuryReport, type InjuryReportEntry } from "./inseason/stash";
 import { kvStore } from "./inseason/storage";
 import { easternDate, teamTips } from "./social";
@@ -30,6 +31,10 @@ export interface ValueContext {
   tips: Map<string, number[]>;
   /** Minutes in each recent game played, newest first (from the nightly box-score snapshots). */
   recentMin: Map<number, number[]>;
+  /** The same snapshots night by night, newest first, for "with him vs without him" splits. */
+  nights: { date: string; min: Record<string, number> }[];
+  /** Expected minute shares per injured player (filled as needed). */
+  shares?: Map<number, Map<number, number>>;
   /** Injury history from game logs (src/lib/healthHistory.ts), by player id. */
   health: Record<string, HealthProfile>;
 }
@@ -46,7 +51,8 @@ export async function valueContext(now = Date.now()): Promise<ValueContext> {
   ]);
   const recentMin = new Map<number, number[]>();
   for (const snap of snaps) for (const [id, min] of Object.entries(snap ?? {})) if (min > 0) recentMin.set(Number(id), [...(recentMin.get(Number(id)) ?? []), min]);
-  return { now, players, byId: new Map(players.map((p) => [p.id, p])), injuries, tips, recentMin, health };
+  const nightList = nights.map((date, i) => ({ date, min: snaps[i] ?? {} })).filter((n) => Object.keys(n.min).length);
+  return { now, players, byId: new Map(players.map((p) => [p.id, p])), injuries, tips, recentMin, nights: nightList, health };
 }
 
 export interface PlayerValue {
@@ -61,8 +67,10 @@ export interface PlayerValue {
   steady: number;
   status: string;
   returnDate?: string;
-  /** His minutes are up only while a teammate is out. */
+  /** His minutes are up only while a teammate is out: the first of those teammates back. */
   temporary?: { until: string; because: string; minutesAfter: number };
+  /** Every injured teammate whose absence gives him minutes, soonest back first. */
+  dependsOn: Dependence[];
   /** In the window asked for: games, and expected points counting only current injury status. */
   games: number;
   window: number;
@@ -74,7 +82,6 @@ export interface PlayerValue {
   durability: number;
 }
 
-const group = (p: Player) => (p.pos.includes("C") && !p.pos.includes("SF") ? "C" : p.pos.includes("PG") || p.pos.includes("SG") ? "G" : "F");
 
 function statusOf(p: Player, ctx: ValueContext): { status: string; returnDate?: string } {
   const r = ctx.injuries.get(p.id);
@@ -110,25 +117,92 @@ function durability(p: Player, h?: HealthProfile): number {
   return Math.min(0.95, Math.max(0.7, 0.4 * lastRate + 0.6 * 0.88 - age));
 }
 
+export interface Dependence {
+  id: number;
+  name: string;
+  /** First US date he's expected back. */
+  until: string;
+  /** Minutes a game this player gets from the absence. */
+  minutes: number;
+  /** From games with and without him, the expected split, or both. */
+  basis: "games" | "estimate" | "both";
+}
+
+/** Regulars this short of minutes don't leave a gap worth tracking. */
+const REGULAR_MIN = 18;
+/** Absences further out than this are a different season's problem. */
+const DEPENDENCE_DAYS = 75;
+const mean = (xs: number[]) => xs.reduce((s, x) => s + x, 0) / xs.length;
+
+/** The minutes each healthy teammate is expected to pick up while q is out (#47's position-based split). */
+function expectedShares(q: Player, ctx: ValueContext): Map<number, number> {
+  ctx.shares ??= new Map();
+  const hit = ctx.shares.get(q.id);
+  if (hit) return hit;
+  const rot = (x: Player): RotationPlayer => {
+    const core = perGameCore(x, (ctx.recentMin.get(x.id) ?? []).slice(0, 5));
+    const gp = x.cur?.gp ?? 0;
+    return { id: x.id, positions: x.pos, minutes: core.minutes, fppg: core.perGame, minutesWeight: gp / (gp + 3), gamesPlayed: gp };
+  };
+  const healthy = ctx.players
+    .filter((x) => x.team === q.team && x.id !== q.id && statusOf(x, ctx).status !== "OUT")
+    .map(rot)
+    .filter((x) => x.minutes >= RECIPIENT_MIN);
+  // Counted as a fresh absence: how much of it is already in his minutes is worked out per player.
+  const out = new Map(shareMinutes(rot(q), healthy, 0).map((x) => [x.id, x.minutes]));
+  ctx.shares.set(q.id, out);
+  return out;
+}
+
+/**
+ * Injured teammates this player's minutes lean on: regulars out with a return date. The gain is
+ * measured from recent games with and without the teammate when there are both, blended with the
+ * expected split while those samples are thin.
+ */
+function dependence(p: Player, ctx: ValueContext): Dependence[] {
+  const today = easternDate(ctx.now);
+  const deps: Dependence[] = [];
+  for (const q of ctx.players) {
+    if (q.team !== p.team || q.id === p.id || q.team === "FA") continue;
+    const r = ctx.injuries.get(q.id);
+    if (!r?.returnDate || !/out|injur|suspen/i.test(r.status) || r.returnDate <= today || Date.parse(r.returnDate) - ctx.now > DEPENDENCE_DAYS * DAY) continue;
+    if (Math.max(q.last?.min ?? 0, perGameCore(q).minutes) < REGULAR_MIN) continue;
+    const share = expectedShares(q, ctx).get(p.id) ?? 0;
+    const withQ: number[] = [], without: number[] = [];
+    for (const n of ctx.nights) {
+      const pm = n.min[p.id];
+      if (!(pm > 0)) continue;
+      (n.min[q.id] > 0 ? withQ : without).push(pm);
+    }
+    let gain = share, basis: Dependence["basis"] = "estimate";
+    if (withQ.length && without.length) {
+      const seen = mean(without) - mean(withQ), w = Math.min(1, Math.min(withQ.length, without.length) / 3);
+      gain = w * seen + (1 - w) * share;
+      basis = w === 1 ? "games" : "both";
+    }
+    gain = Math.min(14, Math.max(0, gain));
+    if (gain >= 3) deps.push({ id: q.id, name: q.name, until: r.returnDate, minutes: Math.round(gain * 10) / 10, basis });
+  }
+  return deps.sort((a, b) => a.until.localeCompare(b.until));
+}
+
 export function valuePlayer(p: Player, ctx: ValueContext, window?: { from: string; to: string }): PlayerValue {
   const st = statusOf(p, ctx);
-  const prior = p.proj?.min ? p.proj : p.last?.min ? p.last : null;
   const { minutes, relPts, scoPts, perGame } = perGameCore(p, (ctx.recentMin.get(p.id) ?? []).slice(0, 5));
   const sd = Math.sqrt((0.45 * Math.max(0, scoPts)) ** 2 + (0.25 * Math.max(0, relPts)) ** 2);
 
-  // A role that exists only while a teammate is out: minutes well above his norm, and a regular
-  // in his position group out with a return date.
-  let temporary: PlayerValue["temporary"];
-  const norm = p.last?.min ?? prior?.min ?? 0;
-  if (norm && minutes - norm >= 4) {
-    const absent = ctx.players
-      .filter((q) => q.team === p.team && q.id !== p.id && group(q) === group(p) && (q.last?.min ?? q.proj?.min ?? 0) >= 24)
-      .map((q) => ({ q, r: ctx.injuries.get(q.id) }))
-      .filter((x) => x.r?.returnDate && /out/i.test(x.r.status) && Date.parse(x.r.returnDate) - ctx.now < 60 * DAY)
-      .sort((a, b) => a.r!.returnDate!.localeCompare(b.r!.returnDate!));
-    if (absent[0]) temporary = { until: absent[0].r!.returnDate!, because: absent[0].q.name, minutesAfter: Math.round((norm + (minutes - norm) / 2) * 10) / 10 };
-  }
-  const perGameAt = (t: number) => (temporary && easternDate(t) >= temporary.until ? perGame * (temporary.minutesAfter / minutes) : perGame);
+  // Minutes that lean on injured teammates. His minutes estimate already contains the part he
+  // played without them recently; until they're back he gets the rest too, and after they
+  // return he loses it all.
+  const dependsOn = dependence(p, ctx);
+  const recentNights = ctx.nights.filter((n) => n.min[p.id] > 0).slice(0, 5);
+  const absentShare = (d: Dependence) => (recentNights.length ? recentNights.filter((n) => !(n.min[d.id] > 0)).length / recentNights.length : 0);
+  const minutesOn = (date: string) => Math.max(0, minutes + dependsOn.reduce((m, d) => m + (date < d.until ? d.minutes * (1 - absentShare(d)) : -d.minutes * absentShare(d)), 0));
+  const perGameAt = (t: number) => (minutes ? perGame * (minutesOn(easternDate(t)) / minutes) : perGame);
+  const first = dependsOn[0];
+  const temporary: PlayerValue["temporary"] = first
+    ? { until: first.until, because: first.name, minutesAfter: Math.round(minutesOn(first.until) * 10) / 10 }
+    : undefined;
 
   const tips = (ctx.tips.get(p.team) ?? []).filter((t) => t > ctx.now);
   const inWindow = window ? tips.filter((t) => easternDate(t) >= window.from && easternDate(t) <= window.to) : [];
@@ -139,7 +213,7 @@ export function valuePlayer(p: Player, ctx: ValueContext, window?: { from: strin
   const r1 = (n: number) => Math.round(n * 10) / 10;
   return {
     id: p.id, perGame: r1(perGame), floor: r1(Math.max(0, perGame - sd)), ceiling: r1(perGame + sd), minutes: r1(minutes),
-    steady: perGame ? Math.round((relPts / perGame) * 100) / 100 : 0, status: st.status, returnDate: st.returnDate, temporary,
+    steady: perGame ? Math.round((relPts / perGame) * 100) / 100 : 0, status: st.status, returnDate: st.returnDate, temporary, dependsOn,
     games: inWindow.length, window: r1(windowPts), ros: r1(tips.length ? rosPts / tips.length : 0),
     health: ctx.health[p.id]?.label ?? "unknown", durability: Math.round(dur * 100) / 100,
   };
