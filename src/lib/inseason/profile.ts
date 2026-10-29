@@ -154,11 +154,11 @@ export type ContextResult =
   | { ok: false; status: 401 | 402 | 404; error: string };
 
 /**
- * A guest league becomes the account's profile on its first request after signing in. Never
- * overwrites: the profile is only written if the account has none (atomically), and the cookie is
- * cleared either way.
+ * Save the guest league to the account, when the signed-in user confirms it (never silently: a
+ * cookie planted by another site mustn't become someone's league). Never overwrites: the profile is
+ * only written if the account has none (atomically), and the cookie is cleared either way.
  */
-async function claimGuest(email: string): Promise<InseasonProfile | null> {
+export async function claimGuest(email: string): Promise<InseasonProfile | null> {
   const guest = await readGuest();
   if (!guest) return null;
   const won = await kvStore().claim(profileKey(email), guestProfile(guest, email)).catch((e) => {
@@ -169,15 +169,10 @@ async function claimGuest(email: string): Promise<InseasonProfile | null> {
   return getProfile(email).then((p) => p ?? (won ? guestProfile(guest, email) : null));
 }
 
-/** The account's profile, turning a guest league into one if the account has none yet. */
-export async function getOrClaimProfile(email: string): Promise<InseasonProfile | null> {
-  return (await getProfile(email)) ?? claimGuest(email);
-}
-
 /** The connected league whether or not they've paid, for the free preview: the account's, or the guest cookie's. */
 export async function previewContext(): Promise<LeagueContext | null> {
   const account = await currentAccount();
-  const profile = account ? await getOrClaimProfile(account.email) : null;
+  const profile = account ? await getProfile(account.email) : null;
   if (profile) return profileContext(profile);
   const guest = account ? null : await readGuest();
   return guest ? guestContext(guest) : null;
@@ -194,7 +189,7 @@ export async function leagueContext(): Promise<ContextResult> {
     return paid ? { ok: true, ctx: await guestContext(guest) } : { ok: false, status: 402, error: 'The in-season tools are part of Pro.' };
   }
   const owner = isOwnerEmail(account.email);
-  const [paid, profile] = await Promise.all([!PAYWALL_ON || owner ? true : currentPass().then(Boolean), getOrClaimProfile(account.email)]);
+  const [paid, profile] = await Promise.all([!PAYWALL_ON || owner ? true : currentPass().then(Boolean), getProfile(account.email)]);
   // Connecting is free (it's how a free user sees what they'd gain), so ask for that before payment.
   if (!paid) {
     return profile

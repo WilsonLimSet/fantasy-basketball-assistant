@@ -31,12 +31,13 @@ export default function Landing() {
             <LogoMark size={22} />
             <span className="text-base font-semibold tracking-tight">Takeover Fantasy</span>
           </Link>
-          <nav className="hidden gap-5 text-sm text-muted sm:flex">
+          <nav className="hidden gap-5 whitespace-nowrap text-sm text-muted md:flex">
             <a href={season ? "#plays-out" : "#scouting"} className="hover:text-fg">{season ? "How it works" : "Scouting"}</a>
             <a href="#features" className="hover:text-fg">Features</a>
             <a href="#pricing" className="hover:text-fg">Pricing</a>
-            <a href="#faq" className="hover:text-fg">FAQ</a>
-            {season ? <Link href="/draft" className="hover:text-fg">Draft kit</Link> : <Link href="/inseason" className="hover:text-fg">In-season</Link>}
+            <a href="#faq" className="hidden hover:text-fg lg:inline">FAQ</a>
+            <Link href="/move" className="hover:text-fg">Rate my move</Link>
+            {season ? <Link href="/draft" className="hidden hover:text-fg lg:inline">Draft kit</Link> : <Link href="/inseason" className="hidden hover:text-fg lg:inline">In-season</Link>}
           </nav>
           <Link href={season ? "/inseason/connect" : "/draft"} className="ml-auto whitespace-nowrap rounded-full bg-ink px-4 py-1.5 text-sm font-medium text-white hover:bg-ink/85">
             {season ? "See your best move" : "Open the draft kit"}
@@ -212,7 +213,7 @@ export default function Landing() {
           <div className="mx-auto max-w-6xl px-4 py-20 text-center">
             <h2 className="text-3xl font-medium tracking-[-0.03em] sm:text-4xl">{season ? "The season is on." : "Draft day is coming."}</h2>
             <p className="mt-3 text-sm text-muted">
-              {season ? "Paste your ESPN league link and see your best move this week. No account needed." : "Set your league up in two minutes and run a mock against your friends tonight."}
+              {season ? "Paste your league link and see your best move this week. No account needed. ESPN leagues today, Yahoo and Sleeper coming soon." : "Set your league up in two minutes and run a mock against your friends tonight."}
             </p>
             <Link href={season ? "/inseason/connect" : "/draft"} className="mt-6 inline-block rounded-full bg-ink px-6 py-2.5 text-sm font-medium text-white hover:bg-ink/85">
               {season ? "See your best move, free →" : "Open the draft kit →"}
@@ -224,7 +225,9 @@ export default function Landing() {
       <footer className="border-t border-line">
         <div className="mx-auto flex max-w-6xl flex-wrap items-center gap-3 px-4 py-6 text-xs text-muted">
           <LogoMark size={16} /> Takeover Fantasy
-          <Link href="/privacy" className="ml-auto hover:text-fg">Privacy</Link>
+          <Link href="/move" className="ml-auto hover:text-fg">Rate my move</Link>
+          <Link href="/scorecard" className="hover:text-fg">Receipts</Link>
+          <Link href="/privacy" className="hover:text-fg">Privacy</Link>
           <Link href="/terms" className="hover:text-fg">Terms</Link>
           <span>Not affiliated with ESPN, Yahoo or the NBA.</span>
         </div>
@@ -372,13 +375,23 @@ function SeasonSections() {
             </p>
           </div>
           <Link href="/scorecard" className="shrink-0 self-start rounded-full border border-line bg-panel px-5 py-2.5 text-sm font-medium hover:border-fg/30 hover:bg-sunken sm:self-auto">
-            See the receipts →
+            Our pickups vs ESPN&apos;s most-added →
+          </Link>
+        </div>
+      </section>
+
+      {/* Rate my move */}
+      <section className="border-b border-line">
+        <div className="mx-auto flex max-w-4xl flex-col gap-4 px-4 py-10 sm:flex-row sm:items-center sm:justify-between">
+          <p className="text-base font-medium tracking-tight">Not sure about a pickup? <span className="text-muted">Any league, no account.</span></p>
+          <Link href="/move" className="shrink-0 self-start rounded-full bg-ink px-5 py-2.5 text-sm font-medium text-white hover:bg-ink/85 sm:self-auto">
+            Rate any add/drop free →
           </Link>
         </div>
       </section>
 
       {/* How we pick */}
-      <section id="how" className="border-b border-line">
+      <section id="how" className="border-b border-line bg-panel">
         <div className="mx-auto grid max-w-6xl gap-10 px-4 py-16 lg:grid-cols-[0.9fr_1.1fr] lg:items-start">
           <div>
             <Eyebrow>How we pick</Eyebrow>
@@ -544,7 +557,7 @@ const SEASON_FEATURES = [
 const SEASON_FAQ: [string, string][] = [
   ["Do you make moves for me?", "No. We suggest the moves and you make them on ESPN. ESPN doesn't allow automated play, and you stay in control of your team."],
   ["My ESPN league is private. Is that a problem?", "No. Add your ESPN cookies once when you connect. They're stored encrypted and used only to read your league."],
-  ["Does it work with Yahoo, Sleeper or Fantrax?", "The daily moves are ESPN-only for now. The free news alerts work for any league."],
+  ["Does it work with Yahoo, Sleeper or Fantrax?", "We connect ESPN leagues today; Yahoo and Sleeper are coming soon. The free injury alerts and Rate my move work for any league."],
   ["Do I need an account?", "Not to look. Paste your ESPN league link and see your best move this week. Add your email to save your league and get the free injury alerts."],
   ["What does the free version include?", "Breaking injury alerts with the pickup (and whether he's free in your league), last night's waiver heroes, and for your league, how much this week's moves would add plus your best one."],
   ["Can I cancel?", "Weekly cancels in one click from My league. The season pass is a single payment that runs through the playoffs."],
@@ -574,7 +587,8 @@ function SeasonHero() {
               Get free injury alerts
             </Link>
           </div>
-          <p className="mt-4 text-xs text-muted">No account needed to look. Connects public and private ESPN leagues, points or categories.</p>
+          <p className="mt-4 text-xs text-muted">No account needed to look. Public or private, points or categories.</p>
+          <p className="mt-1 text-xs text-muted">ESPN leagues today · Yahoo and Sleeper coming soon</p>
         </div>
         <PhoneVisual />
       </div>

@@ -6,8 +6,10 @@
  *   POST {action:"save", leagueId, teamId, s2?, swid?} -> connect the league and load it
  *   PATCH {core?, alerts?}                  -> core players and alert settings (alerts.news: free news alerts)
  *   DELETE                                  -> disconnect
+ *   POST {action:"claim-guest" | "discard-guest"} -> save the guest league to the account, or drop it
  * Without an account, lookup and save work too (rate limited per IP): the league is kept in a
  * signed guest cookie (see lib/inseason/guest) so a visitor sees the free preview before signing in.
+ * Every change must come from our own pages (same origin, JSON), so another site can't plant a league.
  */
 
 import { NextResponse } from 'next/server';
@@ -18,7 +20,7 @@ import { ESPNHttpError, getLeagueInfo, withLeague } from '@/lib/inseason/espnCli
 import {
   deleteProfile,
   encryptAuth,
-  getOrClaimProfile,
+  claimGuest,
   getProfile,
   isOwnerEmail,
   profileContext,
@@ -39,6 +41,14 @@ export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
 
 const fail = (error: string, status = 400) => NextResponse.json({ success: false, error }, { status });
+
+/** Only our own pages may change league state: same origin (Fetch Metadata or Origin), and JSON for bodies. */
+function fromOurPages(req: Request, json = true): boolean {
+  const site = req.headers.get('sec-fetch-site');
+  const origin = req.headers.get('origin');
+  const same = site === 'same-origin' || (!!origin && origin === new URL(req.url).origin);
+  return same && (!json || (req.headers.get('content-type') ?? '').toLowerCase().startsWith('application/json'));
+}
 
 /** League id (and team id, if present) from a pasted ESPN link or a bare number. */
 function parseLink(link: string): { leagueId: string; teamId?: number } | null {
@@ -91,8 +101,7 @@ export async function GET() {
       plans: planLinks(undefined, { promo: cleanCode(jar.get(PROMO_COOKIE)?.value) }),
     });
   }
-  // Signing in turns a guest league into the account's profile (never replacing one).
-  const [profile, pass, jar, refCode] = await Promise.all([getOrClaimProfile(account.email), currentPass(), cookies(), ensureReferralCode(account.email).catch(() => null)]);
+  const [profile, pass, jar, refCode] = await Promise.all([getProfile(account.email), currentPass(), cookies(), ensureReferralCode(account.email).catch(() => null)]);
   const shortPass = !!pass?.until && pass.until - Date.now() < 14 * 86_400_000;
   // A pass cookie doesn't know about renewals; the account's Stripe record (cached) does.
   const renews = !!pass?.renews || (shortPass && pass?.via === 'pass' && !!(await accessFor(account.email).catch(() => null))?.renews);
@@ -107,6 +116,8 @@ export async function GET() {
     // On the weekly subscription and still renewing: passUntil is the next renewal.
     renews,
     profile: publicProfile(profile),
+    // A league they connected before signing in: offered to save, never saved without asking.
+    pendingGuest: profile ? null : publicGuest(await readGuest()),
     emailAlerts: EMAIL_ON,
     telegramBot: TELEGRAM_ON ? await botUsername() : null,
     plans: planLinks(account.email, { promo: cleanCode(jar.get(PROMO_COOKIE)?.value), upgrading: shortPass }),
@@ -118,6 +129,7 @@ export async function GET() {
 }
 
 export async function POST(req: Request) {
+  if (!fromOurPages(req)) return fail('Forbidden.', 403);
   const account = await currentAccount();
   const body = (await req.json().catch(() => ({}))) as {
     action?: string; link?: string; leagueId?: string; teamId?: number; s2?: string; swid?: string; alertsEmail?: boolean;
@@ -162,6 +174,16 @@ export async function POST(req: Request) {
     } catch (e) {
       return espnError(e, !!auth);
     }
+  }
+
+  if (account && body.action === 'claim-guest') {
+    const profile = await claimGuest(account.email);
+    if (!profile) return fail('Nothing to save: connect your league.', 404);
+    return NextResponse.json({ success: true, profile: publicProfile(profile) });
+  }
+  if (account && body.action === 'discard-guest') {
+    await clearGuest();
+    return NextResponse.json({ success: true });
   }
 
   if (body.action?.startsWith('telegram-') && account) {
@@ -262,6 +284,7 @@ export async function POST(req: Request) {
 }
 
 export async function PATCH(req: Request) {
+  if (!fromOurPages(req)) return fail('Forbidden.', 403);
   const account = await currentAccount();
   if (!account) return fail('Sign in first.', 401);
   const profile = await getProfile(account.email);
@@ -283,7 +306,8 @@ export async function PATCH(req: Request) {
   return NextResponse.json({ success: true, profile: publicProfile(profile) });
 }
 
-export async function DELETE() {
+export async function DELETE(req: Request) {
+  if (!fromOurPages(req, false)) return fail('Forbidden.', 403);
   const account = await currentAccount();
   if (!account) {
     await clearGuest();

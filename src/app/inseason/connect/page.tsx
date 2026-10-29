@@ -7,7 +7,7 @@ import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { Headshot, InjuryBadge, SkeletonRows } from '@/components/ui';
 import { qrMatrix } from '@/lib/qr';
-import { ErrorBox, Gate, invalidateCached, Loading, MOVES_URL, Panel, SaveLeague, useCached, useMeContext, type Me, type MeGuest, type MeProfile } from '../useMe';
+import { ClaimGuest, ErrorBox, Gate, invalidateCached, Loading, MOVES_URL, Panel, SaveLeague, useCached, useMeContext, type Me, type MeGuest, type MeProfile } from '../useMe';
 
 interface LookupTeam { id: number; name: string; abbrev: string; managers: string[] }
 interface RosterPlayer { id: number; name: string; nbaTeamAbbrev?: string; positions: string[]; status: string; fppg: number; injuredReserve: boolean }
@@ -434,6 +434,10 @@ export default function MyLeaguePage() {
     setConfirming(false);
     await reload();
   };
+
+  if (!profile && !editing && me.pendingGuest) {
+    return <ClaimGuest guest={me.pendingGuest} onDone={async () => { await reload(); invalidateCached(MOVES_URL); }} />;
+  }
 
   if (!profile || editing) {
     // A first connect goes straight to the week's moves (or, without a pass, the free preview).

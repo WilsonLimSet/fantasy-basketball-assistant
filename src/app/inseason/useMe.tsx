@@ -34,6 +34,8 @@ export interface Me {
   signedIn: boolean;
   email?: string;
   guest?: MeGuest | null;
+  /** Signed in without a league, with a league connected before signing in: offered to save. */
+  pendingGuest?: MeGuest | null;
   pro?: boolean;
   profile?: MeProfile | null;
   emailAlerts?: boolean;
@@ -261,7 +263,7 @@ function PlanCard({ href, name, price, note, fine, strong }: { href: string; nam
 
 /** What to show instead of the tools: sign in, upgrade, or connect a league. */
 export function Gate({ needs }: { needs: 'signin' | 'pro' | 'connect' }) {
-  const { me } = useMeContext();
+  const { me, reload } = useMeContext();
   // Back from Stripe while Stripe couldn't confirm the payment: say so instead of asking again.
   const [unlock, setUnlock] = useState<string | null>(null);
   useEffect(() => { setUnlock(new URLSearchParams(location.search).get('unlock')); }, []);
@@ -280,6 +282,7 @@ export function Gate({ needs }: { needs: 'signin' | 'pro' | 'connect' }) {
       </section>
     );
   }
+  if (needs === 'connect' && me?.pendingGuest) return <ClaimGuest guest={me.pendingGuest} onDone={async () => { await reload(); invalidateCached(MOVES_URL); }} />;
   const copy = {
     signin: {
       title: 'See your best move this week, free',
@@ -379,6 +382,37 @@ export function SaveLeague({ next = '/inseason/connect#alerts', compact }: { nex
           Or <Link href={`/login?next=${encodeURIComponent(next)}`} className="underline hover:text-fg">sign in with Google</Link>.
         </p>
       )}
+    </Panel>
+  );
+}
+
+/**
+ * Signed in with a league connected before signing in: save it to the account with one click. It's
+ * never saved without asking, so a league planted by another site can't end up in someone's account.
+ */
+export function ClaimGuest({ guest, onDone }: { guest: MeGuest; onDone: () => void | Promise<void> }) {
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const act = async (action: 'claim-guest' | 'discard-guest') => {
+    setBusy(true); setError(null);
+    const j = await fetch('/api/inseason/me', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ action }) })
+      .then((r) => r.json()).catch(() => ({ success: false, error: 'Network error' }));
+    setBusy(false);
+    if (!j.success) { setError(j.error ?? 'That didn’t work. Try again.'); return; }
+    if (action === 'claim-guest') track('guest_league_saved');
+    await onDone();
+  };
+  return (
+    <Panel title="Save this league to your account?" sub="You connected it before signing in.">
+      <p className="text-sm">
+        <span className="font-medium">{guest.teamName ?? `Team ${guest.teamId}`}</span>
+        <span className="text-muted"> · {guest.leagueName || `League ${guest.leagueId}`}{guest.hasLogin ? ' · private league' : ''}</span>
+      </p>
+      {error && <div className="mt-3"><ErrorBox>{error}</ErrorBox></div>}
+      <div className="mt-4 flex flex-wrap gap-2">
+        <button className="btn-accent px-4 py-1.5 text-sm" disabled={busy} onClick={() => act('claim-guest')}>{busy ? 'Saving…' : 'Save this league'}</button>
+        <button className="btn-ghost px-4 py-1.5 text-sm" disabled={busy} onClick={() => act('discard-guest')}>Use a different league</button>
+      </div>
     </Panel>
   );
 }
