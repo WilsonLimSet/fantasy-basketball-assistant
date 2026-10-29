@@ -4,6 +4,7 @@ import { RECIPIENT_MIN, shareMinutes, type RotationPlayer } from "./inseason/opp
 import { injuryReport, type InjuryReportEntry } from "./inseason/stash";
 import { kvStore } from "./inseason/storage";
 import { easternDate, teamTips } from "./social";
+import { loadTakes, normName, type Take } from "./takes";
 import type { Player } from "./types";
 import { isRookie, perGameCore } from "./valueCore";
 
@@ -37,22 +38,25 @@ export interface ValueContext {
   shares?: Map<number, Map<number, number>>;
   /** Injury history from game logs (src/lib/healthHistory.ts), by player id. */
   health: Record<string, HealthProfile>;
+  /** The AI's role reads from player news (src/lib/autoTakes.ts), by normalized name. */
+  takes: Map<string, Take>;
 }
 
 export async function valueContext(now = Date.now()): Promise<ValueContext> {
   const kv = kvStore();
   const nights = Array.from({ length: 10 }, (_, i) => easternDate(now - (i + 1) * DAY));
-  const [{ players }, injuries, tips, health, snaps] = await Promise.all([
+  const [{ players }, injuries, tips, health, takeSet, snaps] = await Promise.all([
     getPlayers(),
     injuryReport().catch(() => new Map<number, InjuryReportEntry>()),
     teamTips().catch(() => new Map<string, number[]>()),
     loadHealth(),
+    loadTakes(),
     Promise.all(nights.map((d) => kv.get<Record<string, number>>(`social:minutes:${d}`).catch(() => null))),
   ]);
   const recentMin = new Map<number, number[]>();
   for (const snap of snaps) for (const [id, min] of Object.entries(snap ?? {})) if (min > 0) recentMin.set(Number(id), [...(recentMin.get(Number(id)) ?? []), min]);
   const nightList = nights.map((date, i) => ({ date, min: snaps[i] ?? {} })).filter((n) => Object.keys(n.min).length);
-  return { now, players, byId: new Map(players.map((p) => [p.id, p])), injuries, tips, recentMin, nights: nightList, health };
+  return { now, players, byId: new Map(players.map((p) => [p.id, p])), injuries, tips, recentMin, nights: nightList, health, takes: takeSet.index };
 }
 
 export interface PlayerValue {
@@ -71,6 +75,8 @@ export interface PlayerValue {
   temporary?: { until: string; because: string; minutesAfter: number };
   /** Every injured teammate whose absence gives him minutes, soonest back first. */
   dependsOn: Dependence[];
+  /** A role change the AI read in his news, and how much it still moves his value. */
+  news?: { headline: string; date: string; factor: number };
   /** In the window asked for: games, and expected points counting only current injury status. */
   games: number;
   window: number;
@@ -188,7 +194,12 @@ function dependence(p: Player, ctx: ValueContext): Dependence[] {
 
 export function valuePlayer(p: Player, ctx: ValueContext, window?: { from: string; to: string }): PlayerValue {
   const st = statusOf(p, ctx);
-  const { minutes, relPts, scoPts, perGame } = perGameCore(p, (ctx.recentMin.get(p.id) ?? []).slice(0, 5));
+  const recent = (ctx.recentMin.get(p.id) ?? []).slice(0, 5);
+  const take = ctx.takes.get(normName(p.name));
+  const { minutes, relPts, scoPts, perGame } = perGameCore(p, recent, take);
+  // How much the AI's role read still moves him (it fades as his own games pile up).
+  const plain = take ? perGameCore(p, recent).perGame : perGame;
+  const news = take && plain ? { headline: take.headline, date: take.notes[0]?.date ?? take.updated, factor: perGame / plain } : null;
   const sd = Math.sqrt((0.45 * Math.max(0, scoPts)) ** 2 + (0.25 * Math.max(0, relPts)) ** 2);
 
   // Minutes that lean on injured teammates. His minutes estimate already contains the part he
@@ -214,6 +225,7 @@ export function valuePlayer(p: Player, ctx: ValueContext, window?: { from: strin
   return {
     id: p.id, perGame: r1(perGame), floor: r1(Math.max(0, perGame - sd)), ceiling: r1(perGame + sd), minutes: r1(minutes),
     steady: perGame ? Math.round((relPts / perGame) * 100) / 100 : 0, status: st.status, returnDate: st.returnDate, temporary, dependsOn,
+    ...(news && Math.abs(news.factor - 1) >= 0.02 ? { news: { ...news, factor: Math.round(news.factor * 100) / 100 } } : {}),
     games: inWindow.length, window: r1(windowPts), ros: r1(tips.length ? rosPts / tips.length : 0),
     health: ctx.health[p.id]?.label ?? "unknown", durability: Math.round(dur * 100) / 100,
   };

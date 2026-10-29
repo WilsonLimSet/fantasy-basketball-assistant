@@ -12,6 +12,7 @@
     "prebuild": "node scripts/build-takes.mjs"
   },
   "dependencies": {
+    "@ai-sdk/anthropic": "4.0.78",
     "@ai-sdk/openai": "^4.0.91",
     "@supabase/ssr": "^0.12.7",
     "@supabase/supabase-js": "^2.117.3",

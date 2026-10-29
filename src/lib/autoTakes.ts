@@ -1,4 +1,5 @@
 import { put } from "@vercel/blob";
+import { anthropic } from "@ai-sdk/anthropic";
 import { openai } from "@ai-sdk/openai";
 import { generateText, Output } from "ai";
 import { z } from "zod";
@@ -15,12 +16,15 @@ import { fetchPlayerNews, type NewsItem } from "./playerNews";
  */
 
 /**
- * With OPENAI_API_KEY set, calls bill to OpenAI credits rather than the Vercel bill; otherwise AI Gateway.
- * Small models are accurate enough on injury timelines and cost cents a month.
+ * Who pays: ANTHROPIC_API_KEY bills Wilson's monthly Claude credits, then OPENAI_API_KEY bills
+ * OpenAI credits, and otherwise AI Gateway (the Vercel bill). Small models are accurate enough on
+ * injury timelines and cost cents a month.
  */
-const MODEL = process.env.OPENAI_API_KEY
-  ? openai(process.env.AUTO_TAKES_MODEL ?? "gpt-5.4-mini")
-  : (process.env.AUTO_TAKES_MODEL ?? "anthropic/claude-haiku-5.5");
+const MODEL = process.env.ANTHROPIC_API_KEY
+  ? anthropic(process.env.AUTO_TAKES_MODEL ?? "claude-haiku-5-5")
+  : process.env.OPENAI_API_KEY
+    ? openai(process.env.AUTO_TAKES_MODEL ?? "gpt-5.4-mini")
+    : (process.env.AUTO_TAKES_MODEL ?? "anthropic/claude-haiku-5.5");
 /** First regular-season game. Before it, only injuries and transactions move projections. */
 const SEASON_START = process.env.NBA_SEASON_START ?? "2026-10-20";
 const LOOKBACK_DAYS = 4;

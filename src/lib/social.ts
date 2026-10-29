@@ -6,7 +6,7 @@ import { injuryReport, type InjuryReportEntry } from "./inseason/stash";
 import { kvStore } from "./inseason/storage";
 import { isRookie, perGameCore } from "./valueCore";
 import { loadHealth, type HealthProfile } from "./healthHistory";
-import { loadTakes, normName, type Take } from "./takes";
+import { findTake, loadTakes, normName, type Take } from "./takes";
 import type { Player } from "./types";
 
 /**
@@ -64,7 +64,7 @@ export function weekNumber(date: string) {
 }
 
 /** Per-game fantasy points in ESPN's default scoring when he plays (see src/lib/valueCore.ts). */
-export const fppg = (p: Player): number => perGameCore(p).perGame;
+export const fppg = (p: Player): number => perGameCore(p, [], findTake(p.name)).perGame;
 
 export const round1 = (n: number) => Math.round(n * 10) / 10;
 
