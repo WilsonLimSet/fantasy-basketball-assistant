@@ -23,11 +23,13 @@ No posts about role changes on stars or "still out" follow-ups (Wilson: obvious,
 ## Player values
 `src/lib/value.ts` is the model (Wilson's rules): chance he plays × minutes × points per minute. Windows (streams) count only current injury status; rest of season adds durability. Minutes follow recent box-score minutes (`social:minutes:<date>`) with temporary-role flags when a same-position regular is out with a return date. Rebounds/assists/stocks trust this season fast; scoring leans on the projection longer and sets the floor/ceiling. No penalty for bad teams. Durability comes from game logs (`src/lib/healthHistory.ts`, KV `value:health`, last 3 seasons, rotation seasons only): long absences (10+ games) are one-off injuries and don't count against him; many short absences mark him "in-and-out". The per-game core (`src/lib/valueCore.ts`) is shared with the posts (`fppg`). The daily run saves predictions (`value:pred:<date>`) and scores them against the box scores (`value:err:<date>`). Used by the reply bot and /move; the in-season moves engine (`src/lib/inseason/streaming.ts`) still has its own `expectedFppg`.
 
+## Breaking alerts
+`src/lib/breaking.ts`, cron `/api/cron/breaking` every 10 minutes (`?dry=1` previews). Diffs ESPN's injury report (fetched fresh) against `breaking:status`; a 40%+ rostered player newly OUT for 3+ days triggers a Telegram alert (every linked user with news on, plus owner chats) and, for 70%+ rostered players, an email (max one per person per day). Pickups: teammates gaining 2+ minutes in the shared split (`shareMinutes`), ranked by value while he's out, under 60% rostered. Paying users with a connected league also see whether the pickup is free in their league (with the ESPN add link) and whether the injured player is theirs. Sent once per player and return date (`breaking:sent:*`).
+
 ## Wilson's league
 ESPN "The Best League 27", 10 teams, points, his team is "Wilson's Waterboys" (team 5). The server's ESPN login reads it.
 
 ## Task backlog (one per session)
-1. **Hourly breaking check (free, no AI)**: diff ESPN player data each hour; post when a 30%+ rostered player changes team/becomes FA or is newly OUT/back. Wilson was offered this but hasn't confirmed; ask first.
 2. **Send posts to Postroom** (github.com/WilsonLimSet/postroom): in `socialPush`, also POST each post to `${POSTROOM_URL}/api/v1/posts` with `POSTROOM_KEY`, `sourceKey` = the post key. Needs the Takeover brand key from Postroom first.
 3. **Opportunity evidence on injury cards**: "in N games without X last season, Y averaged Z" from ESPN gamelogs.
 4. **Buyer stats page** (owner-only): purchases by country from Stripe checkout sessions, plus Vercel Analytics countries.
