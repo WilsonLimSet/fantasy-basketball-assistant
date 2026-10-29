@@ -1,10 +1,9 @@
 import { put } from "@vercel/blob";
-import { anthropic } from "@ai-sdk/anthropic";
-import { openai } from "@ai-sdk/openai";
 import { generateText, Output } from "ai";
 import { z } from "zod";
 import manualRaw from "../../research/raw-takes.json";
 import { compileTakes, currentAuto, mergeItems, normName } from "./compileTakes.mjs";
+import { withModel } from "./ai";
 import { getPlayers } from "./data";
 import { fetchPlayerNews, type NewsItem } from "./playerNews";
 
@@ -15,30 +14,6 @@ import { fetchPlayerNews, type NewsItem } from "./playerNews";
  * ~5 minutes (see loadTakes), with no build.
  */
 
-/**
- * Who pays: ANTHROPIC_API_KEY bills Wilson's monthly Claude credits, then OPENAI_API_KEY bills
- * OpenAI credits, and otherwise AI Gateway (the Vercel bill). Small models are accurate enough on
- * injury timelines and cost cents a month.
- */
-const MODELS = [
-  ...(process.env.ANTHROPIC_API_KEY ? [anthropic(process.env.AUTO_TAKES_MODEL ?? "claude-haiku-5-5")] : []),
-  ...(process.env.OPENAI_API_KEY ? [openai(process.env.AUTO_TAKES_MODEL ?? "gpt-5.4-mini")] : []),
-  "anthropic/claude-haiku-5.5",
-];
-
-/** Run a call on the first provider that works (a bad or out-of-credit key falls through to the next). */
-async function withModel<T>(call: (model: (typeof MODELS)[number]) => Promise<T>): Promise<T> {
-  let last: unknown;
-  for (const model of MODELS) {
-    try {
-      return await call(model);
-    } catch (e) {
-      last = e;
-      console.error("[news cron] model failed, trying the next:", e instanceof Error ? e.message : e);
-    }
-  }
-  throw last;
-}
 /** First regular-season game. Before it, only injuries and transactions move projections. */
 const SEASON_START = process.env.NBA_SEASON_START ?? "2026-10-20";
 const LOOKBACK_DAYS = 4;
