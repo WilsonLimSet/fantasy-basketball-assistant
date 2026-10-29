@@ -68,7 +68,7 @@ function Header({ season }: { season: boolean }) {
           )}
         </nav>
         <div className="ml-auto flex items-center gap-3 text-xs text-muted">
-          {me?.profile && <span className="hidden sm:inline">{me.profile.teamName}</span>}
+          {(me?.profile ?? me?.guest) && <span className="hidden sm:inline">{(me.profile ?? me.guest)?.teamName}</span>}
           {/* A week pass says when it ends, with the season one click away. */}
           {me?.passUntil && me.shortPass && (
             <span className="whitespace-nowrap">

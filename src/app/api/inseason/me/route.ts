@@ -6,6 +6,8 @@
  *   POST {action:"save", leagueId, teamId, s2?, swid?} -> connect the league and load it
  *   PATCH {core?, alerts?}                  -> core players and alert settings (alerts.news: free news alerts)
  *   DELETE                                  -> disconnect
+ * Without an account, lookup and save work too (rate limited per IP): the league is kept in a
+ * signed guest cookie (see lib/inseason/guest) so a visitor sees the free preview before signing in.
  */
 
 import { NextResponse } from 'next/server';
@@ -16,6 +18,7 @@ import { ESPNHttpError, getLeagueInfo, withLeague } from '@/lib/inseason/espnCli
 import {
   deleteProfile,
   encryptAuth,
+  getOrClaimProfile,
   getProfile,
   isOwnerEmail,
   profileContext,
@@ -23,6 +26,7 @@ import {
   type InseasonProfile,
 } from '@/lib/inseason/profile';
 import { refreshLeague } from '@/lib/inseason/refreshLeague';
+import { clearGuest, guestContext, guestRateLimited, readGuest, writeGuest, type GuestLeague } from '@/lib/inseason/guest';
 import { EMAIL_ON } from '@/lib/inseason/email';
 import { botUsername, drainUpdates, rememberLinkCode, TELEGRAM_ON } from '@/lib/inseason/telegramUser';
 import { randomBytes } from 'node:crypto';
@@ -69,10 +73,26 @@ function espnError(e: unknown, hadLogin: boolean) {
   return fail('Could not reach ESPN. Try again in a minute.', 502);
 }
 
+/** A guest's league, as the page sees it (the ESPN login stays in the cookie). */
+const publicGuest = (g: GuestLeague | null) =>
+  g ? { leagueId: g.leagueId, teamId: g.teamId, teamName: g.teamName, leagueName: g.leagueName, hasLogin: !!g.auth } : null;
+
 export async function GET() {
   const account = await currentAccount();
-  if (!account) return NextResponse.json({ success: true, signedIn: false });
-  const [profile, pass, jar, refCode] = await Promise.all([getProfile(account.email), currentPass(), cookies(), ensureReferralCode(account.email).catch(() => null)]);
+  if (!account) {
+    // A visitor: their guest league (if they connected one), and the plans so the paywall can sell.
+    const [guest, pass, jar] = await Promise.all([readGuest(), currentPass(), cookies()]);
+    return NextResponse.json({
+      success: true,
+      signedIn: false,
+      guest: publicGuest(guest),
+      pro: !PAYWALL_ON || !!pass,
+      passUntil: pass?.until ?? null,
+      plans: planLinks(undefined, { promo: cleanCode(jar.get(PROMO_COOKIE)?.value) }),
+    });
+  }
+  // Signing in turns a guest league into the account's profile (never replacing one).
+  const [profile, pass, jar, refCode] = await Promise.all([getOrClaimProfile(account.email), currentPass(), cookies(), ensureReferralCode(account.email).catch(() => null)]);
   const shortPass = !!pass?.until && pass.until - Date.now() < 14 * 86_400_000;
   // A pass cookie doesn't know about renewals; the account's Stripe record (cached) does.
   const renews = !!pass?.renews || (shortPass && pass?.via === 'pass' && !!(await accessFor(account.email).catch(() => null))?.renews);
@@ -99,7 +119,6 @@ export async function GET() {
 
 export async function POST(req: Request) {
   const account = await currentAccount();
-  if (!account) return fail('Sign in first.', 401);
   const body = (await req.json().catch(() => ({}))) as {
     action?: string; link?: string; leagueId?: string; teamId?: number; s2?: string; swid?: string; alertsEmail?: boolean;
   };
@@ -113,8 +132,14 @@ export async function POST(req: Request) {
   // The owner's own leagues can use the server's ESPN login.
   const serverAuth = (leagueId: string) => {
     const { ESPN_S2: s2, ESPN_SWID: swid } = process.env;
-    return !auth && s2 && swid && isOwnerEmail(account.email) && ownLeagueIds().includes(leagueId) ? { s2, swid } : null;
+    return !auth && s2 && swid && account && isOwnerEmail(account.email) && ownLeagueIds().includes(leagueId) ? { s2, swid } : null;
   };
+
+  if (!account) {
+    // Guests can find and connect a league; everything else needs an account.
+    if (body.action !== 'lookup' && body.action !== 'save') return fail('Sign in first.', 401);
+    if (await guestRateLimited(req)) return fail('Too many lookups from here. Try again in an hour.', 429);
+  }
 
   if (body.action === 'lookup') {
     const parsed = parseLink(body.link ?? '');
@@ -139,7 +164,7 @@ export async function POST(req: Request) {
     }
   }
 
-  if (body.action?.startsWith('telegram-')) {
+  if (body.action?.startsWith('telegram-') && account) {
     const profile = await getProfile(account.email);
     if (!profile) return fail('Connect your ESPN league first.', 404);
     const bot = TELEGRAM_ON ? await botUsername() : null;
@@ -182,6 +207,27 @@ export async function POST(req: Request) {
     }
     const team = info.teams.find((t) => t.id === teamId);
     if (!team) return fail('That team is not in this league.');
+
+    if (!account) {
+      const previous = await readGuest();
+      const guest: GuestLeague = {
+        leagueId,
+        seasonId: SEASON,
+        teamId,
+        // Keep a saved login when reconnecting the same league without pasting cookies again.
+        auth: auth ? encryptAuth(auth.s2, auth.swid) : previous?.leagueId === leagueId ? previous.auth : undefined,
+        teamName: team.name,
+        leagueName: info.name,
+        createdAt: Date.now(),
+      };
+      await writeGuest(guest);
+      try {
+        await refreshLeague(await guestContext(guest));
+      } catch (e) {
+        console.error('[inseason/me] guest first refresh failed', e instanceof Error ? e.message : e);
+      }
+      return NextResponse.json({ success: true, guest: publicGuest(guest) });
+    }
 
     const previous = await getProfile(account.email);
     const sameTeam = previous?.leagueId === leagueId && previous.teamId === teamId;
@@ -239,7 +285,10 @@ export async function PATCH(req: Request) {
 
 export async function DELETE() {
   const account = await currentAccount();
-  if (!account) return fail('Sign in first.', 401);
+  if (!account) {
+    await clearGuest();
+    return NextResponse.json({ success: true });
+  }
   await deleteProfile(account.email);
   return NextResponse.json({ success: true });
 }

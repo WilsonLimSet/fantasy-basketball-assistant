@@ -7,12 +7,14 @@ import { LogoMark } from "@/components/Logo";
 import { supabaseBrowser } from "@/lib/supabase/browser";
 import { AUTH_ON } from "@/lib/supabase/env";
 
-/** Back to where sign-in started (?next=/inseason), checked again by the callback. */
-const callback = () => {
+/** Where sign-in started (?next=/inseason), same-site paths only. */
+const nextPath = () => {
   const next = new URLSearchParams(location.search).get("next");
-  const dest = next && next.startsWith("/") && !next.startsWith("//") ? next : "/draft";
-  return `${location.origin}/auth/callback?next=${encodeURIComponent(dest)}`;
+  return next && next.startsWith("/") && !next.startsWith("//") && !next.startsWith("/\\") ? next : "/draft";
 };
+
+/** Back to where sign-in started, checked again by the callback. */
+const callback = () => `${location.origin}/auth/callback?next=${encodeURIComponent(nextPath())}`;
 
 /** Sign in with Google or a one-time email link. No passwords. */
 export default function Login() {
@@ -49,7 +51,7 @@ export default function Login() {
           <>
             <div className="mt-5">
               <GoogleButton
-                onDone={() => location.assign("/draft")}
+                onDone={() => location.assign(nextPath())}
                 onError={(m) => { setState("error"); setMsg(m); }}
                 fallback={google}
               />
