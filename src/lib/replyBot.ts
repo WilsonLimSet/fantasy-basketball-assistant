@@ -1,5 +1,5 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
-import { fppg, round1, SITE, streamWindow } from "./social";
+import { fppg, POST_LINK, round1, SITE, streamWindow } from "./social";
 import { normName } from "./takes";
 import type { Player } from "./types";
 import { valueContext, valuePlayer } from "./value";
@@ -45,7 +45,7 @@ export function findPlayers(text: string, players: Player[]): Player[] {
 
 const cta = (platform: string) => platform === "x"
   ? "Want the best add on your league's actual waiver wire? Free move, link in our bio."
-  : `For your league's actual waiver wire: free move at ${SITE.replace(/^https?:\/\//, "")}`;
+  : `For your league's actual waiver wire: free move at ${POST_LINK}`;
 const pick = <T>(list: T[], seed: string) => list[[...seed].reduce((s, c) => s + c.charCodeAt(0), 0) % list.length];
 
 export async function composeReply(text: string, platform: string, username = ""): Promise<string | null> {
@@ -88,7 +88,9 @@ export async function composeReply(text: string, platform: string, username = ""
       : `${win.v.perGame} vs ${lose.v.perGame} fpts/g${win.v.games === lose.v.games ? ", same number of games" : ""}`;
     const note = lose.v.status === "OUT" ? ` ${last(lose.p)} is out.` : lose.v.status === "DAY_TO_DAY" ? ` ${last(lose.p)} is day-to-day.` : "";
     const temp = win.v.temporary ? ` Note: his minutes are up while ${win.v.temporary.because} is out.` : "";
-    return `${win.p.name}: ${why}.${note}${temp}\n\n${cta(platform)}`;
+    // On Threads, link the shareable verdict card (X posts carry no links).
+    const rate = platform === "x" ? "" : `\nFull verdict: ${SITE.replace(/^https?:\/\//, "")}/move?drop=${lose.p.id}&add=${win.p.id}&utm_source=threads`;
+    return `${win.p.name}: ${why}.${note}${temp}${rate}\n\n${cta(platform)}`;
   }
   const p = named[0], pv = v(p);
   const mins = pv.dependsOn.length
