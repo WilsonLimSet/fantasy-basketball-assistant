@@ -2,7 +2,7 @@
  * API Route: /api/inseason/refresh
  *  GET  (Vercel Cron, with CRON_SECRET) -> refresh the owner's env league (Telegram alerts) and every
  *       connected league; the morning run also sends each user's daily moves by email and/or Telegram.
- *  POST (signed-in user)                -> refresh that user's league now (at most every 5 minutes).
+ *  POST (signed-in user or guest league) -> refresh that league now (at most every 5 minutes).
  */
 
 import { NextResponse } from 'next/server';
@@ -119,11 +119,12 @@ export async function GET(request: Request) {
 
 export async function POST() {
   const account = await currentAccount();
-  if (!account) return NextResponse.json({ success: false, error: 'Sign in first.' }, { status: 401 });
   const { ctx, error } = await requireLeague();
   if (error) return error;
-  const profile = ctx.profile ? await getProfile(account.email) : null;
-  if (profile?.lastRefreshAt && Date.now() - profile.lastRefreshAt < USER_REFRESH_GAP_MS) {
+  const profile = ctx.profile && account ? await getProfile(account.email) : null;
+  // A guest league (with a pass, before signing in) has no profile: go by its latest snapshot.
+  const last = ctx.guest ? (await ctx.storage.getLatestSnapshot(ctx.leagueId, ctx.seasonId))?.fetchedAt : profile?.lastRefreshAt;
+  if (last && Date.now() - last < USER_REFRESH_GAP_MS) {
     return NextResponse.json({ success: true, skipped: true });
   }
   try {

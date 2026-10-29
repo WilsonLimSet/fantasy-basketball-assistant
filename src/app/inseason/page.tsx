@@ -7,7 +7,7 @@ import { useCallback, useEffect, useState } from 'react';
 import type { DailyBriefing } from '@/types';
 import { InjuryBadge } from '@/components/ui';
 import { MatchupGamesPanel, MoveRow, StatStrip, WatchlistPanel, type MovesPreview, type MovesResponse } from './MovesPanel';
-import { ErrorBox, formatAge, Gate, invalidateCached, Loading, MOVES_URL, Panel, useCached, useMeContext } from './useMe';
+import { ErrorBox, formatAge, Gate, invalidateCached, Loading, MOVES_URL, Panel, SaveLeague, useCached, useMeContext } from './useMe';
 
 function RosterAlerts({ briefing }: { briefing: DailyBriefing }) {
   const changes = briefing.statusChanges.filter((c) => c.isMyPlayer);
@@ -105,7 +105,10 @@ export default function ThisWeekPage() {
 
   if (!moves) return <Loading what="your week" kind="week" />;
   const needs = moves.needs;
-  if (needs === 'pro' && moves.preview) return <><Preview p={moves.preview} /><Gate needs="pro" /></>;
+  // A guest's next steps after the preview: save the league with an email, or buy the rest of the moves.
+  if (needs === 'pro' && moves.preview) {
+    return <><Preview p={moves.preview} />{me && !me.signedIn && <div className="mb-5"><SaveLeague /></div>}<Gate needs="pro" /></>;
+  }
   if (needs === 'signin' || needs === 'pro' || needs === 'connect') return <Gate needs={needs} />;
 
   const refreshButton = (
@@ -174,6 +177,7 @@ export default function ThisWeekPage() {
               <span className="btn-ghost shrink-0">Set up</span>
             </Link>
           )}
+          {me && !me.signedIn && me.guest && <SaveLeague />}
           {mg && <MatchupGamesPanel data={mg} />}
         </div>
         <div className="space-y-5">

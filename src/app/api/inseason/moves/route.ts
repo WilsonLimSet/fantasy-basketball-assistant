@@ -24,7 +24,7 @@ const PREVIEW_REFRESH_MS = 12 * 60 * 60 * 1000;
  */
 async function preview() {
   const ctx = await previewContext();
-  if (!ctx?.profile) return null;
+  if (!ctx?.profile && !ctx?.guest) return null;
   const snapshot = await freshSnapshot(ctx, PREVIEW_REFRESH_MS);
   if (!snapshot) return null;
   const plan = buildStreamingPlan(snapshot, ctx.core, []);

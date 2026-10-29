@@ -7,12 +7,21 @@ import { LogoMark } from "@/components/Logo";
 import { supabaseBrowser } from "@/lib/supabase/browser";
 import { AUTH_ON } from "@/lib/supabase/env";
 
-/** Back to where sign-in started (?next=/inseason), checked again by the callback. */
-const callback = () => {
+/** Where sign-in started (?next=/inseason): a path on this site only, never another origin. */
+const nextPath = () => {
   const next = new URLSearchParams(location.search).get("next");
-  const dest = next && next.startsWith("/") && !next.startsWith("//") ? next : "/draft";
-  return `${location.origin}/auth/callback?next=${encodeURIComponent(dest)}`;
+  // Backslashes and control characters can make browsers resolve a "path" off-site.
+  if (!next || !next.startsWith("/") || /[\\\u0000-\u001f\u007f]/.test(next)) return "/draft";
+  try {
+    const url = new URL(next, location.origin);
+    return url.origin === location.origin ? url.pathname + url.search + url.hash : "/draft";
+  } catch {
+    return "/draft";
+  }
 };
+
+/** Back to where sign-in started, checked again by the callback. */
+const callback = () => `${location.origin}/auth/callback?next=${encodeURIComponent(nextPath())}`;
 
 /** Sign in with Google or a one-time email link. No passwords. */
 export default function Login() {
@@ -49,7 +58,7 @@ export default function Login() {
           <>
             <div className="mt-5">
               <GoogleButton
-                onDone={() => location.assign("/draft")}
+                onDone={() => location.assign(nextPath())}
                 onError={(m) => { setState("error"); setMsg(m); }}
                 fallback={google}
               />

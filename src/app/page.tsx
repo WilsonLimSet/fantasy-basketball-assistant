@@ -8,12 +8,12 @@ import { seasonMode } from "@/lib/season";
 // Re-render hourly so season mode switches on by itself.
 export const revalidate = 3600;
 
-/** During the season, search results and link previews lead with the add/drop tool. */
+/** During the season, search results and link previews lead with the promise: win without refreshing the news all day. */
 export function generateMetadata(): Metadata {
   return seasonMode()
     ? {
-        title: "Takeover Fantasy · Daily add/drops for ESPN fantasy basketball",
-        description: "Connect your ESPN league and get the pickups that add the most points this week, which day to make each move, and injury alerts with the pickup.",
+        title: "Takeover Fantasy · Win your fantasy basketball league without living on Twitter",
+        description: "Breaking injury alerts with the pickup on Telegram within minutes, and every morning the add/drops that win your week, for your fantasy team. Connect your ESPN league and see your best move free.",
       }
     : {};
 }
@@ -31,15 +31,16 @@ export default function Landing() {
             <LogoMark size={22} />
             <span className="text-base font-semibold tracking-tight">Takeover Fantasy</span>
           </Link>
-          <nav className="hidden gap-5 text-sm text-muted sm:flex">
-            <a href={season ? "#how" : "#scouting"} className="hover:text-fg">{season ? "How it works" : "Scouting"}</a>
+          <nav className="hidden gap-5 whitespace-nowrap text-sm text-muted md:flex">
+            <a href={season ? "#plays-out" : "#scouting"} className="hover:text-fg">{season ? "How it works" : "Scouting"}</a>
             <a href="#features" className="hover:text-fg">Features</a>
             <a href="#pricing" className="hover:text-fg">Pricing</a>
-            <a href="#faq" className="hover:text-fg">FAQ</a>
-            {season ? <Link href="/draft" className="hover:text-fg">Draft kit</Link> : <Link href="/inseason" className="hover:text-fg">In-season</Link>}
+            <a href="#faq" className="hidden hover:text-fg lg:inline">FAQ</a>
+            <Link href="/move" className="hover:text-fg">Rate my move</Link>
+            {season ? <Link href="/draft" className="hidden hover:text-fg lg:inline">Draft kit</Link> : <Link href="/inseason" className="hidden hover:text-fg lg:inline">In-season</Link>}
           </nav>
-          <Link href={season ? "/inseason" : "/draft"} className="ml-auto rounded-full bg-ink px-4 py-1.5 text-sm font-medium text-white hover:bg-ink/85">
-            {season ? "Get your daily moves" : "Open the draft kit"}
+          <Link href={season ? "/inseason/connect" : "/draft"} className="ml-auto whitespace-nowrap rounded-full bg-ink px-4 py-1.5 text-sm font-medium text-white hover:bg-ink/85">
+            {season ? "See your best move" : "Open the draft kit"}
           </Link>
         </div>
       </header>
@@ -164,27 +165,27 @@ export default function Landing() {
         <section id="pricing" className="border-b border-line">
           <div className="mx-auto max-w-4xl px-4 py-16">
             <Eyebrow>Pricing</Eyebrow>
-            <H2 a="Try a week. Keep it for the season." b={season ? "News alerts are free." : PAYWALL_ON ? "The draft kit is free." : "Free while we're in beta."} />
+            <H2 a="Try a week. Keep it for the season." b={season ? "Injury alerts are free, forever." : PAYWALL_ON ? "The draft kit is free." : "Free while we're in beta."} />
             <div className="mt-8 grid gap-4 sm:grid-cols-3">
               {season
-                ? <Plan name="Free" price="$0" href="/inseason/connect" cta="Connect your league" items={["Injury and transaction alerts with the pickup", "Last night's waiver heroes", "Your week's gain and your best move", "The draft kit and player news"]} />
+                ? <Plan name="Free" price="$0" note="Forever, no card" href="/inseason/connect" cta="See your best move" items={["Breaking injury alerts with the pickup", "Free in your league, or taken", "Last night's waiver heroes", "Your week's gain and your best move"]} />
                 : <Plan name="Draft kit" price="Free" href="/draft" cta="Open the draft kit" items={["Every player ranked for your scoring", "Full mock drafts", "Live ESPN draft assistant", "Daily news and takes"]} />}
               <Plan
                 name={WEEKLY ? "Weekly" : "Week pass"}
                 price={WEEKLY ? "$5/wk" : "$5"}
-                note={!PAYWALL_ON ? "Everything is unlocked during the beta" : WEEKLY ? "Renews weekly, cancel anytime" : "7 days, one payment, no auto-renew"}
+                note={!PAYWALL_ON ? "Everything is unlocked during the beta" : WEEKLY ? "Less than one wasted pickup costs you. Cancel anytime." : "7 days, one payment, no auto-renew"}
                 href="/inseason"
                 cta="Try a week"
-                items={["Every add/drop, ranked by usable games", "Which day to make each move", "Lineup check before lock", "Email and Telegram alerts"]}
+                items={["Every add/drop for your roster, each morning", "The day to make each move", "Lineup check before lock", "Alerts on Telegram or email"]}
               />
               <Plan
                 name="Season pass"
                 price="$39"
-                note={PAYWALL_ON ? "Through the 2026-27 playoffs, no auto-renew" : "Everything is unlocked during the beta"}
+                note={PAYWALL_ON ? "About $1.50 a week, through the 2026-27 playoffs" : "Everything is unlocked during the beta"}
                 strong
                 href="/inseason"
                 cta="Get the season"
-                items={["Everything in weekly", "Every week through the playoffs", "Next-week schedule warnings", "About $1.50 a week"]}
+                items={["Everything in weekly", "Every week through the playoffs", "Next-week schedule warnings", "One payment, no auto-renew"]}
               />
             </div>
           </div>
@@ -212,10 +213,10 @@ export default function Landing() {
           <div className="mx-auto max-w-6xl px-4 py-20 text-center">
             <h2 className="text-3xl font-medium tracking-[-0.03em] sm:text-4xl">{season ? "The season is on." : "Draft day is coming."}</h2>
             <p className="mt-3 text-sm text-muted">
-              {season ? "Connect your ESPN league in a minute and get tomorrow morning's moves." : "Set your league up in two minutes and run a mock against your friends tonight."}
+              {season ? "Paste your league link and see your best move this week. No account needed. ESPN leagues today, Yahoo and Sleeper coming soon." : "Set your league up in two minutes and run a mock against your friends tonight."}
             </p>
-            <Link href={season ? "/inseason" : "/draft"} className="mt-6 inline-block rounded-full bg-ink px-6 py-2.5 text-sm font-medium text-white hover:bg-ink/85">
-              {season ? "Get your daily moves →" : "Open the draft kit →"}
+            <Link href={season ? "/inseason/connect" : "/draft"} className="mt-6 inline-block rounded-full bg-ink px-6 py-2.5 text-sm font-medium text-white hover:bg-ink/85">
+              {season ? "See your best move, free →" : "Open the draft kit →"}
             </Link>
           </div>
         </section>
@@ -224,7 +225,9 @@ export default function Landing() {
       <footer className="border-t border-line">
         <div className="mx-auto flex max-w-6xl flex-wrap items-center gap-3 px-4 py-6 text-xs text-muted">
           <LogoMark size={16} /> Takeover Fantasy
-          <Link href="/privacy" className="ml-auto hover:text-fg">Privacy</Link>
+          <Link href="/move" className="ml-auto hover:text-fg">Rate my move</Link>
+          <Link href="/scorecard" className="hover:text-fg">Receipts</Link>
+          <Link href="/privacy" className="hover:text-fg">Privacy</Link>
           <Link href="/terms" className="hover:text-fg">Terms</Link>
           <span>Not affiliated with ESPN, Yahoo or the NBA.</span>
         </div>
@@ -298,115 +301,177 @@ function Plan({ name, price, items, note, strong, href, cta }: { name: string; p
 /** The weekly plan is a subscription once its Stripe link is set. */
 const WEEKLY = !!process.env.STRIPE_WEEKLY_LINK;
 
-/** Everything below the hero during the season: the add/drop tool, not the draft. */
+/** Everything below the hero during the season: how an alert plays out, then what you get. */
 function SeasonSections() {
   return (
     <>
-      {/* How it works */}
-      <section id="how" className="border-b border-line">
-        <div className="mx-auto max-w-6xl px-4 py-16">
-          <Eyebrow>How it works</Eyebrow>
-          <H2 a="Connect once." b="Get your moves every morning." />
-          <div className="mt-8 grid gap-4 sm:grid-cols-3">
-            {[
-              ["1", "Connect your ESPN league", "Paste your team link. Public or private, points or categories. Takes a minute."],
-              ["2", "We run your week", "Every morning we read your roster, the free agents, the schedule, your pickup limit and waiver timing, and test every swap."],
-              ["3", "You make the moves", "The best add/drops arrive by email or Telegram around 7am New York time. You make them on ESPN; we never touch your team."],
-            ].map(([n, t, b]) => (
-              <div key={n} className="rounded-xl border border-line bg-panel p-5 shadow-[0_1px_2px_rgba(25,25,25,0.04)]">
-                <div className="flex h-7 w-7 items-center justify-center rounded-full bg-ink text-xs font-medium text-white">{n}</div>
-                <div className="mt-3 text-sm font-medium">{t}</div>
-                <p className="mt-1.5 text-sm leading-relaxed text-muted">{b}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
+      <PlaysOut />
 
-      {/* Usable games */}
-      <section className="border-b border-line bg-panel">
-        <div className="mx-auto grid max-w-6xl gap-10 px-4 py-16 lg:grid-cols-2 lg:items-center">
-          <WeekVisual />
-          <div>
-            <Eyebrow>Usable games</Eyebrow>
-            <H2 a="A pickup only counts" b="on days he starts." />
-            <p className="mt-4 text-sm leading-relaxed text-muted">
-              ESPN shows how many games a player has. It doesn&apos;t show that on a busy night your lineup is already full,
-              so his game sits on your bench. We fill your lineup day by day, the way ESPN would, and rank pickups by the
-              games that actually score for you.
-            </p>
-            <ul className="mt-5 space-y-2 text-sm">
-              <Check>Finds the players who play on your open days</Check>
-              <Check>Tells you which day to swap, so you don&apos;t drop a player before his last game</Check>
-              <Check>Checks next week before you drop anyone with a big week coming</Check>
-            </ul>
-          </div>
-        </div>
-      </section>
-
-      {/* Alerts */}
-      <section className="border-b border-line">
+      {/* 1. Breaking alerts */}
+      <section id="features" className="border-b border-line">
         <div className="mx-auto grid max-w-6xl gap-10 px-4 py-16 lg:grid-cols-2 lg:items-center">
           <div>
-            <Eyebrow>Alerts</Eyebrow>
-            <H2 a="When a starter goes down," b="you hear first, with the pickup." />
+            <Eyebrow>Breaking alerts · free</Eyebrow>
+            <H2 a="First to every pickup." b="Before your league mates refresh ESPN." />
             <p className="mt-4 text-sm leading-relaxed text-muted">
-              Injuries, trades and waived players turn into an alert with the teammate who gains the minutes, before your
-              league mates refresh ESPN. A lineup check before tip-off catches injured starters you forgot to bench.
+              We check the injury report every 10 minutes. When a starter is ruled out for more than a game or two, you get
+              the teammate who takes his minutes, about what he&apos;ll score, and whether he&apos;s still free in your league,
+              with a link straight to the add on ESPN.
             </p>
             <ul className="mt-5 space-y-2 text-sm">
-              <Check>Injury and transaction alerts, free</Check>
-              <Check>Last night&apos;s best waiver performances every morning</Check>
-              <Check>Lineup check before the first game of the day</Check>
+              <Check>The pickup, from who actually plays his minutes</Check>
+              <Check>Free in your league, or already taken: checked for you</Check>
+              <Check>On Telegram within minutes. Free, forever</Check>
             </ul>
           </div>
           <AlertVisual />
         </div>
       </section>
 
-      {/* Features */}
-      <section id="features" className="border-b border-line bg-panel">
-        <div className="mx-auto max-w-6xl px-4 py-16">
-          <Eyebrow>Built for your league</Eyebrow>
-          <H2 a="Every move checked against" b="your roster and your rules." />
-          <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {SEASON_FEATURES.map((f) => (
-              <div key={f.title} className="rounded-xl border border-line bg-bg p-5">
-                <div className="text-sm font-medium">{f.title}</div>
-                <p className="mt-1.5 text-sm leading-relaxed text-muted">{f.body}</p>
-              </div>
-            ))}
+      {/* 2. Daily moves */}
+      <section className="border-b border-line bg-panel">
+        <div className="mx-auto grid max-w-6xl gap-10 px-4 py-16 lg:grid-cols-2 lg:items-center">
+          <MovesVisual />
+          <div>
+            <Eyebrow>Daily moves</Eyebrow>
+            <H2 a="Your moves every morning," b="for your roster, not everyone's." />
+            <p className="mt-4 text-sm leading-relaxed text-muted">
+              Around 7am New York time: the add/drops that add the most points to your week, who to drop from your streaming
+              spots, and the day to make each one. Only when a move is worth making.
+            </p>
+            <ul className="mt-5 space-y-2 text-sm">
+              <Check>Ranked by points that make your lineup</Check>
+              <Check>The day to swap, so no game is wasted</Check>
+              <Check>Your keepers never show up as drops</Check>
+            </ul>
           </div>
         </div>
       </section>
 
-      {/* Comparison */}
+      {/* 3. Lineup check */}
       <section className="border-b border-line">
-        <div className="mx-auto max-w-4xl px-4 py-16">
-          <Eyebrow>Why Takeover</Eyebrow>
-          <H2 a="ESPN shows you players." b="We tell you the move." />
-          <div className="mt-8 overflow-hidden rounded-xl border border-line">
-            <table className="w-full text-sm">
-              <thead className="bg-sunken text-left text-xs text-muted">
-                <tr><th className="px-4 py-2.5 font-medium" /><th className="px-4 py-2.5 font-medium">Takeover Fantasy</th><th className="px-4 py-2.5 font-medium">ESPN&apos;s player list</th></tr>
-              </thead>
-              <tbody>
-                {SEASON_COMPARE.map(([row, us, them]) => (
-                  <tr key={row} className="border-t border-line">
-                    <td className="px-4 py-3">{row}</td>
-                    <td className="px-4 py-3 font-medium text-accent">{us}</td>
-                    <td className="px-4 py-3 text-muted">{them}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+        <div className="mx-auto grid max-w-6xl gap-10 px-4 py-16 lg:grid-cols-2 lg:items-center">
+          <div>
+            <Eyebrow>Lineup check</Eyebrow>
+            <H2 a="Never start" b="an injured player again." />
+            <p className="mt-4 text-sm leading-relaxed text-muted">
+              Before the day&apos;s first tip-off we compare your lineup with tonight&apos;s games. A starter who&apos;s been ruled
+              out, or a bench player who should start, gets flagged while there&apos;s still time to fix it.
+            </p>
           </div>
-          <p className="mt-4 text-xs text-muted">
-            Every week we post our streamers against ESPN&apos;s most-added players: <Link href="/scorecard" className="underline hover:text-fg">see the receipts</Link>.
-          </p>
+          <LineupVisual />
+        </div>
+      </section>
+
+      {/* Proof */}
+      <section className="border-b border-line bg-panel">
+        <div className="mx-auto flex max-w-4xl flex-col gap-6 px-4 py-14 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <Eyebrow>Receipts</Eyebrow>
+            <h2 className="mt-2 text-2xl font-medium leading-tight tracking-[-0.03em] sm:text-3xl">We post our picks. Then we score them.</h2>
+            <p className="mt-3 max-w-xl text-sm leading-relaxed text-muted">
+              Every Monday we save our top 10 streamers next to ESPN&apos;s 10 most-added players, then count the fantasy points
+              each group scores. Good weeks and bad ones.
+            </p>
+          </div>
+          <Link href="/scorecard" className="shrink-0 self-start rounded-full border border-line bg-panel px-5 py-2.5 text-sm font-medium hover:border-fg/30 hover:bg-sunken sm:self-auto">
+            Our pickups vs ESPN&apos;s most-added →
+          </Link>
+        </div>
+      </section>
+
+      {/* Rate my move */}
+      <section className="border-b border-line">
+        <div className="mx-auto flex max-w-4xl flex-col gap-4 px-4 py-10 sm:flex-row sm:items-center sm:justify-between">
+          <p className="text-base font-medium tracking-tight">Not sure about a pickup? <span className="text-muted">Any league, no account.</span></p>
+          <Link href="/move" className="shrink-0 self-start rounded-full bg-ink px-5 py-2.5 text-sm font-medium text-white hover:bg-ink/85 sm:self-auto">
+            Rate any add/drop free →
+          </Link>
+        </div>
+      </section>
+
+      {/* How we pick */}
+      <section id="how" className="border-b border-line bg-panel">
+        <div className="mx-auto grid max-w-6xl gap-10 px-4 py-16 lg:grid-cols-[0.9fr_1.1fr] lg:items-start">
+          <div>
+            <Eyebrow>How we pick</Eyebrow>
+            <h2 className="mt-2 text-2xl font-medium leading-tight tracking-[-0.03em] sm:text-3xl">A pickup only counts on days he starts.</h2>
+            <p className="mt-3 text-sm leading-relaxed text-muted">
+              We fill your lineup day by day, the way ESPN would, and rank pickups by the games that actually score for you.
+            </p>
+            <div className="mt-6"><WeekVisual /></div>
+          </div>
+          <dl className="grid gap-x-6 gap-y-5 sm:grid-cols-2 lg:pt-10">
+            {SEASON_FEATURES.map((f) => (
+              <div key={f.title}>
+                <dt className="text-sm font-medium">{f.title}</dt>
+                <dd className="mt-1 text-sm leading-relaxed text-muted">{f.body}</dd>
+              </div>
+            ))}
+          </dl>
         </div>
       </section>
     </>
+  );
+}
+
+/** One alert, start to finish: an illustrative weekday afternoon in Eastern time. */
+function PlaysOut() {
+  const steps = [
+    { t: "2:14 PM", title: "A starting guard is ruled out for 2 weeks.", body: "The injury report updates mid-afternoon. Your league mates are at work." },
+    { t: "2:21 PM", title: "🚨 Telegram: pick up Ajay Mitchell.", body: "About 30 fantasy points a game while he's out. ✅ Free in your league.", hot: true },
+    { t: "2:22 PM", title: "You add him in one tap.", body: "The alert opens the add on ESPN." },
+    { t: "7:00 PM", title: "Your league mates see it at tip-off.", body: "He's already on your roster." },
+  ];
+  return (
+    <section id="plays-out" className="border-b border-line bg-panel">
+      <div className="mx-auto max-w-6xl px-4 py-16">
+        <Eyebrow>How it plays out</Eyebrow>
+        <H2 a="A starter goes down at 2:14." b="He's replaced on your roster by 2:22." />
+        <ol className="mt-10 grid border-l border-line lg:grid-cols-4 lg:border-l-0 lg:border-t">
+          {steps.map((s) => (
+            <li key={s.t} className="relative pb-7 pl-6 last:pb-0 lg:pb-0 lg:pl-0 lg:pr-6 lg:pt-6">
+              <span className={`absolute -left-[5px] top-1.5 h-2.5 w-2.5 rounded-full lg:-top-[5px] lg:left-0 ${s.hot ? "bg-ink" : "border border-line bg-bg"}`} />
+              <div className="text-xs font-medium tabular-nums text-muted">{s.t} <span className="font-normal">ET</span></div>
+              <div className={`mt-1 text-sm ${s.hot ? "font-medium" : ""}`}>{s.title}</div>
+              <p className="mt-1 text-sm leading-relaxed text-muted">{s.body}</p>
+            </li>
+          ))}
+        </ol>
+        <p className="mt-8 text-xs text-muted">An illustrative weekday afternoon. Breaking alerts check the injury report every 10 minutes.</p>
+      </div>
+    </section>
+  );
+}
+
+/** A lock screen with the alert on it. */
+function PhoneVisual() {
+  return (
+    <div style={{ animationDelay: "260ms" }} className="animate-fade-up mx-auto w-full max-w-[320px] rounded-[2.5rem] border border-line bg-panel p-3 shadow-[0_20px_60px_rgba(25,25,25,0.10)]">
+      <div className="rounded-[2rem] bg-sunken px-3 pb-8 pt-10">
+        <div className="text-center">
+          <div className="text-xs text-muted">Tuesday</div>
+          <div className="text-5xl font-medium tabular-nums tracking-[-0.04em]">2:21</div>
+        </div>
+        <div className="mt-8 rounded-2xl border border-line bg-panel p-3 shadow-[0_1px_2px_rgba(25,25,25,0.04)]">
+          <div className="flex items-center gap-2 text-[11px] text-muted">
+            <LogoMark size={20} />
+            <span className="font-medium text-fg">Takeover Fantasy</span>
+            <span className="ml-auto">now</span>
+          </div>
+          <p className="mt-2 text-[13px] font-medium leading-snug">🚨 A starting guard is out for 2 weeks</p>
+          <div className="mt-2 flex items-center gap-2.5">
+            <Face id={4900671} size={28} />
+            <p className="text-xs leading-snug">
+              <span className="font-medium">Pickup: Ajay Mitchell</span>
+              <span className="text-muted">, ~30 pts a game while he&apos;s out · 11% rostered</span>
+            </p>
+          </div>
+          <p className="mt-2 text-xs">✅ Free in your league right now</p>
+          <div className="mt-2.5 rounded-full bg-ink py-1.5 text-center text-xs font-medium text-white">Add him on ESPN</div>
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -447,87 +512,85 @@ function WeekVisual() {
 function AlertVisual() {
   return (
     <Frame title="Telegram · Takeover Fantasy">
-      <div className="space-y-3">
-        <div className="rounded-xl border border-line bg-bg p-3">
-          <div className="inline-flex items-center gap-1.5 rounded-full bg-[#b42318] px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-white">
-            <span className="h-1.5 w-1.5 rounded-full bg-white" />Injury alert
-          </div>
-          <div className="mt-2 flex items-center gap-2.5">
-            <Face id={4278067} />
-            <div className="text-sm"><span className="font-medium">Nic Claxton</span> <span className="text-muted">out at least 2 weeks</span></div>
-          </div>
-          <div className="mt-2.5 flex items-center gap-2.5 rounded-lg border border-line bg-panel p-2">
-            <Face id={4397189} size={28} />
-            <div className="text-xs"><div className="text-[10px] font-semibold uppercase tracking-wide text-accent">Fantasy move</div><span className="font-medium">Pick up Jalen Smith</span> <span className="text-muted">· 6% rostered</span></div>
-          </div>
+      <div className="rounded-xl border border-line bg-bg p-3">
+        <div className="inline-flex items-center gap-1.5 rounded-full bg-[#b42318] px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-white">
+          <span className="h-1.5 w-1.5 rounded-full bg-white" />Breaking
         </div>
-        <div className="rounded-xl border border-line bg-bg p-3 text-xs">
-          <span className="font-medium">Lineup check · 6:10 PM</span>
-          <p className="mt-1 text-muted">Tonight: your starter at PF is out. Swap in your bench forward, who plays at 7:30.</p>
+        <div className="mt-2 flex items-center gap-2.5">
+          <Face id={4278067} />
+          <div className="text-sm"><span className="font-medium">Nic Claxton</span> <span className="text-muted">out, back in about 2 weeks</span></div>
+        </div>
+        <div className="mt-2.5 rounded-lg border border-line bg-panel p-2">
+          <div className="flex items-center gap-2.5">
+            <Face id={4397189} size={28} />
+            <div className="text-xs"><div className="text-[10px] font-semibold uppercase tracking-wide text-accent">Pickup</div><span className="font-medium">Jalen Smith</span> <span className="text-muted">· ~24 pts a game while he&apos;s out · +9 min · 6% rostered</span></div>
+          </div>
+          <div className="mt-2 flex items-center justify-between gap-2 border-t border-line pt-2 text-xs">
+            <span>✅ Free in your league right now</span>
+            <span className="shrink-0 font-medium underline underline-offset-2">Add him on ESPN</span>
+          </div>
         </div>
       </div>
     </Frame>
   );
 }
 
-const SEASON_FEATURES = [
-  { title: "The day to swap", body: "Keep a player through his last game this week, then pick up the replacement. We mark moves \"After Tue\" so no game is wasted." },
-  { title: "Next week, checked", body: "Before suggesting a drop, we look at next week too, and warn you if he has a big week coming." },
-  { title: "Your core stays put", body: "Mark the players you'd never drop. Moves only ever come from your streaming spots." },
-  { title: "Waiver timing", body: "Players on waivers take about two days to clear, so their games before that don't count toward the move." },
-  { title: "Your pickup limit", body: "Leagues with a weekly cap get the moves worth it: best first, each assuming the ones above are made." },
-  { title: "Points or categories", body: "Points leagues rank by fantasy points added; categories leagues by games that make your lineup." },
-];
+function LineupVisual() {
+  return (
+    <Frame title="Lineup alert · 6:10 PM ET · before first tip">
+      <ul className="space-y-2 text-sm">
+        <li className="rounded-lg border border-red-500/20 bg-red-500/5 px-3 py-2 text-red-700">Your starting PF is <span className="font-medium">out</span> tonight but in your starting lineup.</li>
+        <li className="rounded-lg border border-line bg-bg px-3 py-2">Start your bench forward: he plays at 7:30 <span className="text-muted">(about +24 projected pts)</span>.</li>
+        <li className="rounded-lg border border-line bg-bg px-3 py-2 text-muted">To make room, bench your PF.</li>
+      </ul>
+    </Frame>
+  );
+}
 
-const SEASON_COMPARE: [string, string, string][] = [
-  ["Ranks pickups by", "Games that make your lineup", "Season averages"],
-  ["Tells you who to drop", "From your streaming spots", "No"],
-  ["Which day to make the move", "Yes, with “After Tue”", "No"],
-  ["Checks next week's schedule", "Before every drop", "No"],
-  ["Injury alerts with the pickup", "Telegram or email", "A red O on the roster"],
+const SEASON_FEATURES = [
+  { title: "The day to swap", body: "Keep a player through his last game, then add the replacement: moves marked \"After Tue\" waste no games." },
+  { title: "Next week, checked", body: "Before any drop we look at next week too, and warn you if he has a big one coming." },
+  { title: "Waivers and limits", body: "Waiver players clear in about two days, and weekly pickup caps get the best moves first." },
+  { title: "Points or categories", body: "Points leagues rank by points added; categories leagues by games that make your lineup." },
 ];
 
 const SEASON_FAQ: [string, string][] = [
   ["Do you make moves for me?", "No. We suggest the moves and you make them on ESPN. ESPN doesn't allow automated play, and you stay in control of your team."],
   ["My ESPN league is private. Is that a problem?", "No. Add your ESPN cookies once when you connect. They're stored encrypted and used only to read your league."],
-  ["Does it work with Yahoo, Sleeper or Fantrax?", "The daily moves are ESPN-only for now. The free news alerts work for any league."],
-  ["What does the free version include?", "Injury and transaction alerts with the pickup, last night's waiver heroes, and for your connected league, how much this week's moves would add plus your best one."],
+  ["Does it work with Yahoo, Sleeper or Fantrax?", "We connect ESPN leagues today; Yahoo and Sleeper are coming soon. The free injury alerts and Rate my move work for any league."],
+  ["Do I need an account?", "Not to look. Paste your ESPN league link and see your best move this week. Add your email to save your league and get the free injury alerts."],
+  ["What does the free version include?", "Breaking injury alerts with the pickup (and whether he's free in your league), last night's waiver heroes, and for your league, how much this week's moves would add plus your best one."],
   ["Can I cancel?", "Weekly cancels in one click from My league. The season pass is a single payment that runs through the playoffs."],
 ];
 
-/** The hero during the season: daily moves first, the draft kit a click away. */
+/** The hero during the season: the outcome (winning without refreshing news all day), then the free first step. */
 function SeasonHero() {
   return (
     <section className="border-b border-line">
-      <div className="mx-auto grid max-w-6xl gap-12 px-4 py-16 sm:py-24 lg:grid-cols-[1.1fr_0.9fr] lg:items-center">
+      <div className="mx-auto grid max-w-6xl gap-12 px-4 py-14 sm:py-24 lg:grid-cols-[1.15fr_0.85fr] lg:items-center">
         <div>
           <p className="animate-fade-up text-sm font-medium text-accent">Fantasy basketball · 2026-27 season</p>
-          <h1 style={{ animationDelay: "60ms" }} className="animate-fade-up mt-3 text-4xl font-medium leading-[1.05] tracking-[-0.035em] sm:text-6xl">
-            Your best add/drops,
+          <h1 style={{ animationDelay: "60ms" }} className="animate-fade-up mt-3 text-[2.6rem] font-medium leading-[1.04] tracking-[-0.035em] sm:text-6xl">
+            Win your league
             <br />
-            <span className="text-muted">every morning.</span>
+            <span className="text-muted">without living on Twitter.</span>
           </h1>
           <p style={{ animationDelay: "120ms" }} className="animate-fade-up mt-5 max-w-xl text-base leading-relaxed text-muted">
-            Connect your ESPN league and get the pickups that add the most points this week. We count the games that
-            actually make your lineup, check next week&apos;s schedule before you drop anyone, and tell you which day to
-            make each move. By email or Telegram.
+            We watch every injury, box score and waiver wire around the clock. When a starter goes down, you get the pickup on
+            Telegram within minutes. Every morning, the add/drops that win your week, for your league.
           </p>
-          <ul style={{ animationDelay: "180ms" }} className="animate-fade-up mt-5 space-y-2 text-sm">
-            <Check>Usable games, not raw games: a pickup only helps on days he starts</Check>
-            <Check>Warns you before you drop someone with a big week coming</Check>
-            <Check>Your weekly pickup limit and waiver timing built in</Check>
-          </ul>
-          <div style={{ animationDelay: "220ms" }} className="animate-fade-up mt-7 flex flex-wrap gap-2">
-            <Link href="/inseason" className="rounded-full bg-ink px-5 py-2.5 text-sm font-medium text-white hover:bg-ink/85">
-              Get your daily moves →
+          <div style={{ animationDelay: "200ms" }} className="animate-fade-up mt-7 flex flex-col gap-2 sm:flex-row sm:flex-wrap">
+            <Link href="/inseason/connect" className="rounded-full bg-ink px-5 py-2.5 text-center text-sm font-medium text-white hover:bg-ink/85">
+              See your best move, free →
             </Link>
-            <Link href="/inseason/connect" className="rounded-full border border-line bg-panel px-5 py-2.5 text-sm font-medium hover:border-fg/30 hover:bg-sunken">
+            <Link href="/login?next=/inseason/connect" className="rounded-full border border-line bg-panel px-5 py-2.5 text-center text-sm font-medium hover:border-fg/30 hover:bg-sunken">
               Get free injury alerts
             </Link>
           </div>
-          <p className="mt-4 text-xs text-muted">Works with public and private ESPN leagues, points or categories.</p>
+          <p className="mt-4 text-xs text-muted">No account needed to look. Public or private, points or categories.</p>
+          <p className="mt-1 text-xs text-muted">ESPN leagues today · Yahoo and Sleeper coming soon</p>
         </div>
-        <MovesVisual />
+        <PhoneVisual />
       </div>
     </section>
   );

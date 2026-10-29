@@ -7,7 +7,7 @@ import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { Headshot, InjuryBadge, SkeletonRows } from '@/components/ui';
 import { qrMatrix } from '@/lib/qr';
-import { ErrorBox, Gate, invalidateCached, Loading, MOVES_URL, Panel, useCached, useMeContext, type Me, type MeProfile } from '../useMe';
+import { ClaimGuest, ErrorBox, Gate, invalidateCached, Loading, MOVES_URL, Panel, SaveLeague, useCached, useMeContext, type Me, type MeGuest, type MeProfile } from '../useMe';
 
 interface LookupTeam { id: number; name: string; abbrev: string; managers: string[] }
 interface RosterPlayer { id: number; name: string; nbaTeamAbbrev?: string; positions: string[]; status: string; fppg: number; injuredReserve: boolean }
@@ -391,6 +391,27 @@ function Referral({ url }: { url: string }) {
   );
 }
 
+/** A league connected without an account: see the moves, or save it (and get alerts) with an email. */
+function GuestLeague({ guest, onChange, onRemove }: { guest: MeGuest; onChange: () => void; onRemove: () => void }) {
+  return (
+    <div className="space-y-5">
+      <Panel
+        title={guest.teamName ?? `Team ${guest.teamId}`}
+        sub={`${guest.leagueName || `League ${guest.leagueId}`} · saved in this browser only`}
+        right={
+          <span className="flex gap-2">
+            <button className="btn-ghost" onClick={onChange}>Change league</button>
+            <button className="btn-ghost" onClick={onRemove}>Remove</button>
+          </span>
+        }
+      >
+        <Link href="/inseason" className="btn-accent inline-block px-4 py-1.5 text-sm">See your best move →</Link>
+      </Panel>
+      <SaveLeague />
+    </div>
+  );
+}
+
 export default function MyLeaguePage() {
   const { me, reload } = useMeContext();
   const router = useRouter();
@@ -398,7 +419,14 @@ export default function MyLeaguePage() {
   const [confirming, setConfirming] = useState(false);
 
   if (!me) return <Loading what="your league" />;
-  if (!me.signedIn) return <Gate needs="signin" />;
+  // No account yet: connect as a guest and go straight to the free preview.
+  if (!me.signedIn) {
+    const connected = async () => { setEditing(false); await reload(); invalidateCached(MOVES_URL); router.push('/inseason'); };
+    if (!me.guest || editing) {
+      return <LeagueForm hasLogin={me.guest?.hasLogin} onCancel={me.guest ? () => setEditing(false) : undefined} onSaved={connected} />;
+    }
+    return <GuestLeague guest={me.guest} onChange={() => setEditing(true)} onRemove={async () => { await post('DELETE'); invalidateCached(MOVES_URL); await reload(); }} />;
+  }
 
   const profile = me.profile;
   const disconnect = async () => {
@@ -406,6 +434,10 @@ export default function MyLeaguePage() {
     setConfirming(false);
     await reload();
   };
+
+  if (!profile && !editing && me.pendingGuest) {
+    return <ClaimGuest guest={me.pendingGuest} onDone={async () => { await reload(); invalidateCached(MOVES_URL); }} />;
+  }
 
   if (!profile || editing) {
     // A first connect goes straight to the week's moves (or, without a pass, the free preview).

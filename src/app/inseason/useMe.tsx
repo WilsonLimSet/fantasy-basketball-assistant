@@ -5,6 +5,8 @@ import { funnel } from '@/components/funnel';
 import Link from 'next/link';
 import { Skeleton, SkeletonRows } from '@/components/ui';
 import { createContext, useCallback, useContext, useEffect, useState, useSyncExternalStore } from 'react';
+import { supabaseBrowser } from '@/lib/supabase/browser';
+import { AUTH_ON } from '@/lib/supabase/env';
 
 export interface MeProfile {
   leagueId: string;
@@ -19,9 +21,21 @@ export interface MeProfile {
   lastRefreshAt?: number;
 }
 
+/** A league connected without an account (kept in a cookie until they sign in). */
+export interface MeGuest {
+  leagueId: string;
+  teamId: number;
+  teamName?: string;
+  leagueName?: string;
+  hasLogin: boolean;
+}
+
 export interface Me {
   signedIn: boolean;
   email?: string;
+  guest?: MeGuest | null;
+  /** Signed in without a league, with a league connected before signing in: offered to save. */
+  pendingGuest?: MeGuest | null;
   pro?: boolean;
   profile?: MeProfile | null;
   emailAlerts?: boolean;
@@ -57,10 +71,10 @@ export function MeProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => { reload(); }, [reload]);
   // Load the other tabs' data up front so switching to them is instant.
   useEffect(() => {
-    if (!me?.profile) return;
+    if (!me?.profile && !me?.guest) return;
     loadCached(MOVES_URL);
     loadCached('/api/inseason/weekly-plan');
-  }, [me?.profile]);
+  }, [me?.profile, me?.guest]);
   return <MeContext.Provider value={{ me, reload }}>{children}</MeContext.Provider>;
 }
 
@@ -249,7 +263,7 @@ function PlanCard({ href, name, price, note, fine, strong }: { href: string; nam
 
 /** What to show instead of the tools: sign in, upgrade, or connect a league. */
 export function Gate({ needs }: { needs: 'signin' | 'pro' | 'connect' }) {
-  const { me } = useMeContext();
+  const { me, reload } = useMeContext();
   // Back from Stripe while Stripe couldn't confirm the payment: say so instead of asking again.
   const [unlock, setUnlock] = useState<string | null>(null);
   useEffect(() => { setUnlock(new URLSearchParams(location.search).get('unlock')); }, []);
@@ -268,10 +282,11 @@ export function Gate({ needs }: { needs: 'signin' | 'pro' | 'connect' }) {
       </section>
     );
   }
+  if (needs === 'connect' && me?.pendingGuest) return <ClaimGuest guest={me.pendingGuest} onDone={async () => { await reload(); invalidateCached(MOVES_URL); }} />;
   const copy = {
     signin: {
-      title: 'Win the week with two extra games',
-      body: 'Connect your ESPN league and get the add/drops that put the most games in your lineup, every morning.',
+      title: 'See your best move this week, free',
+      body: 'Paste your ESPN team link and we’ll show what this week’s add/drops would gain you, and the best one. No account needed.',
     },
     pro: {
       title: 'Let Takeover manage your week',
@@ -288,9 +303,14 @@ export function Gate({ needs }: { needs: 'signin' | 'pro' | 'connect' }) {
       <p className="mt-3 max-w-xl text-sm leading-relaxed text-muted">{copy.body}</p>
       <div className="mt-5">
         {needs === 'signin' && (
-          <Link href="/login?next=/inseason/connect" className="rounded-full bg-ink px-5 py-2 text-sm font-medium text-white hover:bg-ink/85">
-            Sign in to start
-          </Link>
+          <div className="flex flex-wrap items-center gap-4">
+            <Link href="/inseason/connect" className="rounded-full bg-ink px-5 py-2 text-sm font-medium text-white hover:bg-ink/85">
+              See your best move →
+            </Link>
+            <Link href="/login?next=/inseason" className="text-sm text-muted underline-offset-2 hover:text-fg hover:underline">
+              Already have an account? Sign in
+            </Link>
+          </div>
         )}
         {needs === 'connect' && (
           <Link href="/inseason/connect" className="rounded-full bg-ink px-5 py-2 text-sm font-medium text-white hover:bg-ink/85">
@@ -310,5 +330,89 @@ export function Gate({ needs }: { needs: 'signin' | 'pro' | 'connect' }) {
           ))}
       </div>
     </section>
+  );
+}
+
+/** Where an email sign-in link lands: back here, checked again by the callback. */
+const signInCallback = (next: string) => `${location.origin}/auth/callback?next=${encodeURIComponent(next)}`;
+
+/**
+ * For a guest league: sign in by email (or Google on the sign-in page) to keep the league and get
+ * alerts. The guest league becomes the account's profile on the first visit after signing in.
+ */
+export function SaveLeague({ next = '/inseason/connect#alerts', compact }: { next?: string; compact?: boolean }) {
+  const [email, setEmail] = useState('');
+  const [state, setState] = useState<'idle' | 'sending' | 'sent' | 'error'>('idle');
+  const [msg, setMsg] = useState<string | null>(null);
+  if (!AUTH_ON) return null;
+  const send = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setState('sending');
+    const { error } = await supabaseBrowser().auth.signInWithOtp({ email: email.trim(), options: { emailRedirectTo: signInCallback(next) } });
+    if (error) { setState('error'); setMsg(error.message); return; }
+    setState('sent');
+    track('save_league_email');
+  };
+  return (
+    <Panel
+      title="Save your league and get alerts"
+      sub={compact ? undefined : 'Enter your email: we’ll keep your league and send injury alerts with the pickup, free. No password.'}
+    >
+      {state === 'sent' ? (
+        <p className="text-sm">Check <b>{email}</b> for a sign-in link. Open it on this device and your league is saved.</p>
+      ) : (
+        <form onSubmit={send} className="flex max-w-xl flex-wrap gap-2">
+          <input
+            type="email"
+            required
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            placeholder="you@example.com"
+            aria-label="Your email"
+            className="input min-w-0 flex-1 basis-56 py-1.5"
+          />
+          <button disabled={state === 'sending'} className="btn-accent shrink-0 px-4 py-1.5 text-sm">
+            {state === 'sending' ? 'Sending…' : 'Save my league'}
+          </button>
+        </form>
+      )}
+      {state === 'error' && <p className="mt-2 text-xs text-red-700">{msg ?? 'Something went wrong.'}</p>}
+      {state !== 'sent' && (
+        <p className="mt-2 text-xs text-muted">
+          Or <Link href={`/login?next=${encodeURIComponent(next)}`} className="underline hover:text-fg">sign in with Google</Link>.
+        </p>
+      )}
+    </Panel>
+  );
+}
+
+/**
+ * Signed in with a league connected before signing in: save it to the account with one click. It's
+ * never saved without asking, so a league planted by another site can't end up in someone's account.
+ */
+export function ClaimGuest({ guest, onDone }: { guest: MeGuest; onDone: () => void | Promise<void> }) {
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const act = async (action: 'claim-guest' | 'discard-guest') => {
+    setBusy(true); setError(null);
+    const j = await fetch('/api/inseason/me', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ action }) })
+      .then((r) => r.json()).catch(() => ({ success: false, error: 'Network error' }));
+    setBusy(false);
+    if (!j.success) { setError(j.error ?? 'That didn’t work. Try again.'); return; }
+    if (action === 'claim-guest') track('guest_league_saved');
+    await onDone();
+  };
+  return (
+    <Panel title="Save this league to your account?" sub="You connected it before signing in.">
+      <p className="text-sm">
+        <span className="font-medium">{guest.teamName ?? `Team ${guest.teamId}`}</span>
+        <span className="text-muted"> · {guest.leagueName || `League ${guest.leagueId}`}{guest.hasLogin ? ' · private league' : ''}</span>
+      </p>
+      {error && <div className="mt-3"><ErrorBox>{error}</ErrorBox></div>}
+      <div className="mt-4 flex flex-wrap gap-2">
+        <button className="btn-accent px-4 py-1.5 text-sm" disabled={busy} onClick={() => act('claim-guest')}>{busy ? 'Saving…' : 'Save this league'}</button>
+        <button className="btn-ghost px-4 py-1.5 text-sm" disabled={busy} onClick={() => act('discard-guest')}>Use a different league</button>
+      </div>
+    </Panel>
   );
 }
