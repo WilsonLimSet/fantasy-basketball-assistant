@@ -91,11 +91,11 @@ export async function composeReply(text: string, platform: string, username = ""
     return `${win.p.name}: ${why}.${note}${temp}\n\n${cta(platform)}`;
   }
   const p = named[0], pv = v(p);
-  const mins = pv.temporary
-    ? ` His minutes are up while ${pv.temporary.because} is out (back ~${pv.temporary.until.slice(5)}).`
+  const mins = pv.dependsOn.length
+    ? ` Gets ~${Math.round(pv.dependsOn.reduce((m, d) => m + d.minutes, 0))} extra min while ${pv.dependsOn.map((d) => `${d.name.split(" ").slice(-1)[0]} (back ~${d.until.slice(5)})`).join(" and ")} ${pv.dependsOn.length > 1 ? "are" : "is"} out: a hold till then.`
     : p.cur?.gp && p.last?.gp && Math.abs(pv.minutes - p.last.min) >= 3 ? ` Playing about ${pv.minutes} min a game (${round1(p.last.min)} last season).` : "";
   const status = pv.status === "OUT" ? ` Out${pv.returnDate ? ` until ~${pv.returnDate.slice(5)}` : " right now"}.` : pv.status === "DAY_TO_DAY" ? " Day-to-day." : "";
   const sits = pv.health === "in-and-out" ? ` Sits often (~${Math.round(pv.durability * 100)}% of games).` : "";
   const verdict = (p.pctOwned ?? 100) < 50 && pv.ros >= 25 && pv.status === "ACTIVE" ? " Worth an add." : "";
-  return `${p.name}: ${pv.perGame} fpts/g, ${pv.games} games ${span}.${mins}${status}${sits}${verdict}\n\n${cta(platform)}`;
+  return `${p.name}: ${pv.perGame} fpts/g, ${pv.games} game${pv.games === 1 ? "" : "s"} ${span}.${mins}${status}${sits}${verdict}\n\n${cta(platform)}`;
 }
