@@ -38,8 +38,9 @@ interface InjuryHistory { checkedAt: number; players: Record<string, { seenAt: n
 type RawInjury = any;
 
 /** ESPN's league-wide injury report, by ESPN player id (the same ids fantasy uses). */
-export async function injuryReport(): Promise<Map<number, InjuryReportEntry>> {
-  const r = await fetch(INJURIES_URL, { next: { revalidate: 900 } });
+export async function injuryReport(fresh = false): Promise<Map<number, InjuryReportEntry>> {
+  // fresh: the breaking-news check needs this minute's report, not the 15-minute cache.
+  const r = await fetch(INJURIES_URL, fresh ? { cache: 'no-store' } : { next: { revalidate: 900 } });
   if (!r.ok) throw new Error(`ESPN injuries: ${r.status}`);
   const j = (await r.json()) as { injuries?: { injuries?: RawInjury[] }[] };
   const out = new Map<number, InjuryReportEntry>();
