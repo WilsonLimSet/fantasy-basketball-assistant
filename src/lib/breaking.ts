@@ -1,3 +1,4 @@
+import { backupPlan, type BackupPick } from "./backupPlan";
 import { getPlayers } from "./data";
 import { EMAIL_ON, espnAddUrl, sendEmail } from "./inseason/email";
 import { RECIPIENT_MIN, shareMinutes, type RotationPlayer } from "./inseason/opportunity";
@@ -6,7 +7,9 @@ import { injuryReport, type InjuryReportEntry } from "./inseason/stash";
 import { kvStore } from "./inseason/storage";
 import { sendTelegramTo, TELEGRAM_ON } from "./inseason/telegramUser";
 import { easternDate, SITE } from "./social";
+import type { LeagueSnapshot } from "@/types";
 import type { Player } from "./types";
+import { valueContext, type ValueContext } from "./value";
 import { perGameCore } from "./valueCore";
 
 /**
@@ -93,11 +96,19 @@ const esc = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replac
 const shortDate = (d: string) => new Date(`${d}T12:00:00Z`).toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" });
 
 /** The alert text; with the user's league, whether the pickup is free there and whether the player is theirs. */
-export function alertText(ev: BreakingEvent, league?: { rostered: Set<number>; mine: Set<number>; addUrl: string }): string {
+interface LeagueView { rostered: Set<number>; mine: Set<number>; addUrl: string; snapshot: LeagueSnapshot; irPicks?: BackupPick[] }
+
+export function alertText(ev: BreakingEvent, league?: LeagueView): string {
   const back = ev.returnDate ? `, back around ${shortDate(ev.returnDate)}` : ", no timeline yet";
   const lines = [`🚨 <b>${esc(ev.player.name)} (${ev.player.team}) is out</b>${ev.injury ? ` (${esc(ev.injury.toLowerCase())})` : ""}${back}.`];
   if (ev.note) lines.push(`<i>${esc(ev.note)}</i>`);
-  if (league?.mine.has(ev.player.id)) lines.push("He's on your team: move him to IR when ESPN allows, to free the spot.");
+  if (league?.mine.has(ev.player.id)) {
+    lines.push("He's on your team: move him to IR when ESPN allows, to free the spot.");
+    if (league.irPicks?.length) {
+      lines.push(`\n<b>For the open spot</b> (best free agents in your league, by games ahead):`);
+      for (const b of league.irPicks) lines.push(`• ${esc(b.name)} (${b.team}, ${b.pos}): ${b.games} games, ~${b.points} pts`);
+    }
+  }
   const free = league ? ev.pickups.filter((p) => !league.rostered.has(p.id)) : ev.pickups;
   const top = free[0];
   if (top) {
@@ -119,22 +130,31 @@ export async function sendBreaking(events: BreakingEvent[], now = Date.now()): P
   const profiles = await listProfiles();
   const paid = new Set((await withAccess(profiles)).map((p) => p.email));
   // A paying user's league: who's rostered (pickups taken) and who's theirs.
-  const leagues = new Map<string, { rostered: Set<number>; mine: Set<number>; addUrl: string }>();
+  const leagues = new Map<string, LeagueView>();
   for (const p of profiles.filter((x) => paid.has(x.email) && (x.telegram || x.alerts.email))) {
     const ctx = await profileContext(p).catch(() => null);
     const snap = ctx ? await ctx.storage.getLatestSnapshot(ctx.leagueId, ctx.seasonId).catch(() => null) : null;
     if (!snap) continue;
     const rostered = new Set(snap.teams.flatMap((t) => (t.roster ?? []).map((r) => r.player.id)));
     const mine = new Set((snap.teams.find((t) => t.id === p.teamId)?.roster ?? []).map((r) => r.player.id));
-    leagues.set(p.email, { rostered, mine, addUrl: espnAddUrl(p.leagueId, p.teamId) });
+    leagues.set(p.email, { rostered, mine, addUrl: espnAddUrl(p.leagueId, p.teamId), snapshot: snap });
   }
+  // One of your own players out: the IR spot's best pickups from your league's free agents.
+  let vctx: ValueContext | null = null;
+  const withIr = async (ev: BreakingEvent, view?: LeagueView): Promise<LeagueView | undefined> => {
+    if (!view?.mine.has(ev.player.id)) return view;
+    vctx ??= await valueContext(now);
+    const injured = vctx.byId.get(ev.player.id);
+    const plan = await backupPlan(view.snapshot, { ctx: vctx, positions: injured?.pos, now }).catch(() => null);
+    return { ...view, irPicks: plan?.top };
+  };
   const wants = (p: InseasonProfile) => p.alerts.news !== false;
   let telegram = 0, email = 0;
   const sentTo = new Set<number>();
   for (const ev of events) {
     if (TELEGRAM_ON) {
       for (const p of profiles.filter((x) => x.telegram && wants(x))) {
-        if (await sendTelegramTo(p.telegram!.chatId, alertText(ev, leagues.get(p.email)))) { telegram++; sentTo.add(p.telegram!.chatId); }
+        if (await sendTelegramTo(p.telegram!.chatId, alertText(ev, await withIr(ev, leagues.get(p.email))))) { telegram++; sentTo.add(p.telegram!.chatId); }
       }
       for (const chat of (await kv.get<number[]>(OWNER_CHATS)) ?? []) {
         if (!sentTo.has(chat) && (await sendTelegramTo(chat, alertText(ev)))) telegram++;
@@ -144,7 +164,7 @@ export async function sendBreaking(events: BreakingEvent[], now = Date.now()): P
       for (const p of profiles.filter((x) => x.alerts.email && wants(x))) {
         // One breaking email per person per day at most.
         if (!(await kv.claim(`breaking:email:${p.email}:${easternDate(now)}`, now))) continue;
-        const html = alertText(ev, leagues.get(p.email)).replace(/\n/g, "<br>");
+        const html = alertText(ev, await withIr(ev, leagues.get(p.email))).replace(/\n/g, "<br>");
         const text = html.replace(/<[^>]+>/g, "");
         if (await sendEmail(p.email, { subject: `${ev.player.name} is out: who to pick up`, html, text })) email++;
       }
