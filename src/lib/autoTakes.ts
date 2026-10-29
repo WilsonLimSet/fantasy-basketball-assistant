@@ -1,4 +1,5 @@
 import { put } from "@vercel/blob";
+import { anthropic } from "@ai-sdk/anthropic";
 import { openai } from "@ai-sdk/openai";
 import { generateText, Output } from "ai";
 import { z } from "zod";
@@ -15,12 +16,29 @@ import { fetchPlayerNews, type NewsItem } from "./playerNews";
  */
 
 /**
- * With OPENAI_API_KEY set, calls bill to OpenAI credits rather than the Vercel bill; otherwise AI Gateway.
- * Small models are accurate enough on injury timelines and cost cents a month.
+ * Who pays: ANTHROPIC_API_KEY bills Wilson's monthly Claude credits, then OPENAI_API_KEY bills
+ * OpenAI credits, and otherwise AI Gateway (the Vercel bill). Small models are accurate enough on
+ * injury timelines and cost cents a month.
  */
-const MODEL = process.env.OPENAI_API_KEY
-  ? openai(process.env.AUTO_TAKES_MODEL ?? "gpt-5.4-mini")
-  : (process.env.AUTO_TAKES_MODEL ?? "anthropic/claude-haiku-5.5");
+const MODELS = [
+  ...(process.env.ANTHROPIC_API_KEY ? [anthropic(process.env.AUTO_TAKES_MODEL ?? "claude-haiku-5-5")] : []),
+  ...(process.env.OPENAI_API_KEY ? [openai(process.env.AUTO_TAKES_MODEL ?? "gpt-5.4-mini")] : []),
+  "anthropic/claude-haiku-5.5",
+];
+
+/** Run a call on the first provider that works (a bad or out-of-credit key falls through to the next). */
+async function withModel<T>(call: (model: (typeof MODELS)[number]) => Promise<T>): Promise<T> {
+  let last: unknown;
+  for (const model of MODELS) {
+    try {
+      return await call(model);
+    } catch (e) {
+      last = e;
+      console.error("[news cron] model failed, trying the next:", e instanceof Error ? e.message : e);
+    }
+  }
+  throw last;
+}
 /** First regular-season game. Before it, only injuries and transactions move projections. */
 const SEASON_START = process.env.NBA_SEASON_START ?? "2026-10-20";
 const LOOKBACK_DAYS = 4;
@@ -140,12 +158,12 @@ export async function ingestNews(opts: { dryRun?: boolean; lookbackDays?: number
   const chunks: (typeof todo)[] = [];
   for (let i = 0; i < todo.length; i += ITEMS_PER_CALL) chunks.push(todo.slice(i, i + ITEMS_PER_CALL));
   // One failed batch shouldn't sink the run: keep the others, and retry the failed items next time.
-  const results = await Promise.allSettled(chunks.map((chunk) => generateText({
-    model: MODEL,
+  const results = await Promise.allSettled(chunks.map((chunk) => withModel((model) => generateText({
+    model,
     system: SYSTEM,
     prompt: [header, ...chunk.map(describe)].join("\n\n"),
     output: Output.object({ schema: z.object({ decisions: z.array(decision) }) }),
-  })));
+  }))));
   const answered = new Set<number>();
   results.forEach((r, i) => {
     if (r.status === "fulfilled") for (const x of chunks[i]) answered.add(x.n.id);
@@ -229,12 +247,12 @@ export async function summarizeMissing(playerIds: number[], perPlayer = 1): Prom
   if (!batch.length) return { written: 0 };
   const chunks: NewsItem[][] = [];
   for (let i = 0; i < batch.length; i += ITEMS_PER_CALL) chunks.push(batch.slice(i, i + ITEMS_PER_CALL));
-  const results = await Promise.allSettled(chunks.map((chunk) => generateText({
-    model: MODEL,
+  const results = await Promise.allSettled(chunks.map((chunk) => withModel((model) => generateText({
+    model,
     system: SUMMARY_SYSTEM,
     prompt: chunk.map((n) => `newsId ${n.id} | ${nameOf.get(n.playerId) ?? `player ${n.playerId}`} | ${n.published.slice(0, 10)}\n${n.headline}\n${n.analysis}`).join("\n\n"),
     output: Output.object({ schema: z.object({ summaries: z.array(summary) }) }),
-  })));
+  }))));
   const ids = new Set(batch.map((n) => n.id));
   let written = 0;
   for (const r of results) {

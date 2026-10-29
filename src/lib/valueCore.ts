@@ -1,4 +1,5 @@
 import { fantasyPoints, PRESETS } from "./engine";
+import { applyMult, hasRoleChange, type Take } from "./takes";
 import type { Player, StatKey, StatLine } from "./types";
 
 /**
@@ -18,9 +19,14 @@ const part = (line: StatLine, keep: (k: StatKey) => boolean) =>
   Object.fromEntries(Object.entries(line).map(([k, v]) => [k, k === "gp" || keep(k as StatKey) ? v : 0])) as StatLine;
 const median = (xs: number[]) => { const s = [...xs].sort((a, b) => a - b); return s.length % 2 ? s[(s.length - 1) / 2] : (s[s.length / 2 - 1] + s[s.length / 2]) / 2; };
 
-/** recent: minutes in his last few games played, newest first (optional). */
-export function perGameCore(p: Player, recent: number[] = []): { minutes: number; relPts: number; scoPts: number; perGame: number } {
-  const prior = p.proj?.min ? p.proj : p.last?.min ? p.last : null;
+/**
+ * recent: minutes in his last few games played, newest first (optional). take: the AI's read of
+ * his news (src/lib/autoTakes.ts); a role change (trade, starter's injury, rotation change) adjusts
+ * the starting expectation, and his own games take over from it as they pile up.
+ */
+export function perGameCore(p: Player, recent: number[] = [], take?: Take): { minutes: number; relPts: number; scoPts: number; perGame: number } {
+  const base = p.proj?.min ? p.proj : p.last?.min ? p.last : null;
+  const prior = base && take && (take.kind === "boost" || take.kind === "fade") && hasRoleChange(take) ? applyMult(base, take) : base;
   const cur = p.cur?.gp && p.cur.min ? p.cur : null;
   const gp = cur?.gp ?? 0;
   const [kMin, kRel, kScore] = isRookie(p) ? [1, 2, 5] : [3, 3, 10];
