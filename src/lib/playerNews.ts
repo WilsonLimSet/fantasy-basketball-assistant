@@ -11,12 +11,13 @@ export interface NewsItem {
 
 const NEWS = "https://site.api.espn.com/apis/fantasy/v2/games/fba/news/players";
 
-/** Latest news items for one player from ESPN's fantasy news feed. Cached for 15 minutes. */
-export async function fetchPlayerNews(playerId: number, limit = 6): Promise<NewsItem[]> {
+/** Latest news items for one player from ESPN's fantasy news feed. Cached for 15 minutes unless fresh. */
+export async function fetchPlayerNews(playerId: number, limit = 6, fresh = false): Promise<NewsItem[]> {
   try {
     const r = await fetch(`${NEWS}?playerId=${playerId}&limit=${limit}`, {
       headers: { Accept: "application/json", "User-Agent": "Mozilla/5.0 (compatible; TakeoverFantasy/0.1)" },
-      next: { revalidate: 60 * 15 },
+      // fresh: the breaking check needs the item that just landed.
+      ...(fresh ? { cache: "no-store" as const } : { next: { revalidate: 60 * 15 } }),
     });
     if (!r.ok) return [];
     const j = await r.json();
