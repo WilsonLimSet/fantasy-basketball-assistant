@@ -67,6 +67,7 @@ function pickupsFor(out: Player, players: Player[], report: Map<number, InjuryRe
   const base = new Map(healthy.map((p) => [p.id, p.fppg]));
   return shareMinutes(rot(out), healthy, 0)
     .filter((s) => s.minutes >= 2)
+    .filter((s) => byId.has(s.id))
     .map((s) => ({ id: s.id, name: byId.get(s.id)!.name, team: out.team, pctOwned: Math.round(byId.get(s.id)!.pctOwned ?? 0), minutes: Math.round(s.minutes), fppg: Math.round((base.get(s.id) ?? 0) + s.fppg) }))
     .sort((a, b) => b.fppg - a.fppg)
     .filter((p) => p.pctOwned < PICKUP_MAX_OWNED)
@@ -77,8 +78,12 @@ const NEWS_SEEN_KEY = "breaking:newsSeen";
 /** Players whose news Claude reads in one check (a busy night stays cheap). */
 const NEWS_PER_CHECK = 15;
 const PLAYERS_FEED = `https://lm-api-reads.fantasy.espn.com/apis/v3/games/fba/seasons/${SEASON}/players?view=players_wl`;
-/** One alert per player until he's healthy again (the two sources and timeline tweaks don't repeat it). */
+/** One alert per player per injury: the two sources and timeline tweaks don't repeat it. */
 const sentKey = (id: number) => `breaking:sent:${id}`;
+/** After this long a player can alert again (a new injury), so a stale key never blocks him for good. */
+const SENT_TTL_MS = 14 * DAY;
+/** News older than this when we first see it is old news, not breaking. */
+const NEWS_MAX_AGE_MS = 3 * 60 * 60 * 1000;
 
 /** The opening of a news item for the alert: whole sentences, under about 240 characters. */
 function firstSentences(text: string): string {
@@ -102,7 +107,7 @@ async function lastNewsTimes(): Promise<Map<number, number>> {
 const verdict = z.object({
   playerId: z.number(),
   out: z.boolean().describe("True only if the news says he will miss an extended stretch: more than two games or several days (out X weeks, surgery, multi-week injury, long suspension). False for being ruled out of a single game or two, questionable, probable, day-to-day, rest, returning, or anything else."),
-  days: z.number().nullable().describe("Expected days out from today if the news gives a timeline (2 weeks = 14), null if none."),
+  days: z.number().int().min(0).max(365).nullable().describe("Expected days out from today if the news gives a timeline (2 weeks = 14), null if none."),
   injury: z.string().nullable().describe("Body part and type, e.g. 'left hamstring strain', or null."),
 });
 
@@ -136,7 +141,20 @@ async function choosePickup(ev: BreakingEvent): Promise<BreakingEvent> {
   return { ...ev, pickups: [{ ...chosen, reason: res!.output.reason.slice(0, 120) }, ...ev.pickups.filter((p) => p !== chosen)].slice(0, 3) };
 }
 
-/** Players newly ruled out since the last check (the first check only records the baseline). dry: change nothing. */
+/** Claim the one alert for this player; an old claim (past SENT_TTL_MS) expires first. */
+async function claimAlert(id: number, now: number): Promise<boolean> {
+  const kv = kvStore();
+  const at = await kv.get<number>(sentKey(id));
+  if (at && now - at < SENT_TTL_MS) return false;
+  if (at) await kv.delete(sentKey(id));
+  return kv.claim(sentKey(id), now);
+}
+
+/**
+ * Players newly ruled out since the last check (the first check only records the baseline). The
+ * check's state is saved last, and news only counts as seen once Claude has read it, so a failure
+ * mid-run means a retry next run rather than a lost alert. dry: change nothing.
+ */
 export async function detectBreaking(now = Date.now(), dry = false): Promise<{ events: BreakingEvent[]; seeded: boolean }> {
   const kv = kvStore();
   const [report, { players }, prev, newsSeen, newsTimes] = await Promise.all([
@@ -145,36 +163,47 @@ export async function detectBreaking(now = Date.now(), dry = false): Promise<{ e
   ]);
   const status: Record<string, string> = {};
   for (const [id, e] of report) status[id] = isOut(e) ? `out:${e.returnDate ?? ""}` : "dtd";
+  const relevant = (p: Player) => p.team !== "FA" && (p.pctOwned ?? 0) >= MIN_OWNED;
+  // News for players we don't watch counts as seen right away; watched players' only once read.
   const seen: Record<string, number> = { ...(newsSeen ?? {}) };
-  for (const [id, t] of newsTimes ?? []) seen[id] = Math.max(seen[id] ?? 0, t);
-  if (!dry) await Promise.all([kv.set(STATUS_KEY, status), kv.set(NEWS_SEEN_KEY, seen)]);
-  if (!prev || !newsSeen) return { events: [], seeded: true };
+  const relevantIds = new Set(players.filter(relevant).map((p) => p.id));
+  for (const [id, t] of newsTimes ?? []) if (!newsSeen || !relevantIds.has(id)) seen[id] = Math.max(seen[id] ?? 0, t);
+  const save = async () => { if (!dry) await Promise.all([kv.set(STATUS_KEY, status), kv.set(NEWS_SEEN_KEY, seen)]); };
+  if (!prev) { await save(); return { events: [], seeded: true }; }
 
   const today = easternDate(now);
-  const relevant = (p: Player) => p.team !== "FA" && (p.pctOwned ?? 0) >= MIN_OWNED;
-  // Healthy again (off the report and not newly out): his next injury can alert.
-  if (!dry) for (const p of players) if (relevant(p) && prev[p.id]?.startsWith("out:") && !isOut(report.get(p.id))) await kv.delete(sentKey(p.id));
-
   const found: { p: Player; injury?: string; note: string; returnDate?: string; source: BreakingEvent["source"] }[] = [];
   for (const p of players) {
     const e = report.get(p.id);
     if (!relevant(p) || !isOut(e) || prev[p.id]?.startsWith("out:")) continue;
+    // The report alone needs a timeline: "out" with no date flips on and off with game-time
+    // decisions. Undated long absences reach us through the news instead.
+    if (!e!.returnDate) continue;
     found.push({ p, injury: e!.injury, note: e!.note, returnDate: e!.returnDate, source: "injury report" });
   }
-  // Fresh news for relevant players not already out on the report: Claude reads it.
-  const fresh = players
-    .filter((p) => relevant(p) && !isOut(report.get(p.id)) && !found.some((f) => f.p.id === p.id) && (newsTimes?.get(p.id) ?? 0) > (newsSeen[p.id] ?? Infinity))
-    .slice(0, NEWS_PER_CHECK);
-  if (fresh.length) {
-    const texts = await Promise.all(fresh.map(async (p) => {
-      const items = (await fetchPlayerNews(p.id, 2, true)).filter((n) => Date.parse(n.published) > (newsSeen[p.id] ?? 0) - 60_000);
-      return items.length ? { playerId: p.id, name: p.name, team: p.team, text: items.map((n) => `${n.headline.replace(/[.!]+$/, "")}. ${n.analysis}`).join("\n") } : null;
-    }));
-    const verdicts = await readNews(texts.filter((x): x is NonNullable<typeof x> => !!x)).catch((e) => { console.error("[breaking] news read", e); return []; });
-    for (const v of verdicts.filter((v) => v.out)) {
-      const p = fresh.find((x) => x.id === v.playerId);
-      const text = texts.find((t) => t?.playerId === v.playerId)?.text ?? "";
-      if (p) found.push({ p, injury: v.injury ?? undefined, note: firstSentences(text), returnDate: v.days != null ? easternDate(now + v.days * DAY) : undefined, source: "news" });
+  // Fresh news for watched players not already out on the report: Claude reads it.
+  if (newsSeen && newsTimes) {
+    const fresh = players
+      .filter((p) => relevant(p) && !isOut(report.get(p.id)) && !found.some((f) => f.p.id === p.id) && (newsTimes.get(p.id) ?? 0) > (newsSeen[p.id] ?? 0))
+      .slice(0, NEWS_PER_CHECK);
+    if (fresh.length) {
+      const texts = await Promise.all(fresh.map(async (p) => {
+        const since = Math.max(newsSeen[p.id] ?? 0, now - NEWS_MAX_AGE_MS) - 60_000;
+        const items = (await fetchPlayerNews(p.id, 2, true)).filter((n) => Date.parse(n.published) > since);
+        return { p, text: items.map((n) => `${n.headline.replace(/[.!]+$/, "")}. ${n.analysis}`).join("\n") };
+      }));
+      const toRead = texts.filter((t) => t.text);
+      try {
+        const verdicts = await readNews(toRead.map((t) => ({ playerId: t.p.id, name: t.p.name, team: t.p.team, text: t.text })));
+        // Read (or nothing new to read): now it counts as seen. Players past the per-check cap wait for the next run.
+        for (const t of texts) seen[t.p.id] = newsTimes.get(t.p.id) ?? seen[t.p.id];
+        for (const v of verdicts.filter((v) => v.out)) {
+          const t = toRead.find((x) => x.p.id === v.playerId);
+          if (t) found.push({ p: t.p, injury: v.injury ?? undefined, note: firstSentences(t.text), returnDate: v.days != null ? easternDate(now + v.days * DAY) : undefined, source: "news" });
+        }
+      } catch (e) {
+        console.error("[breaking] news read failed; retrying next run", e);
+      }
     }
   }
 
@@ -182,12 +211,19 @@ export async function detectBreaking(now = Date.now(), dry = false): Promise<{ e
   for (const f of found) {
     // A known short absence isn't a pickup moment.
     if (f.returnDate && Date.parse(f.returnDate) - Date.parse(today) < MIN_DAYS_OUT * DAY) continue;
-    if (dry ? await kv.get(sentKey(f.p.id)) : !(await kv.claim(sentKey(f.p.id), now))) continue;
-    events.push(await choosePickup({
-      player: { id: f.p.id, name: f.p.name, team: f.p.team, pctOwned: Math.round(f.p.pctOwned ?? 0) },
-      injury: f.injury, note: f.note, returnDate: f.returnDate, pickups: pickupsFor(f.p, players, report), source: f.source,
-    }));
+    try {
+      if (dry ? await kv.get(sentKey(f.p.id)) : !(await claimAlert(f.p.id, now))) continue;
+      events.push(await choosePickup({
+        player: { id: f.p.id, name: f.p.name, team: f.p.team, pctOwned: Math.round(f.p.pctOwned ?? 0) },
+        injury: f.injury, note: f.note, returnDate: f.returnDate, pickups: pickupsFor(f.p, players, report), source: f.source,
+      }));
+    } catch (e) {
+      // Give the claim back so the next run can try this player again.
+      console.error("[breaking] event failed", f.p.name, e);
+      if (!dry) await kv.delete(sentKey(f.p.id)).catch(() => {});
+    }
   }
+  await save();
   return { events, seeded: false };
 }
 
@@ -267,6 +303,7 @@ export async function sendBreaking(events: BreakingEvent[], now = Date.now()): P
         const html = alertText(ev, await withIr(ev, leagues.get(p.email))).replace(/\n/g, "<br>");
         const text = html.replace(/<[^>]+>/g, "");
         if (await sendEmail(p.email, { subject: `${ev.player.name} is out: who to pick up`, html, text })) email++;
+        else await kv.delete(`breaking:email:${p.email}:${easternDate(now)}`).catch(() => {});
       }
     }
   }
