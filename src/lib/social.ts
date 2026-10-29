@@ -16,6 +16,8 @@ import type { Player } from "./types";
  */
 
 export const SITE = process.env.NEXT_PUBLIC_SITE_URL || "https://takeoverfantasy.com";
+/** The link in post captions: tagged so Threads visits count as Threads (see src/lib/shortLink.ts). */
+export const POST_LINK = `${SITE.replace(/^https?:\/\//, "")}/t`;
 const SEASON_START = process.env.NBA_SEASON_START ?? "2026-10-20";
 /** Below this share of ESPN leagues, a player is probably on your waiver wire. */
 const STREAMER_MAX_OWNED = 50;
@@ -507,14 +509,14 @@ export function dailyCaption(c: Awaited<ReturnType<typeof dailyContent>>): strin
   if (c.minutes.up.length) lines.push(`⏱️ Minutes up: ${c.minutes.up.slice(0, 3).map((m) => `${m.name} (${m.min} min, ${m.lastMin} last season)`).join(", ")}`);
   const outs = c.injuries.filter((i) => i.kind === "out" && i.other);
   if (outs.length) lines.push(`🚑 Injury pickups: ${outs.slice(0, 2).map((i) => injuryPickupLine(i)).join("; ")}`);
-  lines.push("", "Every league's waiver wire is different. Find the moves for yours: takeoverfantasy.com", TAGS);
+  lines.push("", `Every league's waiver wire is different. Find the moves for yours: ${POST_LINK}`, TAGS);
   return lines.join("\n");
 }
 
 /* ---------------- Captions ---------------- */
 
 const TAGS = "#fantasybasketball #nbafantasy #NBA";
-const CTA = `Add/drops built for your fantasy team: ${SITE.replace(/^https?:\/\//, "")}`;
+const CTA = `Add/drops built for your fantasy team: ${POST_LINK}`;
 const pct = (n: number) => (n < 1 ? "under 1% rostered" : `${n}% rostered`);
 
 /** Shams-style: the news first, in one plain line, then what to do about it. */
