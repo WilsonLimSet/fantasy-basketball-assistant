@@ -4,7 +4,7 @@ import { join } from "node:path";
 import { ImageResponse } from "next/og";
 import { headshotUrl, teamLogoUrl } from "@/lib/espnImages";
 import { scorecard } from "@/lib/scorecard";
-import { waiverTakes, takeLine, type WaiverTake, type TakeVerdict } from "@/lib/waiverTakes";
+import { takesDay, waiverTakes, takeLine, type Flop, type WaiverTake, type TakeVerdict } from "@/lib/waiverTakes";
 import { breakingCardKey, type BreakingEvent } from "@/lib/breaking";
 import { kvStore } from "@/lib/inseason/storage";
 import { absence, dailyContent, easternDate, injuryPickupLine, loadInjuries, dateRange, verifiedCardQuery, newsAlertFor, returnAlertFor, risersFallers, minutesWatch, type MinutesMove, waiverHeroes, yesterday, scheduleSpots, shortDate, type Mover, SITE, streamers, type NewsAlert } from "@/lib/social";
@@ -368,6 +368,43 @@ function BreakingCard({ ev }: { ev: BreakingEvent }) {
   );
 }
 
+/** Satire: a missing-person-style poster for a rostered player who stank, his stat line as evidence. */
+function SatireCard({ f, date }: { f: Flop; date: string }) {
+  const PAPER = "#efe9dd";
+  const evidence = [
+    { v: f.fg, k: "FG" },
+    { v: String(f.fpts), k: "FANTASY PTS" },
+    { v: String(f.min), k: "MINUTES" },
+    { v: String(f.tov), k: "TURNOVERS" },
+  ];
+  return (
+    <div style={{ width: "100%", height: "100%", display: "flex", flexDirection: "column", background: PAPER, padding: "56px 64px", fontFamily: "Inter", color: INK }}>
+      <div style={{ display: "flex", justifyContent: "space-between", fontFamily: DISPLAY, fontSize: 32, letterSpacing: 3, color: RED }}>
+        <span>LAST NIGHT IN FANTASY</span><span>{shortDate(date).toUpperCase()}</span>
+      </div>
+      <div style={{ display: "flex", fontFamily: DISPLAY, fontSize: f.headline!.length > 30 ? 104 : 128, lineHeight: 0.98, marginTop: 18 }}>{f.headline!.toUpperCase()}</div>
+      <div style={{ display: "flex", justifyContent: "center", marginTop: 34 }}>
+        <div style={{ display: "flex", flexDirection: "column", background: "#fff", padding: "18px 18px 22px", transform: "rotate(-2.5deg)", boxShadow: "0 14px 30px rgba(0,0,0,0.18)" }}>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={headshotUrl(f.id, 840, 613)} width={560} height={409} alt="" style={{ background: "#e4dfd6" }} />
+          <div style={{ display: "flex", justifyContent: "center", fontFamily: DISPLAY, fontSize: 44, marginTop: 12 }}>{`${f.name.toUpperCase()} · ${f.team}`}</div>
+        </div>
+      </div>
+      <div style={{ display: "flex", fontFamily: DISPLAY, fontSize: 30, letterSpacing: 3, color: MUTED, marginTop: 34 }}>THE EVIDENCE</div>
+      <div style={{ display: "flex", gap: 14, marginTop: 10 }}>
+        {evidence.map((e) => (
+          <div key={e.k} style={{ display: "flex", flexDirection: "column", flex: 1, border: `3px solid ${INK}`, padding: "12px 16px" }}>
+            <div style={{ display: "flex", fontFamily: DISPLAY, fontSize: 60, lineHeight: 1.05 }}>{e.v}</div>
+            <div style={{ display: "flex", fontSize: 20, fontWeight: 700, letterSpacing: 1 }}>{e.k}</div>
+          </div>
+        ))}
+      </div>
+      <div style={{ display: "flex", fontSize: 28, color: "#4a4744", marginTop: 20 }}>{`Usually about ${f.perGame} a game · ${f.pctOwned}% rostered · Fantasy call: ${VERDICT[f.verdict].label}`}</div>
+      <TakesFooter />
+    </div>
+  );
+}
+
 const teams = (n: number) => `${n} ${n === 1 ? "team" : "teams"}`;
 
 const images = new Map<string, Promise<string | null>>();
@@ -449,6 +486,12 @@ export async function GET(req: Request) {
       if (type === "take-tweet") return png(<TweetCard t={takes[n - 1]} date={date} />, true);
       if (type === "take-headline") return png(<HeadlineCard t={takes[n - 1]} date={date} />, true);
       return png(<TakeSlide t={takes[n - 1]} n={n} of={takes.length} date={date} />, true);
+    }
+    if (type === "satire") {
+      const date = /^\d{4}-\d{2}-\d{2}$/.test(q.get("date") ?? "") ? q.get("date")! : easternDate(Date.now());
+      const f = (await takesDay(date)).flop;
+      if (!f?.headline) return new Response("No satire today", { status: 404 });
+      return png(<SatireCard f={f} date={date} />, true);
     }
     if (type === "breaking") {
       const ev = await kvStore().get<BreakingEvent>(breakingCardKey(Number(q.get("player"))));

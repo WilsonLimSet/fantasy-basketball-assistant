@@ -4,6 +4,7 @@ import { kvStore } from "./inseason/storage";
 import { sendToPostroom, type Post } from "./postroom";
 import { sentKey } from "./breaking";
 import { takeLine, takesCaption, takesDay, type WaiverTake } from "./waiverTakes";
+import { formatPlan, formatScores, postStats } from "./socialStats";
 import { refreshHealth } from "./healthHistory";
 import { recordPredictions, scorePredictions } from "./value";
 import { isOwnerEmail, listProfiles, type InseasonProfile } from "./inseason/profile";
@@ -142,7 +143,7 @@ const VERDICT_WORD = { hold: "HOLD", stream: "STREAM", stash: "STASH", pass: "PA
  * a take over a big photo early afternoon, and a stat headline before the games. Threads and X get
  * the two single-take posts too. Each kind is tagged so Postroom's numbers show which look wins.
  */
-async function takePosts(now: number, today: string): Promise<{ carousel: Post | null; singles: Post[] }> {
+async function takePosts(now: number, today: string, runs: (format: string) => boolean): Promise<{ carousel: Post | null; singles: Post[] }> {
   const day = await takesDay(today);
   const takes = day.takes;
   if (!takes.length) return { carousel: null, singles: [] };
@@ -166,7 +167,12 @@ async function takePosts(now: number, today: string): Promise<{ carousel: Post |
     ...base, key: `take-headline:${today}`, kind: "take-headline", images: [card(`type=take-headline&n=${n(headline)}`)], scheduledAt: later(7),
     caption: `${headline.caption ?? `${headline.name}: ${VERDICT_WORD[headline.verdict]}. ${headline.quip}\n\n${headline.reason}\n\nWhat's your call? 👇`}\n\n${CTA}\n${TAGS}`,
   });
-  return { carousel, singles };
+  // Satire on last night's flop, between the two (only when Claude's roast passed its checks).
+  if (day.flop?.headline && day.flop.caption) singles.push({
+    ...base, key: `satire:${today}`, kind: "satire", images: [card("type=satire")], scheduledAt: later(5),
+    caption: `${day.flop.caption}\n\n${CTA}\n${TAGS}`,
+  });
+  return { carousel, singles: singles.filter((p) => runs(p.key.split(":")[0])) };
 }
 
 /** Today's injury lines: players newly ruled out (with the pickup) and players back from injury. */
@@ -244,10 +250,12 @@ export async function pushSocial(now = Date.now()): Promise<{ sent: string[]; fa
   const posts: Post[] = [];
   const breaking = await breakingPost(now, today, posted, lastPlayer).catch(() => null);
   if (breaking) posts.push(breaking);
-  // Instagram alternates the morning carousel: the takes one day, the waiver-wire slideshow the next
-  // (Telegram and the email always get the slideshow).
-  const takesMorning = Number(today.slice(-2)) % 2 === 0;
-  const takes = morning ? await takePosts(now, today).catch((e) => { console.error("[social] takes", e); return null; }) : null;
+  // What to post today, from how each format has done (src/lib/socialStats.ts): which morning
+  // carousel Instagram gets (Telegram and the email always get the slideshow), and which single
+  // formats run.
+  const plan = formatPlan(morning ? formatScores(await postStats(now).catch(() => [])) : [], today);
+  const takesMorning = plan.carousel === "takes";
+  const takes = morning ? await takePosts(now, today, plan.runs).catch((e) => { console.error("[social] takes", e); return null; }) : null;
   if (morning && !posted.has(`daily:${today}`)) {
     const daily = await dailyPost(today).catch((e) => { console.error("[social] daily", e); return null; });
     if (daily) posts.push(takesMorning && takes?.carousel ? { ...daily, platforms: [] } : daily);

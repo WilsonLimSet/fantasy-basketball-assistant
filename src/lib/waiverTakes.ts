@@ -1,7 +1,7 @@
 import { boxLines, easternDate, risersFallers, minutesWatch, streamWindow, yesterday } from "./social";
 import { kvStore } from "./inseason/storage";
 import { valueContext, valuePlayer, type PlayerValue } from "./value";
-import { writeCopy } from "./socialEditor";
+import { writeCopy, writeSatire } from "./socialEditor";
 
 /**
  * "Waiver takes": a call on each player people are talking about this morning (last night's big
@@ -36,8 +36,22 @@ export interface WaiverTake {
   caption?: string;
 }
 
+/**
+ * A widely rostered player who stank last night (a full game's minutes, a fraction of his usual
+ * points): material for a satire post. The fantasy call still comes from the model.
+ */
+export interface Flop {
+  id: number; name: string; team: string; pos: string; pctOwned: number;
+  fpts: number; min: number; line: string; fg: string; tov: number;
+  /** What he usually scores. */
+  perGame: number;
+  verdict: TakeVerdict;
+  /** Claude's satire (src/lib/socialEditor.ts); no post without it. */
+  headline?: string; post?: string; caption?: string;
+}
+
 /** The day's takes plus the editor's picks: which take leads the photo post and which the headline. */
-export interface TakesDay { takes: WaiverTake[]; photoId?: number; headlineId?: number; carouselCaption?: string }
+export interface TakesDay { takes: WaiverTake[]; photoId?: number; headlineId?: number; carouselCaption?: string; flop?: Flop }
 
 /** Players rostered in about this many leagues of ten teams count as roster-worthy (ESPN rosters 13). */
 const ROSTERED = 120;
@@ -86,14 +100,15 @@ export async function takesDay(date = easternDate(Date.now()), limit = 5): Promi
   const key = `social:takesDay:${date}`;
   const saved = await kv.get<TakesDay>(key).catch(() => null);
   if (saved?.takes.length) return saved;
-  const takes = await buildTakes(date, limit);
-  const copy = await writeCopy(takes);
+  const { takes, flop } = await buildTakes(date, limit);
+  const [copy, satire] = await Promise.all([writeCopy(takes), flop ? writeSatire(flop) : null]);
   const day: TakesDay = {
     takes: takes.map((t) => {
       const c = copy?.takes[t.id];
       return c ? { ...t, quip: c.quip || t.quip, reason: c.reason || t.reason, ...(c.post ? { post: c.post } : {}), ...(c.caption ? { caption: c.caption } : {}) } : t;
     }),
     photoId: copy?.photoId, headlineId: copy?.headlineId, carouselCaption: copy?.carouselCaption,
+    ...(flop && satire ? { flop: { ...flop, ...satire } } : {}),
   };
   // Only production pins the day's calls (a preview or local run shouldn't).
   if (takes.length && process.env.VERCEL_ENV === "production") await kv.set(key, day).catch(() => {});
@@ -102,7 +117,13 @@ export async function takesDay(date = easternDate(Date.now()), limit = 5): Promi
 
 export const waiverTakes = async (date?: string, limit?: number) => (await takesDay(date, limit)).takes;
 
-async function buildTakes(date: string, limit: number): Promise<WaiverTake[]> {
+/**
+ * A satire-worthy night: 60%+ rostered, 24+ minutes (so not an injury exit), and either under 55%
+ * of his usual points or brick-laying (30% or worse on 15+ shots) on a below-par night.
+ */
+const FLOP_MIN_OWNED = 60;
+
+async function buildTakes(date: string, limit: number): Promise<{ takes: WaiverTake[]; flop?: Flop }> {
   const night = yesterday(new Date(`${date}T16:00:00Z`).getTime());
   const [ctx, box, movers, minutes] = await Promise.all([
     valueContext(),
@@ -163,7 +184,32 @@ async function buildTakes(date: string, limit: number): Promise<WaiverTake[]> {
     count[take.verdict] = k + 1;
     if (out.length === limit) break;
   }
-  return out;
+  return { takes: out, flop: findFlop(box.lines, ctx, repl, streamable, range) };
+}
+
+function findFlop(lines: Awaited<ReturnType<typeof boxLines>>["lines"], ctx: Awaited<ReturnType<typeof valueContext>>, repl: { ros: number; perGame: number }, streamable: number, range: { from: string; to: string }): Flop | undefined {
+  const flops = lines
+    .filter((l) => l.pctOwned >= FLOP_MIN_OWNED && l.min >= 24)
+    .map((l) => {
+      const p = ctx.byId.get(l.id);
+      if (!p) return null;
+      const v = valuePlayer(p, ctx, range);
+      if (v.status === "OUT" || v.perGame < 20) return null;
+      const [made, shots] = l.fg.split("-").map(Number);
+      const bricks = shots >= 15 && made / shots <= 0.3;
+      const ratio = l.fpts / v.perGame;
+      if (!(ratio <= 0.55 || (bricks && ratio <= 0.85))) return null;
+      // Worst first: points against his usual, with ugly shooting counting extra.
+      return { l, p, v, ratio: ratio - (bricks ? 0.25 : 0) };
+    })
+    .filter((x): x is NonNullable<typeof x> => !!x)
+    .sort((a, b) => a.ratio - b.ratio);
+  const f = flops[0];
+  if (!f) return undefined;
+  return {
+    id: f.p.id, name: f.p.name, team: f.p.team, pos: f.p.pos.join("/"), pctOwned: f.l.pctOwned, fpts: f.l.fpts, min: Math.round(f.l.min),
+    line: f.l.line, fg: f.l.fg, tov: f.l.tov, perGame: Math.round(f.v.perGame), verdict: decide(f.v, repl, streamable),
+  };
 }
 
 /** The take as one post, for the tweet-style card and its caption. */

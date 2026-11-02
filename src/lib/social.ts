@@ -379,7 +379,7 @@ const boxPoints = (b: Record<string, number>) =>
   b.pts + b.tpm - b.fga + 2 * b.fgm - b.fta + b.ftm + b.reb + 2 * b.ast + 4 * b.stl + 4 * b.blk - 2 * b.tov;
 
 export interface Hero { id: number; name: string; team: string; pctOwned: number; fpts: number; line: string; short: string }
-export interface BoxLine extends Hero { min: number }
+export interface BoxLine extends Hero { min: number; fg: string; tov: number }
 
 /**
  * Every player's fantasy line on a US date, from ESPN's box scores. Only finished games count:
@@ -415,7 +415,7 @@ export async function boxLines(date: string): Promise<{ date: string; games: num
         const extras = [b.stl >= 2 && `${b.stl} stl`, b.blk >= 2 && `${b.blk} blk`, b.tpm >= 3 && `${b.tpm} 3pm`].filter(Boolean);
         lines.push({
           id, name: String(a.athlete?.displayName ?? ""), team: BOX_TEAM[side.team?.abbreviation] ?? String(side.team?.abbreviation ?? ""),
-          pctOwned: Math.round(owned.get(id) ?? 0), fpts: Math.round(boxPoints(b)), min: Number(v("minutes")) || 0,
+          pctOwned: Math.round(owned.get(id) ?? 0), fpts: Math.round(boxPoints(b)), min: Number(v("minutes")) || 0, fg: `${fgm}-${fga}`, tov: b.tov,
           line: [`${b.pts} pts`, `${b.reb} reb`, `${b.ast} ast`, ...extras].join(", "),
           short: `${b.pts}p ${b.reb}r ${b.ast}a${b.stl >= 2 ? ` ${b.stl}s` : ""}${b.blk >= 2 ? ` ${b.blk}b` : ""}`,
         });
@@ -428,7 +428,7 @@ export async function boxLines(date: string): Promise<{ date: string; games: num
 /** The best fantasy games on a US date from players under 50% rostered. */
 export async function waiverHeroes(date: string, limit = 5): Promise<{ date: string; games: number; list: Hero[] }> {
   const { games, lines } = await boxLines(date);
-  const list = lines.filter((l) => l.pctOwned < STREAMER_MAX_OWNED).sort((x, y) => y.fpts - x.fpts).slice(0, limit).map(({ min: _min, ...h }) => h);
+  const list = lines.filter((l) => l.pctOwned < STREAMER_MAX_OWNED).sort((x, y) => y.fpts - x.fpts).slice(0, limit).map(({ min: _min, fg: _fg, tov: _tov, ...h }) => h);
   return { date, games, list };
 }
 
