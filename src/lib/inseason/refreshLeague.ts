@@ -8,6 +8,7 @@ import { buildLeagueSnapshot, calculateSnapshotDiff } from './dataTransform';
 import { saveProfile } from './profile';
 import { updateInjuryHistory } from './injuryTracker';
 import { injuryReport } from './stash';
+import { syncWatchlist } from './watchlist';
 import type { LeagueContext } from './profile';
 import type { LeagueSnapshot, LeagueTransaction, SnapshotDiff, Watchlist } from '@/types';
 
@@ -47,12 +48,8 @@ export async function refreshLeague(ctx: LeagueContext): Promise<RefreshedLeague
   const history = updateInjuryHistory(snapshot, await storage.getInjuryHistory(leagueId, seasonId));
   await storage.storeInjuryHistory(leagueId, seasonId, history);
 
-  // The ESPN watchlist syncs on every refresh, so players starred in the ESPN app show up here.
-  const watchIds = espnData.teams.find((t) => t.id === ctx.myTeamId)?.watchList ?? [];
-  const saved = await storage.getWatchlist(leagueId, seasonId);
-  const ids = [...new Set([...(saved?.playerIds ?? []), ...watchIds])];
-  const watchlist = ids.length ? { playerIds: ids, lastUpdated: Date.now() } : null;
-  if (watchlist && ids.length !== (saved?.playerIds.length ?? 0)) await storage.storeWatchlist(leagueId, seasonId, watchlist);
+  // The ESPN watchlist syncs on every refresh (src/lib/inseason/watchlist.ts).
+  const watchlist = await syncWatchlist(ctx, espnData.teams.find((t) => t.id === ctx.myTeamId)?.watchList);
 
   const transactions: LeagueTransaction[] = (espnData.recentTransactions || []).map((tx) => ({
     teamId: tx.teamId,

@@ -304,8 +304,15 @@ export interface InjuryRiskAssessment {
 
 // Watchlist for tracking players of interest
 export interface Watchlist {
+  /** Everything watched: the ESPN watchlist plus players added here. */
   playerIds: number[];
   lastUpdated: number;
+  /** Players starred in ESPN at the last refresh (ESPN is the source of truth for these). */
+  espnIds?: number[];
+  /** Players added in our app; kept even when they're not on the ESPN watchlist. */
+  appIds?: number[];
+  /** ESPN-starred players removed here; hidden until they're un-starred in ESPN. */
+  hiddenIds?: number[];
 }
 
 // Smart alert types for actionable notifications
