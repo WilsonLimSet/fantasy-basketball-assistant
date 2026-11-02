@@ -1,7 +1,10 @@
 import { cloneElement, isValidElement } from "react";
+import { readFile } from "node:fs/promises";
+import { join } from "node:path";
 import { ImageResponse } from "next/og";
 import { headshotUrl, teamLogoUrl } from "@/lib/espnImages";
 import { scorecard } from "@/lib/scorecard";
+import { waiverTakes, type WaiverTake, type TakeVerdict } from "@/lib/waiverTakes";
 import { absence, dailyContent, easternDate, injuryPickupLine, loadInjuries, dateRange, verifiedCardQuery, newsAlertFor, returnAlertFor, risersFallers, minutesWatch, type MinutesMove, waiverHeroes, yesterday, scheduleSpots, shortDate, type Mover, SITE, streamers, type NewsAlert } from "@/lib/social";
 
 export const dynamic = "force-dynamic";
@@ -139,6 +142,116 @@ function Logos({ teams, size }: { teams: string[]; size: number }) {
   );
 }
 
+/* ---------------- Waiver takes (big condensed type, player panels) ---------------- */
+
+const DISPLAY = "Anton";
+const PANEL_BG = "#ecebe9", PANEL_TEXT = "#dfddda";
+const VERDICT: Record<TakeVerdict, { label: string; color: string }> = {
+  hold: { label: "HOLD", color: GREEN },
+  stream: { label: "STREAM", color: INK },
+  stash: { label: "STASH", color: MUTED },
+  pass: { label: "PASS", color: RED },
+};
+
+/** A gray panel with the team code set huge behind the player, his headshot at the bottom. */
+function PlayerPanel({ id, team, width, height, img }: { id: number; team: string; width: number; height: number; img: number }) {
+  return (
+    <div style={{ display: "flex", position: "relative", width, height, background: PANEL_BG, borderRadius: 28, overflow: "hidden", justifyContent: "center" }}>
+      <div style={{ display: "flex", position: "absolute", top: -0.06 * height, left: 0, right: 0, justifyContent: "center", fontFamily: DISPLAY, fontSize: Math.min(width * 0.62, height * 0.5), lineHeight: 1, color: PANEL_TEXT }}>{team}</div>
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img src={headshotUrl(id, Math.round(img * 1.4), Math.round(img * 1.02))} width={img} height={Math.round(img * 0.73)} alt="" style={{ position: "absolute", bottom: 0 }} />
+    </div>
+  );
+}
+
+function TakesFooter({ right }: { right?: string }) {
+  return (
+    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: "auto", paddingTop: 28, fontSize: 28, color: MUTED }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+        {MARK}
+        <span>{SITE.replace(/^https?:\/\//, "")}</span>
+      </div>
+      {right && <span>{right}</span>}
+    </div>
+  );
+}
+
+function TakesCover({ takes, date }: { takes: WaiverTake[]; date: string }) {
+  const shown = takes.slice(0, 3);
+  return (
+    <div style={{ width: "100%", height: "100%", display: "flex", flexDirection: "column", background: BG, padding: "56px 64px 56px", fontFamily: "Inter", color: INK }}>
+      <div style={{ display: "flex", justifyContent: "center", fontFamily: DISPLAY, fontSize: 40, letterSpacing: 2, color: GREEN }}>{`${takes.length} PLAYERS. ${takes.length} CALLS.`}</div>
+      <div style={{ display: "flex", justifyContent: "center", fontFamily: DISPLAY, fontSize: 176, lineHeight: 1, marginTop: 4 }}>WAIVER TAKES</div>
+      <div style={{ display: "flex", justifyContent: "space-between", fontSize: 26, fontWeight: 700, letterSpacing: 1.5, marginTop: 14 }}>
+        <span>BASED ON MINUTES</span><span>NOT VIBES</span><span>*USUALLY* RIGHT</span>
+      </div>
+      <div style={{ display: "flex", gap: 24, marginTop: 44 }}>
+        {shown.map((t) => (
+          <div key={t.id} style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
+            <PlayerPanel id={t.id} team={t.team} width={300} height={740} img={600} />
+            <div style={{ display: "flex", fontFamily: DISPLAY, fontSize: 40, marginTop: 16, letterSpacing: 0.5 }}>{t.name.split(" ").slice(-1)[0].toUpperCase()}</div>
+          </div>
+        ))}
+      </div>
+      <TakesFooter right={`${shortDate(date)} · Swipe for the calls →`} />
+    </div>
+  );
+}
+
+function TakeSlide({ t, n, of, date }: { t: WaiverTake; n: number; of: number; date: string }) {
+  const v = VERDICT[t.verdict];
+  const stats = [
+    { v: String(Math.round(t.perGame)), k: "fpts a game" },
+    { v: String(Math.round(t.minutes)), k: t.lastMin ? `min (was ${Math.round(t.lastMin)})` : "min a night" },
+    { v: `${t.pctOwned}%`, k: "rostered" },
+  ];
+  return (
+    <div style={{ width: "100%", height: "100%", display: "flex", flexDirection: "column", background: BG, padding: "56px 64px 56px", fontFamily: "Inter", color: INK }}>
+      <div style={{ display: "flex", justifyContent: "space-between", fontFamily: DISPLAY, fontSize: 34, letterSpacing: 2, color: MUTED }}>
+        <span>{`TAKE ${n} OF ${of}`}</span><span>{t.hook.toUpperCase()}</span>
+      </div>
+      <div style={{ display: "flex", marginTop: 24 }}>
+        <PlayerPanel id={t.id} team={t.team} width={952} height={520} img={680} />
+      </div>
+      <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", marginTop: 30 }}>
+        <div style={{ display: "flex", flexDirection: "column" }}>
+          <div style={{ display: "flex", fontFamily: DISPLAY, fontSize: t.name.length + v.label.length > 20 ? 76 : t.name.length > 14 ? 88 : 100, lineHeight: 1 }}>{t.name.toUpperCase()}</div>
+          <div style={{ display: "flex", fontSize: 28, color: MUTED, marginTop: 8 }}>{`${t.team} · ${t.pos}`}</div>
+        </div>
+        <div style={{ display: "flex", fontFamily: DISPLAY, fontSize: v.label.length > 4 ? 108 : 132, lineHeight: 0.9, color: v.color, marginLeft: 24 }}>{v.label}</div>
+      </div>
+      <div style={{ display: "flex", fontSize: 46, fontWeight: 700, letterSpacing: -1.5, marginTop: 26 }}>{t.quip}</div>
+      <div style={{ display: "flex", fontSize: 31, lineHeight: 1.32, color: "#3d3c3b", marginTop: 12 }}>{t.reason}</div>
+      <div style={{ display: "flex", gap: 16, marginTop: 30 }}>
+        {stats.map((s) => (
+          <div key={s.k} style={{ display: "flex", flexDirection: "column", flex: 1, background: PANEL, border: `2px solid ${LINE}`, borderRadius: 22, padding: "16px 22px" }}>
+            <div style={{ display: "flex", fontFamily: DISPLAY, fontSize: 56, lineHeight: 1.05 }}>{s.v}</div>
+            <div style={{ display: "flex", fontSize: 23, color: MUTED }}>{s.k}</div>
+          </div>
+        ))}
+      </div>
+      <TakesFooter right={shortDate(date)} />
+    </div>
+  );
+}
+
+function TakesCta() {
+  return (
+    <div style={{ width: "100%", height: "100%", display: "flex", flexDirection: "column", background: BG, padding: "56px 64px 56px", fontFamily: "Inter", color: INK }}>
+      <div style={{ display: "flex", flexDirection: "column", flex: 1, justifyContent: "center" }}>
+        <div style={{ display: "flex", fontFamily: DISPLAY, fontSize: 40, letterSpacing: 2, color: GREEN }}>YOUR TURN</div>
+        <div style={{ display: "flex", fontFamily: DISPLAY, fontSize: 196, lineHeight: 0.95, marginTop: 10 }}>RATE YOUR MOVE</div>
+        <div style={{ display: "flex", fontSize: 42, color: MUTED, marginTop: 30, lineHeight: 1.3 }}>Pick who you&apos;d drop and who you&apos;d add. Get the same call we make here, free.</div>
+        <div style={{ display: "flex", marginTop: 52 }}>
+          <div style={{ display: "flex", background: INK, color: "#fff", borderRadius: 999, padding: "22px 40px", fontSize: 38, fontWeight: 700 }}>takeoverfantasy.com/move</div>
+        </div>
+        <div style={{ display: "flex", fontSize: 30, color: MUTED, marginTop: 30 }}>Link in bio · or drop your roster in the comments</div>
+      </div>
+      <TakesFooter />
+    </div>
+  );
+}
+
 const teams = (n: number) => `${n} ${n === 1 ? "team" : "teams"}`;
 
 const images = new Map<string, Promise<string | null>>();
@@ -178,9 +291,18 @@ async function inlineImages(node: React.ReactNode): Promise<React.ReactNode> {
   return children === undefined ? el : cloneElement(el, {}, await inlineImages(children));
 }
 
-const png = async (el: React.ReactElement) =>
+/** The takes cards' faces: Anton for the big condensed type, Inter for the rest (both SIL Open Font License). */
+const font = (f: string) => readFile(join(process.cwd(), "assets", f));
+const takesFonts = Promise.all([font("Anton-Regular.ttf"), font("Inter-400.woff"), font("Inter-700.woff")]).then(([anton, inter, interBold]) => [
+  { name: "Anton", data: anton, style: "normal" as const, weight: 400 as const },
+  { name: "Inter", data: inter, style: "normal" as const, weight: 400 as const },
+  { name: "Inter", data: interBold, style: "normal" as const, weight: 700 as const },
+]);
+
+const png = async (el: React.ReactElement, fonts = false) =>
   new ImageResponse((await inlineImages(el)) as React.ReactElement, {
     width: W, height: H, headers: { "Cache-Control": "public, s-maxage=1800, stale-while-revalidate=3600" },
+    ...(fonts ? { fonts: await takesFonts } : {}),
   });
 
 /**
@@ -200,6 +322,15 @@ export async function GET(req: Request) {
       const a = await newsAlertFor(Number(q.get("player")));
       if (!a) return new Response("No news for that player", { status: 404 });
       return png(<NewsCard a={a} />);
+    }
+    if (type === "takes-cover" || type === "takes" || type === "takes-cta") {
+      if (type === "takes-cta") return png(<TakesCta />, true);
+      const date = /^\d{4}-\d{2}-\d{2}$/.test(q.get("date") ?? "") ? q.get("date")! : easternDate(Date.now());
+      const takes = await waiverTakes(date);
+      if (!takes.length) return new Response("No takes today", { status: 404 });
+      if (type === "takes-cover") return png(<TakesCover takes={takes} date={date} />, true);
+      const n = Math.max(1, Math.min(takes.length, Number(q.get("n")) || 1));
+      return png(<TakeSlide t={takes[n - 1]} n={n} of={takes.length} date={date} />, true);
     }
     if (type === "daily-cover") {
       const date = /^\d{4}-\d{2}-\d{2}$/.test(q.get("date") ?? "") ? q.get("date")! : easternDate(Date.now());

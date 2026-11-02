@@ -1,0 +1,155 @@
+import { boxLines, easternDate, risersFallers, minutesWatch, streamWindow, yesterday } from "./social";
+import { kvStore } from "./inseason/storage";
+import { valueContext, valuePlayer, type PlayerValue } from "./value";
+
+/**
+ * "Waiver takes": a call on each player people are talking about this morning (last night's big
+ * games, the most added, the minutes risers), made by the value model, not by vibes. Hold means
+ * he's worth a roster spot for the season, stream means only for now (a teammate is out or the
+ * schedule is good), stash means hold him on IR, pass means the hype isn't backed by a role.
+ * The day's takes are saved, so every slide and caption shows the same calls.
+ */
+
+export type TakeVerdict = "hold" | "stream" | "stash" | "pass";
+
+export interface WaiverTake {
+  id: number;
+  name: string;
+  team: string;
+  pos: string;
+  pctOwned: number;
+  verdict: TakeVerdict;
+  /** A short punchline for the slide. */
+  quip: string;
+  /** Why, in a sentence or two. */
+  reason: string;
+  /** Why he's in the conversation: "38 fpts last night", "+12% rostered today", "minutes up". */
+  hook: string;
+  perGame: number;
+  minutes: number;
+  lastMin: number | null;
+}
+
+/** Players rostered in about this many leagues of ten teams count as roster-worthy (ESPN rosters 13). */
+const ROSTERED = 120;
+const MAX_OWNED = 60;
+
+const QUIPS: Record<TakeVerdict, string[]> = {
+  hold: ["This one's real.", "Not a one-night thing.", "Roster him and leave him."],
+  stream: ["Rent, don't buy.", "Good for now, not forever.", "Ride it, then let go."],
+  stash: ["Worth the IR spot.", "Patience pays here."],
+  pass: ["One big night isn't a role.", "Don't chase it.", "The box score lied."],
+};
+
+const fmtDate = (d: string) => new Date(`${d}T12:00:00Z`).toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" });
+
+function decide(v: PlayerValue, repl: { ros: number; perGame: number }, streamable: number): TakeVerdict {
+  if (v.status === "OUT") return v.perGame >= repl.perGame ? "stash" : "pass";
+  if (v.ros >= repl.ros) return "hold";
+  if (v.temporary && v.perGame >= repl.perGame * 0.9) return "stream";
+  if (v.window >= streamable) return "stream";
+  return "pass";
+}
+
+function explain(t: { name: string; lastMin: number | null; fpts?: number; min?: number }, v: PlayerValue, verdict: TakeVerdict, window: string): string {
+  const first = t.name.split(" ").slice(-1)[0];
+  const mins = `${Math.round(v.minutes)} minutes a night${t.lastMin ? ` (${Math.round(t.lastMin)} last season)` : ""}`;
+  const steady = v.steady >= 0.5 ? ", and most of his points come from boards, assists and stocks, so they hold up" : "";
+  if (verdict === "stash") return `Out until about ${v.returnDate ? fmtDate(v.returnDate) : "later this month"}, then worth ${Math.round(v.perGame)} fantasy points a game. Hold him on IR.`;
+  if (verdict === "hold") {
+    if (v.health === "in-and-out") return `${mins}, worth ${Math.round(v.perGame)} a game. He sits often, but the role is big enough to keep.`;
+    return `${mins}, worth about ${Math.round(v.perGame)} fantasy points a game${steady}.`;
+  }
+  if (verdict === "stream") {
+    if (v.temporary) return `His minutes are up while ${v.temporary.because} is out (back around ${fmtDate(v.temporary.until)}). About ${Math.round(v.temporary.minutesAfter)} minutes once he's back, so drop ${first} then.`;
+    return `${v.games} games in the ${window.toLowerCase()} at about ${Math.round(v.perGame)} a game. Use the schedule, then move on.`;
+  }
+  if (t.fpts && t.min) return `${t.fpts} last night on ${Math.round(t.min)} minutes, but he projects ${Math.round(v.perGame)} a game on ${Math.round(v.minutes)} minutes. That was his ceiling, not his role.`;
+  return `Everyone's adding him, but ${Math.round(v.minutes)} minutes and ${Math.round(v.perGame)} fantasy points a game doesn't beat what's already on your bench.`;
+}
+
+/** Today's takes (saved once per day so the slides and captions agree). */
+export async function waiverTakes(date = easternDate(Date.now()), limit = 5): Promise<WaiverTake[]> {
+  const kv = kvStore();
+  const key = `social:takes:${date}`;
+  const saved = await kv.get<WaiverTake[]>(key).catch(() => null);
+  if (saved?.length) return saved;
+  const takes = await buildTakes(date, limit);
+  // Only production pins the day's calls (a preview or local run shouldn't).
+  if (takes.length && process.env.VERCEL_ENV === "production") await kv.set(key, takes).catch(() => {});
+  return takes;
+}
+
+async function buildTakes(date: string, limit: number): Promise<WaiverTake[]> {
+  const night = yesterday(new Date(`${date}T16:00:00Z`).getTime());
+  const [ctx, box, movers, minutes] = await Promise.all([
+    valueContext(),
+    boxLines(night).catch(() => ({ lines: [] as Awaited<ReturnType<typeof boxLines>>["lines"] })),
+    risersFallers(10).catch(() => ({ risers: [] as Awaited<ReturnType<typeof risersFallers>>["risers"] })),
+    minutesWatch(8).catch(() => ({ up: [] as Awaited<ReturnType<typeof minutesWatch>>["up"] })),
+  ]);
+  const w = streamWindow();
+  const range = { from: w.from, to: w.end };
+
+  // Replacement level: the 120th best player is about the last one rostered in a 10-team league.
+  const values = ctx.players.filter((p) => p.team !== "FA").map((p) => valuePlayer(p, ctx, range));
+  const nth = (xs: number[]) => xs.sort((a, b) => b - a)[ROSTERED - 1] ?? 0;
+  const repl = { ros: nth(values.map((v) => v.ros)), perGame: nth(values.map((v) => v.perGame)) };
+  // A schedule stream has to beat a typical bench player's week by a clear margin.
+  const streamable = nth(values.map((v) => v.window)) * 1.15;
+
+  // Who people are talking about, loudest first.
+  // Each player's loudest reason is his hook; showing up in more than one list adds to his score.
+  const heat = new Map<number, { score: number; best: number; hook: string; fpts?: number; min?: number }>();
+  const bump = (id: number, score: number, hook: string, extra?: { fpts: number; min: number }) => {
+    const cur = heat.get(id);
+    if (!cur) return void heat.set(id, { score, best: score, hook, ...extra });
+    if (score > cur.best) Object.assign(cur, { best: score, hook });
+    Object.assign(cur, { score: cur.score + score * 0.3 }, extra);
+  };
+  for (const l of box.lines.filter((l) => l.pctOwned < MAX_OWNED && l.fpts >= 30).sort((a, b) => b.fpts - a.fpts).slice(0, 8)) bump(l.id, l.fpts, `${l.fpts} fpts last night`, { fpts: l.fpts, min: l.min });
+  for (const m of movers.risers.filter((m) => m.pctOwned < MAX_OWNED).slice(0, 8)) bump(m.id, 20 + m.pctChange * 2, `+${Math.round(m.pctChange)}% rostered today`);
+  for (const m of minutes.up.slice(0, 6)) bump(m.id, 18 + (m.min - m.lastMin), `${Math.round(m.min)} min a night (was ${Math.round(m.lastMin)})`);
+
+  const rated = [...heat.entries()]
+    .map(([id, h]) => {
+      const p = ctx.byId.get(id);
+      if (!p || p.team === "FA") return null;
+      const v = valuePlayer(p, ctx, range);
+      const verdict = decide(v, repl, streamable);
+      const lastMin = p.last?.gp ? Math.round(p.last.min * 10) / 10 : null;
+      const take: WaiverTake = {
+        id, name: p.name, team: p.team, pos: p.pos.join("/"), pctOwned: Math.round(p.pctOwned ?? 0), verdict,
+        quip: "", reason: explain({ name: p.name, lastMin, fpts: h.fpts, min: h.min }, v, verdict, w.label),
+        hook: h.hook, perGame: Math.round(v.perGame * 10) / 10, minutes: Math.round(v.minutes * 10) / 10, lastMin,
+      };
+      return { take, score: h.score };
+    })
+    .filter((x): x is { take: WaiverTake; score: number } => !!x)
+    .sort((a, b) => b.score - a.score);
+
+  // A mix of calls: no more than two of the same verdict.
+  const out: WaiverTake[] = [];
+  const count: Partial<Record<TakeVerdict, number>> = {};
+  for (const { take } of rated) {
+    if ((count[take.verdict] ?? 0) >= 2) continue;
+    const k = count[take.verdict] ?? 0;
+    // Quips rotate by day so two takes, or two days in a row, don't repeat the same line.
+    const quips = QUIPS[take.verdict];
+    out.push({ ...take, quip: quips[(k + Number(date.replaceAll("-", ""))) % quips.length] });
+    count[take.verdict] = k + 1;
+    if (out.length === limit) break;
+  }
+  return out;
+}
+
+export function takesCaption(takes: WaiverTake[]): string {
+  const label: Record<TakeVerdict, string> = { hold: "HOLD", stream: "STREAM", stash: "STASH", pass: "PASS" };
+  return [
+    `${takes.length} players everyone's talking about. ${takes.length} calls.`,
+    "",
+    ...takes.map((t) => `${t.name}: ${label[t.verdict]}. ${t.quip}`),
+    "",
+    "Based on minutes, not vibes. Disagree? Tell us below.",
+  ].join("\n");
+}
