@@ -5,6 +5,7 @@
 
 import { NextResponse } from 'next/server';
 import { requireLeague } from '@/lib/inseason/routeContext';
+import { freshWatchlist } from '@/lib/inseason/watchlist';
 import type { Watchlist } from '@/types';
 
 export const dynamic = 'force-dynamic';
@@ -22,8 +23,8 @@ export async function GET() {
   try {
     const { leagueId, seasonId } = ctx;
 
-    const { storage } = ctx;
-    const watchlist = await storage.getWatchlist(leagueId, seasonId);
+    // Read the ESPN watchlist now, so starring a player in the ESPN app shows up right away.
+    const watchlist = await freshWatchlist(ctx).catch(() => ctx.storage.getWatchlist(leagueId, seasonId));
 
     return NextResponse.json({
       success: true,
@@ -65,6 +66,8 @@ export async function POST(request: Request) {
     // Add if not already in list
     if (!watchlist.playerIds.includes(playerId)) {
       watchlist.playerIds.push(playerId);
+      // Added here: keep it even if it's not on the ESPN watchlist.
+      watchlist.appIds = [...new Set([...(watchlist.appIds ?? []), playerId])];
       watchlist.lastUpdated = Date.now();
       await storage.storeWatchlist(leagueId, seasonId, watchlist);
     }
@@ -109,8 +112,13 @@ export async function DELETE(request: Request) {
       });
     }
 
+    const onEspn = (existing.espnIds ?? []).includes(playerId);
     const watchlist: Watchlist = {
       playerIds: existing.playerIds.filter(id => id !== playerId),
+      appIds: (existing.appIds ?? []).filter(id => id !== playerId),
+      espnIds: existing.espnIds,
+      // Still starred in ESPN: hide him here until he's un-starred there.
+      hiddenIds: onEspn ? [...new Set([...(existing.hiddenIds ?? []), playerId])] : existing.hiddenIds,
       lastUpdated: Date.now(),
     };
 

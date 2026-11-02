@@ -7,6 +7,7 @@
 import { NextResponse } from 'next/server';
 import { requireLeague } from '@/lib/inseason/routeContext';
 import { previewContext } from '@/lib/inseason/profile';
+import { freshWatchlist } from '@/lib/inseason/watchlist';
 import { freshSnapshot } from '@/lib/inseason/refreshLeague';
 import { buildStreamingPlan, expectedFppg } from '@/lib/inseason/streaming';
 import { compareMatchupGames } from '@/lib/inseason/matchupGames';
@@ -48,10 +49,13 @@ export async function GET() {
     const p = await preview().catch((e) => { console.error('[moves] preview', e); return null; });
     return p ? NextResponse.json({ success: false, needs: 'pro', preview: p }, { status: 402 }) : error;
   }
-  const [snapshot, watchlist] = await Promise.all([
-    freshSnapshot(ctx),
-    ctx.storage.getWatchlist(ctx.leagueId, ctx.seasonId),
-  ]);
+  // The ESPN watchlist is read fresh (a small request), so a player starred in the ESPN app shows
+  // up right away; if he isn't in the stored league data yet, reload it so he can be valued.
+  const watchlist = await freshWatchlist(ctx).catch(() => ctx.storage.getWatchlist(ctx.leagueId, ctx.seasonId));
+  let snapshot = await freshSnapshot(ctx);
+  const known = new Set([...(snapshot?.freeAgentsTopN ?? []).map((f) => f.player.id), ...(snapshot?.teams ?? []).flatMap((t) => (t.roster ?? []).map((r) => r.player.id))]);
+  // At most every 2 minutes, so a watched player ESPN never returns (G League, retired) can't force a reload each visit.
+  if (snapshot && (watchlist?.playerIds ?? []).some((id) => !known.has(id))) snapshot = await freshSnapshot(ctx, 2 * 60 * 1000);
   if (!snapshot) {
     return NextResponse.json({ success: false, error: 'No league data yet. Hit Refresh to load it.', needs: 'refresh' }, { status: 404 });
   }
