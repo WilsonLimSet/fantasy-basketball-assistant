@@ -30,8 +30,15 @@ export async function syncWatchlist(ctx: LeagueContext, espnIds: number[] | unde
   return next;
 }
 
+/** Read the ESPN watchlist at most once a minute per team (per server instance), so reloads and tab switches reuse it. */
+const RECHECK_MS = 60 * 1000;
+const checkedAt = new Map<string, number>();
+
 /** Read just the team's ESPN watchlist (a small request) and sync it, so the page shows ESPN changes right away. */
 export async function freshWatchlist(ctx: LeagueContext): Promise<Watchlist | null> {
+  const key = `${ctx.leagueId}:${ctx.myTeamId}`;
+  if (Date.now() - (checkedAt.get(key) ?? 0) < RECHECK_MS) return ctx.storage.getWatchlist(ctx.leagueId, ctx.seasonId);
+  checkedAt.set(key, Date.now());
   const teams = await withLeague(ctx.espn, () => getLeagueTeams()).catch((e) => {
     console.warn('[watchlist] ESPN read failed:', e instanceof Error ? e.message : e);
     return null;
