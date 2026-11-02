@@ -119,7 +119,7 @@ export function StatStrip({ plan, mg }: { plan: StreamingPlan; mg?: MatchupGames
   );
 }
 
-function SideTable({ side, days, today }: { side: MatchupSideGames; days: MatchupGamesComparison['days']; today: number }) {
+function SideTable({ side, days, today, startingSlots }: { side: MatchupSideGames; days: MatchupGamesComparison['days']; today: number; startingSlots: number }) {
   return (
     <div className="overflow-x-auto">
       <table className="w-full text-sm">
@@ -156,6 +156,14 @@ function SideTable({ side, days, today }: { side: MatchupSideGames; days: Matchu
               <td key={i} className="py-1.5 text-center tabular-nums">{n}</td>
             ))}
           </tr>
+          <tr className="text-xs text-muted">
+            <td className="py-1.5">Can start</td>
+            <td className="py-1.5 text-right tabular-nums font-medium text-fg">{side.usableGames}</td>
+            {side.startableByDay.map((n, i) => (
+              // Darker where positions (not just the 10-spot cap) leave someone on the bench.
+              <td key={i} className={`py-1.5 text-center tabular-nums ${n < Math.min(side.playingByDay[i], startingSlots) ? 'font-medium text-fg' : ''}`}>{n}</td>
+            ))}
+          </tr>
         </tbody>
       </table>
     </div>
@@ -168,12 +176,12 @@ export function MatchupGamesPanel({ data }: { data: MatchupGamesComparison }) {
   return (
     <Panel
       title="Games this week"
-      sub={`Usable games cap each day at your ${startingSlots} starters. Injured and IR players don’t count.`}
+      sub={`Usable games: who can actually start each day, fitted into your ${startingSlots} lineup spots by position (PG, SG, SF, PF, C, G, F, UTIL). Injured and IR players don’t count.`}
       right={range}
     >
       <div className={`grid gap-6 ${opponent ? 'lg:grid-cols-2' : ''}`}>
-        <SideTable side={me} days={days} today={today} />
-        {opponent && <SideTable side={opponent} days={days} today={today} />}
+        <SideTable side={me} days={days} today={today} startingSlots={startingSlots} />
+        {opponent && <SideTable side={opponent} days={days} today={today} startingSlots={startingSlots} />}
       </div>
     </Panel>
   );

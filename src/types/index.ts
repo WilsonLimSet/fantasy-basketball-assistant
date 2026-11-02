@@ -228,7 +228,9 @@ export interface MatchupSideGames {
   /** Players with a game each day (injured/IR players left out). */
   playingByDay: number[];
   totalGames: number;
-  /** Games that can count once each day is capped at the starting lineup size. */
+  /** Players who can start each day once they're fitted into the lineup's position slots. */
+  startableByDay: number[];
+  /** Games that can count: each day's players fitted into the starting slots they're eligible for. */
   usableGames: number;
   gamesLeft: number;
 }
