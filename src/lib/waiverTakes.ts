@@ -28,6 +28,8 @@ export interface WaiverTake {
   perGame: number;
   minutes: number;
   lastMin: number | null;
+  /** His game last night, when that's why he's here. */
+  night?: { fpts: number; min: number; line: string };
 }
 
 /** Players rostered in about this many leagues of ten teams count as roster-worthy (ESPN rosters 13). */
@@ -100,14 +102,14 @@ async function buildTakes(date: string, limit: number): Promise<WaiverTake[]> {
 
   // Who people are talking about, loudest first.
   // Each player's loudest reason is his hook; showing up in more than one list adds to his score.
-  const heat = new Map<number, { score: number; best: number; hook: string; fpts?: number; min?: number }>();
-  const bump = (id: number, score: number, hook: string, extra?: { fpts: number; min: number }) => {
+  const heat = new Map<number, { score: number; best: number; hook: string; fpts?: number; min?: number; line?: string }>();
+  const bump = (id: number, score: number, hook: string, extra?: { fpts: number; min: number; line: string }) => {
     const cur = heat.get(id);
     if (!cur) return void heat.set(id, { score, best: score, hook, ...extra });
     if (score > cur.best) Object.assign(cur, { best: score, hook });
     Object.assign(cur, { score: cur.score + score * 0.3 }, extra);
   };
-  for (const l of box.lines.filter((l) => l.pctOwned < MAX_OWNED && l.fpts >= 30).sort((a, b) => b.fpts - a.fpts).slice(0, 8)) bump(l.id, l.fpts, `${l.fpts} fpts last night`, { fpts: l.fpts, min: l.min });
+  for (const l of box.lines.filter((l) => l.pctOwned < MAX_OWNED && l.fpts >= 30).sort((a, b) => b.fpts - a.fpts).slice(0, 8)) bump(l.id, l.fpts, `${l.fpts} fpts last night`, { fpts: l.fpts, min: l.min, line: l.line });
   for (const m of movers.risers.filter((m) => m.pctOwned < MAX_OWNED).slice(0, 8)) bump(m.id, 20 + m.pctChange * 2, `+${Math.round(m.pctChange)}% rostered today`);
   for (const m of minutes.up.slice(0, 6)) bump(m.id, 18 + (m.min - m.lastMin), `${Math.round(m.min)} min a night (was ${Math.round(m.lastMin)})`);
 
@@ -122,6 +124,7 @@ async function buildTakes(date: string, limit: number): Promise<WaiverTake[]> {
         id, name: p.name, team: p.team, pos: p.pos.join("/"), pctOwned: Math.round(p.pctOwned ?? 0), verdict,
         quip: "", reason: explain({ name: p.name, lastMin, fpts: h.fpts, min: h.min }, v, verdict, w.label),
         hook: h.hook, perGame: Math.round(v.perGame * 10) / 10, minutes: Math.round(v.minutes * 10) / 10, lastMin,
+        ...(h.fpts && h.min && h.line ? { night: { fpts: h.fpts, min: Math.round(h.min), line: h.line } } : {}),
       };
       return { take, score: h.score };
     })

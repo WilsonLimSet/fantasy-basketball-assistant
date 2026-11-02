@@ -252,6 +252,91 @@ function TakesCta() {
   );
 }
 
+/* ---------------- Feed formats: a take over a big photo, a stat headline ---------------- */
+
+const TEAM_COLOR: Record<string, string> = {
+  ATL: "#c8102e", BOS: "#008348", BKN: "#3a3a3a", CHA: "#008ca8", CHI: "#ce1141", CLE: "#860038", DAL: "#0064b1", DEN: "#0e2240",
+  DET: "#1d428a", GSW: "#1d428a", HOU: "#ce0e2d", IND: "#0c2340", LAC: "#1d428a", LAL: "#552583", MEM: "#5d76a9", MIA: "#98002e",
+  MIL: "#00471b", MIN: "#266092", NOP: "#0a2240", NYK: "#1d428a", OKC: "#007ac1", ORL: "#0150b5", PHI: "#1d428a", PHX: "#29127a",
+  POR: "#e03a3e", SAC: "#5a2d81", SAS: "#4a4f55", TOR: "#d91244", UTA: "#4e008e", WAS: "#e31837",
+};
+const NIGHT = "#0d0f12", BRIGHT_GREEN = "#3fd18f", BRIGHT_RED = "#ff4b3e";
+
+/** Dark stage lit in his team's color, his headshot big in the middle. */
+function Stage({ team, children }: { team: string; children: React.ReactNode }) {
+  const c = TEAM_COLOR[team] ?? "#3a3a3a";
+  return (
+    <div style={{ width: "100%", height: "100%", display: "flex", flexDirection: "column", position: "relative", background: NIGHT, backgroundImage: `radial-gradient(circle at 50% 38%, ${c} 0%, ${c}88 28%, ${NIGHT} 70%)`, fontFamily: "Inter", color: "#fff", overflow: "hidden" }}>
+      {children}
+    </div>
+  );
+}
+
+function tweetText(t: WaiverTake): string {
+  const first = t.name.split(" ").slice(-1)[0];
+  if (t.verdict === "pass" && t.night) return `${t.name} dropped ${t.night.fpts} fantasy points last night. We're still passing: ${first} projects ${Math.round(t.perGame)} a game on ${Math.round(t.minutes)} minutes.`;
+  if (t.verdict === "hold") return `${t.name} is on waivers in ${100 - t.pctOwned}% of leagues and he's playing ${Math.round(t.minutes)} minutes a night. This one's real. Go get him.`;
+  return t.reason;
+}
+
+function TweetCard({ t, date }: { t: WaiverTake; date: string }) {
+  const stats = t.night
+    ? [{ v: t.night.fpts, k: "FANTASY PTS" }, { v: t.night.min, k: "MINUTES" }]
+    : [{ v: Math.round(t.minutes), k: "MIN A NIGHT" }, { v: `${t.pctOwned}%`, k: "ROSTERED" }];
+  return (
+    <Stage team={t.team}>
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img src={headshotUrl(t.id, 1400, 1022)} width={1300} height={949} alt="" style={{ position: "absolute", top: 40, left: -110 }} />
+      <div style={{ display: "flex", position: "absolute", left: 0, right: 0, bottom: 0, height: 760, backgroundImage: `linear-gradient(to bottom, rgba(13,15,18,0) 0%, rgba(13,15,18,0.85) 45%, ${NIGHT} 62%)` }} />
+      <div style={{ display: "flex", flexDirection: "column", position: "absolute", left: 120, right: 120, top: 640, background: "#fff", color: INK, borderRadius: 6, padding: "26px 30px", boxShadow: "0 12px 40px rgba(0,0,0,0.35)" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+          {MARK}
+          <div style={{ display: "flex", flexDirection: "column" }}>
+            <div style={{ display: "flex", fontSize: 24, fontWeight: 700 }}>Takeover Fantasy</div>
+            <div style={{ display: "flex", fontSize: 21, color: MUTED }}>@takeoverfantasy</div>
+          </div>
+        </div>
+        <div style={{ display: "flex", fontSize: 33, lineHeight: 1.3, marginTop: 16 }}>{tweetText(t)}</div>
+      </div>
+      <div style={{ display: "flex", position: "absolute", left: 60, right: 60, bottom: 70, justifyContent: "space-around" }}>
+        {stats.map((s) => (
+          <div key={s.k} style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
+            <div style={{ display: "flex", fontFamily: DISPLAY, fontSize: 250, lineHeight: 0.95 }}>{String(s.v)}</div>
+            <div style={{ display: "flex", fontSize: 38, fontWeight: 700, letterSpacing: 2, color: BRIGHT_GREEN }}>{s.k}</div>
+          </div>
+        ))}
+      </div>
+      <div style={{ display: "flex", position: "absolute", top: 44, right: 50, fontSize: 24, color: "#ffffffaa" }}>{shortDate(date)}</div>
+    </Stage>
+  );
+}
+
+function HeadlineCard({ t, date }: { t: WaiverTake; date: string }) {
+  const verdict = { hold: { w: "ADD HIM.", c: BRIGHT_GREEN }, stream: { w: "STREAM HIM.", c: "#fff" }, stash: { w: "STASH HIM.", c: "#fff" }, pass: { w: "PASS.", c: BRIGHT_RED } }[t.verdict];
+  const lines: { text: string; color: string }[][] = t.night
+    ? [[{ text: `${t.night.fpts} FPTS`, color: BRIGHT_GREEN }, { text: " ON", color: "#fff" }], [{ text: `${t.pctOwned}% ROSTERED. `, color: "#fff" }, { text: verdict.w, color: verdict.c }]]
+    : [[{ text: `${Math.round(t.minutes)} MIN`, color: BRIGHT_GREEN }, { text: ` (WAS ${Math.round(t.lastMin ?? 0)})`, color: "#fff" }], [{ text: `${t.pctOwned}% ROSTERED. `, color: "#fff" }, { text: verdict.w, color: verdict.c }]];
+  const len = Math.max(...lines.map((l) => l.reduce((n, x) => n + x.text.length, 0)));
+  return (
+    <Stage team={t.team}>
+      <div style={{ display: "flex", flexDirection: "column", alignItems: "center", background: NIGHT, padding: "56px 40px 34px" }}>
+        <div style={{ display: "flex", fontSize: 34, fontWeight: 700, letterSpacing: 3 }}>{(t.night?.line ?? `${t.name}, ${t.team}`).toUpperCase()}</div>
+        {lines.map((l, i) => (
+          <div key={i} style={{ display: "flex", fontFamily: DISPLAY, fontSize: Math.min(150, Math.round(1900 / len)), lineHeight: 1.02, marginTop: i ? 0 : 14 }}>
+            {l.map((x) => <span key={x.text} style={{ color: x.color, whiteSpace: "pre" }}>{x.text}</span>)}
+          </div>
+        ))}
+        <div style={{ display: "flex", fontSize: 24, fontWeight: 700, letterSpacing: 2, color: "#ffffff99", marginTop: 16 }}>{`*${t.name.toUpperCase()} · ${Math.round(t.perGame)} FPTS A GAME EXPECTED*`}</div>
+      </div>
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img src={headshotUrl(t.id, 1400, 1022)} width={1240} height={905} alt="" style={{ position: "absolute", bottom: -40, left: -80 }} />
+      <div style={{ display: "flex", position: "absolute", bottom: 36, right: 44, alignItems: "center", gap: 12, fontSize: 24, color: "#ffffffcc" }}>
+        <span>{shortDate(date)}</span>
+      </div>
+    </Stage>
+  );
+}
+
 const teams = (n: number) => `${n} ${n === 1 ? "team" : "teams"}`;
 
 const images = new Map<string, Promise<string | null>>();
@@ -323,13 +408,15 @@ export async function GET(req: Request) {
       if (!a) return new Response("No news for that player", { status: 404 });
       return png(<NewsCard a={a} />);
     }
-    if (type === "takes-cover" || type === "takes" || type === "takes-cta") {
+    if (type === "takes-cover" || type === "takes" || type === "takes-cta" || type === "take-tweet" || type === "take-headline") {
       if (type === "takes-cta") return png(<TakesCta />, true);
       const date = /^\d{4}-\d{2}-\d{2}$/.test(q.get("date") ?? "") ? q.get("date")! : easternDate(Date.now());
       const takes = await waiverTakes(date);
       if (!takes.length) return new Response("No takes today", { status: 404 });
       if (type === "takes-cover") return png(<TakesCover takes={takes} date={date} />, true);
       const n = Math.max(1, Math.min(takes.length, Number(q.get("n")) || 1));
+      if (type === "take-tweet") return png(<TweetCard t={takes[n - 1]} date={date} />, true);
+      if (type === "take-headline") return png(<HeadlineCard t={takes[n - 1]} date={date} />, true);
       return png(<TakeSlide t={takes[n - 1]} n={n} of={takes.length} date={date} />, true);
     }
     if (type === "daily-cover") {
