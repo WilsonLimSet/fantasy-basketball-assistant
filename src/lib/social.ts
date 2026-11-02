@@ -515,8 +515,8 @@ export function dailyCaption(c: Awaited<ReturnType<typeof dailyContent>>): strin
 
 /* ---------------- Captions ---------------- */
 
-const TAGS = "#fantasybasketball #nbafantasy #NBA";
-const CTA = `Add/drops built for your fantasy team: ${POST_LINK}`;
+export const TAGS = "#fantasybasketball #nbafantasy #NBA";
+export const CTA = `Add/drops built for your fantasy team: ${POST_LINK}`;
 const pct = (n: number) => (n < 1 ? "under 1% rostered" : `${n}% rostered`);
 
 /** Shams-style: the news first, in one plain line, then what to do about it. */

@@ -1,15 +1,17 @@
 import { getPlayers, SEASON } from "./data";
 import { EMAIL_ON, newsDigestEmail, sendEmail } from "./inseason/email";
 import { kvStore } from "./inseason/storage";
-import { replyHookUrl } from "./replyBot";
+import { sendToPostroom, type Post } from "./postroom";
+import { sentKey } from "./breaking";
+import { takeLine, takesCaption, takesDay, type WaiverTake } from "./waiverTakes";
 import { refreshHealth } from "./healthHistory";
 import { recordPredictions, scorePredictions } from "./value";
 import { isOwnerEmail, listProfiles, type InseasonProfile } from "./inseason/profile";
 import { sendTelegramAlbum, sendTelegramPhoto, TELEGRAM_ON } from "./inseason/telegramUser";
 import { savePicks, scorecard } from "./scorecard";
 import {
-  boxLines, cardUrl, dailyCaption, dailyContent, easternDate, heroesCaption, loadInjuries, newsAlerts, newsCaption, OUT,
-  returnAlertFor, risersCaption, risersFallers, saveInjuries, SITE, waiverHeroes, weekOf, yesterday, type InjuryItem,
+  boxLines, cardUrl, CTA, dailyCaption, dailyContent, easternDate, heroesCaption, loadInjuries, newsAlerts, newsCaption, OUT,
+  returnAlertFor, risersCaption, risersFallers, saveInjuries, SITE, TAGS, waiverHeroes, weekOf, yesterday, type InjuryItem,
 } from "./social";
 
 /**
@@ -48,42 +50,6 @@ export const isPostsUser = (username?: string) =>
   !!username && (process.env.TELEGRAM_OWNER_USERNAMES ?? "").split(",").map((u) => u.trim().replace(/^@/, "").toLowerCase()).includes(username.toLowerCase());
 
 const wantsNews = (p: InseasonProfile) => p.alerts.news !== false;
-
-/** A post: one image, or a slideshow (2-10 images). */
-interface Post {
-  key: string; kind: string; images: string[]; caption: string; player?: { id: number; status: string };
-  /** Postroom platforms (all three when unset); postroomOnly skips Telegram and the email. */
-  platforms?: string[]; postroomOnly?: boolean; scheduledAt?: string;
-  /** Let Postroom answer replies through /api/reply. */
-  replies?: boolean;
-}
-
-/**
- * Hand a post to Postroom (POSTROOM_URL, POSTROOM_KEY), which publishes it to Instagram, Threads
- * and X. The post key doubles as Postroom's sourceKey, so a retry never double-posts.
- */
-async function sendToPostroom(p: Post): Promise<boolean> {
-  const url = process.env.POSTROOM_URL, key = process.env.POSTROOM_KEY;
-  if (!url || !key) return false;
-  try {
-    const r = await fetch(`${url}/api/v1/posts`, {
-      method: "POST",
-      headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
-      body: JSON.stringify({
-        caption: p.caption, kind: p.kind, platforms: p.platforms ?? ["instagram", "threads", "x"], sourceKey: p.key,
-        ...(p.scheduledAt ? { scheduledAt: p.scheduledAt } : {}),
-        ...(p.replies ? { replyHook: replyHookUrl() } : {}),
-        ...(p.images.length > 1 ? { slides: p.images } : { media: { type: "image", url: p.images[0] } }),
-      }),
-      signal: AbortSignal.timeout(15_000),
-    });
-    if (!r.ok) console.error("[social] postroom", r.status, (await r.text()).slice(0, 200));
-    return r.ok;
-  } catch (e) {
-    console.error("[social] postroom", e instanceof Error ? e.message : e);
-    return false;
-  }
-}
 
 /** Draw a card by fetching our own signed link. Telegram gets the file, since it gives up on slow URLs. */
 async function cardImage(url: string): Promise<Blob | null> {
@@ -168,6 +134,41 @@ async function textPosts(now: number, today: string): Promise<Post[]> {
   ];
 }
 
+const VERDICT_WORD = { hold: "HOLD", stream: "STREAM", stash: "STASH", pass: "PASS" } as const;
+
+/**
+ * Instagram grows on several posts a day in different looks (one template every day goes stale),
+ * so the takes go out three ways: the carousel (on alternate days with the waiver-wire slideshow),
+ * a take over a big photo early afternoon, and a stat headline before the games. Threads and X get
+ * the two single-take posts too. Each kind is tagged so Postroom's numbers show which look wins.
+ */
+async function takePosts(now: number, today: string): Promise<{ carousel: Post | null; singles: Post[] }> {
+  const day = await takesDay(today);
+  const takes = day.takes;
+  if (!takes.length) return { carousel: null, singles: [] };
+  const card = (q: string) => cardUrl(`${q}&date=${today}&v=${today}`);
+  const later = (h: number) => new Date(now + h * 60 * 60 * 1000).toISOString();
+  const n = (t: WaiverTake) => takes.indexOf(t) + 1;
+  const carousel: Post = {
+    key: `takes:${today}`, kind: "takes", platforms: ["instagram"], postroomOnly: true,
+    images: [card("type=takes-cover"), ...takes.map((t) => card(`type=takes&n=${n(t)}`)), cardUrl("type=takes-cta")],
+    caption: `${day.carouselCaption ?? takesCaption(takes)}\n\n${CTA}\n${TAGS}`,
+  };
+  // The editor picks which take leads each post; otherwise last night's biggest game gets the photo.
+  const photo = takes.find((t) => t.id === day.photoId) ?? takes.find((t) => t.night) ?? takes[0];
+  const headline = takes.find((t) => t.id === day.headlineId && t !== photo) ?? takes.find((t) => t !== photo && t.verdict !== photo.verdict) ?? takes.find((t) => t !== photo);
+  const base = { postroomOnly: true, replies: true };
+  const singles: Post[] = [{
+    ...base, key: `take-photo:${today}`, kind: "take-photo", images: [card(`type=take-tweet&n=${n(photo)}`)], scheduledAt: later(3),
+    caption: `${photo.caption ?? `${takeLine(photo)}\n\nAgree? Tell us below 👇`}\n\n${CTA}\n${TAGS}`,
+  }];
+  if (headline) singles.push({
+    ...base, key: `take-headline:${today}`, kind: "take-headline", images: [card(`type=take-headline&n=${n(headline)}`)], scheduledAt: later(7),
+    caption: `${headline.caption ?? `${headline.name}: ${VERDICT_WORD[headline.verdict]}. ${headline.quip}\n\n${headline.reason}\n\nWhat's your call? 👇`}\n\n${CTA}\n${TAGS}`,
+  });
+  return { carousel, singles };
+}
+
 /** Today's injury lines: players newly ruled out (with the pickup) and players back from injury. */
 async function injuryLines(now: number, today: string, lastPlayer: Record<string, { status: string; at: number }>): Promise<InjuryItem[]> {
   const kv = kvStore();
@@ -197,8 +198,12 @@ async function injuryLines(now: number, today: string, lastPlayer: Record<string
 async function breakingPost(now: number, today: string, posted: Set<string>, lastPlayer: Record<string, { status: string; at: number }>): Promise<Post | null> {
   if ([...posted].some((k) => k.startsWith(`breaking:${today}:`))) return null;
   const followUp = (id: number, status: string) => lastPlayer[id]?.status === status && now - lastPlayer[id].at < FOLLOW_UP_MS;
-  const a = (await newsAlerts(20, now).catch(() => []))
-    .filter((x) => !posted.has(`breaking:${today}:${x.key}`) && !followUp(x.id, x.status) && x.pctOwned >= BREAKING_MIN_OWNED)
+  const kv = kvStore();
+  const alerts = await newsAlerts(20, now).catch(() => []);
+  // Injuries the 10-minute breaking check already sent (src/lib/breaking.ts) aren't news by now.
+  const alerted = new Set((await Promise.all(alerts.map(async (x) => ((await kv.get(sentKey(x.id)).catch(() => null)) ? x.id : null)))).filter((x) => x != null));
+  const a = alerts
+    .filter((x) => !posted.has(`breaking:${today}:${x.key}`) && !followUp(x.id, x.status) && x.pctOwned >= BREAKING_MIN_OWNED && !(x.label === "Injury" && alerted.has(x.id)))
     .find((x) => (x.label === "Injury" && x.out && x.nextUp && x.nextUp.pctOwned < PICKUP_MAX_OWNED) || x.label === "Transaction");
   if (!a) return null;
   return {
@@ -239,10 +244,15 @@ export async function pushSocial(now = Date.now()): Promise<{ sent: string[]; fa
   const posts: Post[] = [];
   const breaking = await breakingPost(now, today, posted, lastPlayer).catch(() => null);
   if (breaking) posts.push(breaking);
+  // Instagram alternates the morning carousel: the takes one day, the waiver-wire slideshow the next
+  // (Telegram and the email always get the slideshow).
+  const takesMorning = Number(today.slice(-2)) % 2 === 0;
+  const takes = morning ? await takePosts(now, today).catch((e) => { console.error("[social] takes", e); return null; }) : null;
   if (morning && !posted.has(`daily:${today}`)) {
     const daily = await dailyPost(today).catch((e) => { console.error("[social] daily", e); return null; });
-    if (daily) posts.push(daily);
+    if (daily) posts.push(takesMorning && takes?.carousel ? { ...daily, platforms: [] } : daily);
   }
+  if (takes) posts.push(...[...(takesMorning && takes.carousel ? [takes.carousel] : []), ...takes.singles].filter((p) => !posted.has(p.key)));
   if (morning) posts.push(...(await textPosts(now, today).catch(() => [])).filter((p) => !posted.has(p.key)));
   // Mondays: last week's receipts, as a single post.
   if (morning && weekOf(today).start === today) {
