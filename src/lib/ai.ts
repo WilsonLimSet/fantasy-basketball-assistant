@@ -25,3 +25,23 @@ export async function withModel<T>(call: (model: (typeof MODELS)[number]) => Pro
   }
   throw last;
 }
+
+/** Writing (post copy) wants a better writer than news reading: Sonnet first, then the usual chain. About 2 cents a day. */
+export const WRITER_MODELS = [
+  ...(process.env.ANTHROPIC_API_KEY ? [anthropic(process.env.WRITER_MODEL ?? "claude-sonnet-5-5")] : []),
+  "anthropic/claude-sonnet-5.5",
+  ...MODELS,
+];
+
+export async function withWriter<T>(call: (model: (typeof WRITER_MODELS)[number]) => Promise<T>): Promise<T> {
+  let last: unknown;
+  for (const model of WRITER_MODELS) {
+    try {
+      return await call(model);
+    } catch (e) {
+      last = e;
+      console.error("[ai] writer failed, trying the next:", e instanceof Error ? e.message : e);
+    }
+  }
+  throw last;
+}

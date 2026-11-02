@@ -1,6 +1,7 @@
 import { boxLines, easternDate, risersFallers, minutesWatch, streamWindow, yesterday } from "./social";
 import { kvStore } from "./inseason/storage";
 import { valueContext, valuePlayer, type PlayerValue } from "./value";
+import { writeCopy } from "./socialEditor";
 
 /**
  * "Waiver takes": a call on each player people are talking about this morning (last night's big
@@ -30,7 +31,13 @@ export interface WaiverTake {
   lastMin: number | null;
   /** His game last night, when that's why he's here. */
   night?: { fpts: number; min: number; line: string };
+  /** Claude's words for the single post (src/lib/socialEditor.ts); templates when missing. */
+  post?: string;
+  caption?: string;
 }
+
+/** The day's takes plus the editor's picks: which take leads the photo post and which the headline. */
+export interface TakesDay { takes: WaiverTake[]; photoId?: number; headlineId?: number; carouselCaption?: string }
 
 /** Players rostered in about this many leagues of ten teams count as roster-worthy (ESPN rosters 13). */
 const ROSTERED = 120;
@@ -70,17 +77,30 @@ function explain(t: { name: string; lastMin: number | null; fpts?: number; min?:
   return `Everyone's adding him, but ${Math.round(v.minutes)} minutes and ${Math.round(v.perGame)} fantasy points a game doesn't beat what's already on your bench.`;
 }
 
-/** Today's takes (saved once per day so the slides and captions agree). */
-export async function waiverTakes(date = easternDate(Date.now()), limit = 5): Promise<WaiverTake[]> {
+/**
+ * Today's takes, with Claude's words on them, saved once per day so every slide and caption agrees
+ * (and a rerun doesn't change the calls).
+ */
+export async function takesDay(date = easternDate(Date.now()), limit = 5): Promise<TakesDay> {
   const kv = kvStore();
-  const key = `social:takes:${date}`;
-  const saved = await kv.get<WaiverTake[]>(key).catch(() => null);
-  if (saved?.length) return saved;
+  const key = `social:takesDay:${date}`;
+  const saved = await kv.get<TakesDay>(key).catch(() => null);
+  if (saved?.takes.length) return saved;
   const takes = await buildTakes(date, limit);
+  const copy = await writeCopy(takes);
+  const day: TakesDay = {
+    takes: takes.map((t) => {
+      const c = copy?.takes[t.id];
+      return c ? { ...t, quip: c.quip || t.quip, reason: c.reason || t.reason, ...(c.post ? { post: c.post } : {}), ...(c.caption ? { caption: c.caption } : {}) } : t;
+    }),
+    photoId: copy?.photoId, headlineId: copy?.headlineId, carouselCaption: copy?.carouselCaption,
+  };
   // Only production pins the day's calls (a preview or local run shouldn't).
-  if (takes.length && process.env.VERCEL_ENV === "production") await kv.set(key, takes).catch(() => {});
-  return takes;
+  if (takes.length && process.env.VERCEL_ENV === "production") await kv.set(key, day).catch(() => {});
+  return day;
 }
+
+export const waiverTakes = async (date?: string, limit?: number) => (await takesDay(date, limit)).takes;
 
 async function buildTakes(date: string, limit: number): Promise<WaiverTake[]> {
   const night = yesterday(new Date(`${date}T16:00:00Z`).getTime());
@@ -144,6 +164,15 @@ async function buildTakes(date: string, limit: number): Promise<WaiverTake[]> {
     if (out.length === limit) break;
   }
   return out;
+}
+
+/** The take as one post, for the tweet-style card and its caption. */
+export function takeLine(t: WaiverTake): string {
+  if (t.post) return t.post;
+  const first = t.name.split(" ").slice(-1)[0];
+  if (t.verdict === "pass" && t.night) return `${t.name} dropped ${t.night.fpts} fantasy points last night. We're still passing: ${first} projects ${Math.round(t.perGame)} a game on ${Math.round(t.minutes)} minutes.`;
+  if (t.verdict === "hold") return `${t.name} is on waivers in ${100 - t.pctOwned}% of leagues and he's playing ${Math.round(t.minutes)} minutes a night. This one's real. Go get him.`;
+  return t.reason;
 }
 
 export function takesCaption(takes: WaiverTake[]): string {

@@ -10,7 +10,8 @@ import { listProfiles, profileContext, withAccess, type InseasonProfile } from "
 import { injuryReport, type InjuryReportEntry } from "./inseason/stash";
 import { kvStore } from "./inseason/storage";
 import { sendTelegramTo, TELEGRAM_ON } from "./inseason/telegramUser";
-import { easternDate, SITE } from "./social";
+import { cardUrl, CTA, easternDate, SITE, TAGS } from "./social";
+import { sendToPostroom } from "./postroom";
 import type { LeagueSnapshot } from "@/types";
 import type { Player } from "./types";
 import { valueContext, type ValueContext } from "./value";
@@ -32,6 +33,9 @@ const MIN_OWNED = 40;
 const MIN_DAYS_OUT = 3;
 /** Pickups rostered more than this are already gone in most leagues. */
 const PICKUP_MAX_OWNED = 60;
+/** Public posts (Instagram, Threads, X) only for players this widely rostered, at most this many a day. */
+const POST_MIN_OWNED = 50;
+const POSTS_PER_DAY = 2;
 /** Email only for the biggest names, to stay inside the email provider's daily limit. */
 const EMAIL_MIN_OWNED = 70;
 const STATUS_KEY = "breaking:status";
@@ -79,7 +83,7 @@ const NEWS_SEEN_KEY = "breaking:newsSeen";
 const NEWS_PER_CHECK = 15;
 const PLAYERS_FEED = `https://lm-api-reads.fantasy.espn.com/apis/v3/games/fba/seasons/${SEASON}/players?view=players_wl`;
 /** One alert per player per injury: the two sources and timeline tweaks don't repeat it. */
-const sentKey = (id: number) => `breaking:sent:${id}`;
+export const sentKey = (id: number) => `breaking:sent:${id}`;
 /** After this long a player can alert again (a new injury), so a stale key never blocks him for good. */
 const SENT_TTL_MS = 14 * DAY;
 /** News older than this when we first see it is old news, not breaking. */
@@ -308,4 +312,38 @@ export async function sendBreaking(events: BreakingEvent[], now = Date.now()): P
     }
   }
   return { telegram, email };
+}
+
+/** The data behind a breaking card (/api/card/social?type=breaking), kept while the post is fresh. */
+export const breakingCardKey = (id: number) => `breaking:card:${id}`;
+
+/** Shams-style: the news in one plain line, then the fantasy move. */
+export function breakingCaption(ev: BreakingEvent): string {
+  const back = ev.returnDate ? `, back around ${shortDate(ev.returnDate)}` : ", no timeline yet";
+  const top = ev.pickups[0];
+  const move = top ? `\n\nFantasy move: pick up ${top.name} (${top.pctOwned}% rostered), about ${top.fppg} fpts a game while he's out (+${top.minutes} min).${top.reason ? ` ${top.reason}` : ""}` : "";
+  return `🚨 ${ev.player.name} (${ev.player.team}) is out${ev.injury ? ` (${ev.injury.toLowerCase()})` : ""}${back}.${ev.note ? `\n\n${ev.note}` : ""}${move}\n\n${CTA}\n${TAGS}`;
+}
+
+/**
+ * The biggest alerts also go out publicly, right away, to Instagram, Threads and X: the fastest
+ * fantasy news with the pickup attached is what gets an account followed. At most two a day.
+ */
+export async function postBreaking(events: BreakingEvent[], now = Date.now()): Promise<string[]> {
+  const kv = kvStore();
+  const today = easternDate(now);
+  const posted: string[] = [];
+  for (const ev of events.filter((e) => e.player.pctOwned >= POST_MIN_OWNED && e.pickups.length).sort((a, b) => b.player.pctOwned - a.player.pctOwned)) {
+    let slot = -1;
+    for (let i = 0; i < POSTS_PER_DAY && slot < 0; i++) if (await kv.claim(`breaking:post:${today}:${i}`, ev.player.id)) slot = i;
+    if (slot < 0) break;
+    await kv.set(breakingCardKey(ev.player.id), { ...ev, at: now });
+    const ok = await sendToPostroom({
+      key: `breaking-alert:${today}:${ev.player.id}`, kind: "breaking", caption: breakingCaption(ev), postroomOnly: true, replies: true,
+      images: [cardUrl(`type=breaking&player=${ev.player.id}&v=${today}`)],
+    });
+    if (ok) posted.push(ev.player.name);
+    else await kv.delete(`breaking:post:${today}:${slot}`).catch(() => {});
+  }
+  return posted;
 }

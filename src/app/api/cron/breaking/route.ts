@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { alertText, detectBreaking, sendBreaking } from "@/lib/breaking";
+import { alertText, detectBreaking, postBreaking, sendBreaking } from "@/lib/breaking";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 120;
@@ -13,7 +13,8 @@ export async function GET(req: Request) {
     const { events, seeded } = await detectBreaking(Date.now(), dry);
     if (dry) return NextResponse.json({ seeded, events, texts: events.map((e) => alertText(e)) });
     const sent = await sendBreaking(events);
-    return NextResponse.json({ seeded, events: events.length, ...sent });
+    const posted = await postBreaking(events).catch((e) => { console.error("[breaking] post", e); return []; });
+    return NextResponse.json({ seeded, events: events.length, ...sent, posted });
   } catch (e) {
     console.error("[breaking]", e);
     return NextResponse.json({ error: String(e) }, { status: 500 });
