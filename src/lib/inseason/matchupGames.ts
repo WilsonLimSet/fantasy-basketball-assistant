@@ -95,7 +95,34 @@ export function countStartingSlots(lineupSlotCounts: Record<string, number> | un
     .reduce((sum, [, n]) => sum + n, 0);
 }
 
-function sideGames(team: Team, week: MatchupWeekSchedule, today: number, slots: number): MatchupSideGames {
+/** Starting lineup spots by ESPN slot id, one entry per spot (bench and IR left out). */
+function slotList(lineupSlotCounts: Record<string, number> | undefined): number[] {
+  return Object.entries(lineupSlotCounts ?? {}).flatMap(([slot, n]) =>
+    Number(slot) === BENCH_SLOT || Number(slot) === IR_SLOT ? [] : Array<number>(n).fill(Number(slot)));
+}
+
+/**
+ * How many of a day's players can start at once: each needs a slot he's eligible for (four
+ * centers can't all start in a lineup with one C spot and three UTIL). Maximum matching with
+ * augmenting paths; without slot data, the plain lineup size caps it.
+ */
+function maxStarters(eligible: number[][], slots: number[], cap: number): number {
+  if (!slots.length) return Math.min(eligible.length, cap || eligible.length);
+  const owner: (number | null)[] = slots.map(() => null);
+  const place = (i: number, seen: Set<number>): boolean => {
+    for (let s = 0; s < slots.length; s++) {
+      if (seen.has(s) || !eligible[i].includes(slots[s])) continue;
+      seen.add(s);
+      if (owner[s] === null || place(owner[s]!, seen)) { owner[s] = i; return true; }
+    }
+    return false;
+  };
+  let n = 0;
+  for (let i = 0; i < eligible.length; i++) if (place(i, new Set())) n++;
+  return n;
+}
+
+function sideGames(team: Team, week: MatchupWeekSchedule, today: number, slots: number, lineup: number[]): MatchupSideGames {
   const players = (team.roster ?? []).map((entry) => {
     const p = entry.player;
     const played = new Set(week.teamGames[p.nbaTeamId] ?? []);
@@ -115,13 +142,16 @@ function sideGames(team: Team, week: MatchupWeekSchedule, today: number, slots: 
 
   const healthy = players.filter((p) => !p.injured);
   const playingByDay = week.days.map((_, i) => healthy.filter((p) => p.playsByDay[i]).length);
+  const slotsOf = new Map((team.roster ?? []).map((e) => [e.player.id, e.player.eligibleSlots ?? []]));
+  const startableByDay = week.days.map((_, i) => maxStarters(healthy.filter((p) => p.playsByDay[i]).map((p) => slotsOf.get(p.playerId) ?? []), lineup, slots));
   return {
     teamId: team.id,
     name: team.name,
     players,
     playingByDay,
+    startableByDay,
     totalGames: healthy.reduce((sum, p) => sum + p.games, 0),
-    usableGames: playingByDay.reduce((sum, n) => sum + Math.min(n, slots || n), 0),
+    usableGames: startableByDay.reduce((sum, n) => sum + n, 0),
     gamesLeft: healthy.reduce((sum, p) => sum + p.gamesLeft, 0),
   };
 }
@@ -136,13 +166,14 @@ export function compareMatchupGames(snapshot: LeagueSnapshot): MatchupGamesCompa
   const opponentId = matchup && (matchup.homeTeamId === me.id ? matchup.awayTeamId : matchup.homeTeamId);
   const opponent = snapshot.teams.find((t) => t.id === opponentId);
   const slots = snapshot.startingSlots ?? 0;
+  const lineup = slotList(snapshot.lineupSlots);
 
   return {
     week: snapshot.week,
     days: week.days,
     today: snapshot.scoringPeriodId,
     startingSlots: slots,
-    me: sideGames(me, week, snapshot.scoringPeriodId, slots),
-    opponent: opponent && sideGames(opponent, week, snapshot.scoringPeriodId, slots),
+    me: sideGames(me, week, snapshot.scoringPeriodId, slots, lineup),
+    opponent: opponent && sideGames(opponent, week, snapshot.scoringPeriodId, slots, lineup),
   };
 }
