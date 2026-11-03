@@ -7,6 +7,8 @@ export interface Post {
   platforms?: string[]; postroomOnly?: boolean; scheduledAt?: string;
   /** Let Postroom answer replies through /api/reply. */
   replies?: boolean;
+  /** Time-sensitive: publish right away, and skip it if it isn't out by expiresAt (ms). */
+  now?: boolean; expiresAt?: number;
 }
 
 /**
@@ -24,6 +26,7 @@ export async function sendToPostroom(p: Post): Promise<boolean> {
         caption: p.caption, kind: p.kind, platforms: p.platforms ?? ["instagram", "threads", "x"], sourceKey: p.key,
         ...(p.scheduledAt ? { scheduledAt: p.scheduledAt } : {}),
         ...(p.replies ? { replyHook: replyHookUrl() } : {}),
+        ...(p.now ? { now: true } : {}), ...(p.expiresAt ? { expiresAt: p.expiresAt } : {}),
         ...(p.images.length > 1 ? { slides: p.images } : { media: { type: "image", url: p.images[0] } }),
       }),
       signal: AbortSignal.timeout(15_000),
