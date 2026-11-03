@@ -6,7 +6,7 @@ import { funnel } from '@/components/funnel';
 import { useCallback, useEffect, useState } from 'react';
 import type { DailyBriefing } from '@/types';
 import { InjuryBadge } from '@/components/ui';
-import { MatchupGamesPanel, MoveRow, StatStrip, WatchlistPanel, type MovesPreview, type MovesResponse } from './MovesPanel';
+import { EdgeCard, MatchupGamesPanel, MovePlan, MoveRow, StatStrip, WatchlistPanel, type MovesPreview, type MovesResponse } from './MovesPanel';
 import { ErrorBox, formatAge, Gate, invalidateCached, Loading, MOVES_URL, Panel, SaveLeague, useCached, useMeContext } from './useMe';
 
 function RosterAlerts({ briefing }: { briefing: DailyBriefing }) {
@@ -147,6 +147,7 @@ export default function ThisWeekPage() {
         </div>
         <StatStrip plan={plan} mg={mg} />
       </div>
+      <EdgeCard plan={plan} />
 
       <div className="grid gap-5 lg:grid-cols-[1fr_340px]">
         <div className="space-y-5">
@@ -159,6 +160,7 @@ export default function ThisWeekPage() {
               ) : undefined
             }
           >
+            <MovePlan moves={plan.moves} />
             {plan.moves.length ? (
               plan.moves.map((m) => <MoveRow key={m.add.id} m={m} />)
             ) : (

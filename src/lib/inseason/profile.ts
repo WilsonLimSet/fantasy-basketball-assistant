@@ -34,6 +34,8 @@ export interface InseasonProfile {
   lastRefreshAt?: number;
   /** The last daily email, so the same advice isn't sent twice in a day. */
   lastAlert?: { date: string; key: string };
+  /** US date of the last evening reminder (a move due after that night's games). */
+  lastReminder?: string;
 }
 
 const profileKey = (email: string) => `profile:${email.toLowerCase()}`;

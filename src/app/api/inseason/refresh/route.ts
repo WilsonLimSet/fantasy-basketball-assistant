@@ -16,7 +16,7 @@ import { requireLeague } from '@/lib/inseason/routeContext';
 import { buildStreamingPlan } from '@/lib/inseason/streaming';
 import { compareMatchupGames } from '@/lib/inseason/matchupGames';
 import { dailyEmail, EMAIL_ON, sendEmail } from '@/lib/inseason/email';
-import { dailyTelegram, sendTelegramTo, TELEGRAM_ON } from '@/lib/inseason/telegramUser';
+import { dailyTelegram, reminderTelegram, sendTelegramTo, TELEGRAM_ON } from '@/lib/inseason/telegramUser';
 import { injuryReport, recordInjuryHistory } from '@/lib/inseason/stash';
 import type { LeagueSnapshot } from '@/types';
 
@@ -25,6 +25,8 @@ export const maxDuration = 300;
 
 /** The cron's morning run (UTC hour) sends the daily alerts: 11:00 UTC is 7am in New York. */
 const EMAIL_HOUR_UTC = 11;
+/** The evening run (6pm in New York, before tip-off) reminds about moves due after tonight's games. */
+const REMINDER_HOUR_UTC = 23;
 const USER_REFRESH_GAP_MS = 5 * 60 * 1000;
 
 async function refreshOwnerLeague() {
@@ -70,6 +72,18 @@ async function sendMoves(profile: InseasonProfile, snapshot: LeagueSnapshot, wat
   return { email, telegram };
 }
 
+/** A Telegram nudge when a move is due after tonight's games, at most once a day. */
+async function sendReminder(profile: InseasonProfile, snapshot: LeagueSnapshot, watchIds: number[]): Promise<boolean> {
+  if (!profile.telegram || !profile.alerts.telegram) return false;
+  const date = new Date().toLocaleDateString('en-CA', { timeZone: 'America/New_York' });
+  if (profile.lastReminder === date) return false;
+  const plan = buildStreamingPlan(snapshot, profile.core, watchIds);
+  const text = plan && reminderTelegram(plan, date, profile.leagueId, profile.teamId);
+  if (!text || !(await sendTelegramTo(profile.telegram.chatId, text))) return false;
+  await saveProfile({ ...profile, lastReminder: date });
+  return true;
+}
+
 export async function GET(request: Request) {
   const cronSecret = process.env.CRON_SECRET;
   if (!cronSecret || request.headers.get('authorization') !== `Bearer ${cronSecret}`) {
@@ -77,6 +91,7 @@ export async function GET(request: Request) {
   }
   const started = Date.now();
   const sendAlerts = (EMAIL_ON || TELEGRAM_ON) && (new Date().getUTCHours() === EMAIL_HOUR_UTC || new URL(request.url).searchParams.get('alerts') === '1');
+  const sendReminders = TELEGRAM_ON && new Date().getUTCHours() === REMINDER_HOUR_UTC;
 
   let owner = null;
   try {
@@ -105,6 +120,7 @@ export async function GET(request: Request) {
             if (sent.email) emailed++;
             if (sent.telegram) telegrammed++;
           }
+          if (sendReminders && (await sendReminder(fresh, snapshot, watchlist?.playerIds ?? []))) telegrammed++;
         } catch (e) {
           failed++;
           console.error(`[Refresh] league ${profile.leagueId} failed:`, e instanceof Error ? e.message : e);
