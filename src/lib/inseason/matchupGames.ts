@@ -10,6 +10,7 @@ import type {
   MatchupWeekSchedule,
   Team,
 } from '@/types';
+import { chanceOn, LIKELY } from './availability';
 
 const BENCH_SLOT = 12;
 const IR_SLOT = 13;
@@ -122,17 +123,24 @@ function maxStarters(eligible: number[][], slots: number[], cap: number): number
   return n;
 }
 
-function sideGames(team: Team, week: MatchupWeekSchedule, today: number, slots: number, lineup: number[]): MatchupSideGames {
+/**
+ * A game counts when he's likely to play it (availability.ts): out until his return date even if
+ * ESPN calls him day-to-day, back from it even if he's on IR now. Past days count what was scheduled.
+ */
+function sideGames(team: Team, week: MatchupWeekSchedule, today: number, slots: number, lineup: number[], injuries: LeagueSnapshot['injuries'], asOf: string): MatchupSideGames {
+  const todayDate = week.days.find((d) => d.scoringPeriodId === today)?.date ?? asOf;
   const players = (team.roster ?? []).map((entry) => {
     const p = entry.player;
     const played = new Set(week.teamGames[p.nbaTeamId] ?? []);
-    const playsByDay = week.days.map((d) => played.has(d.scoringPeriodId));
+    const returnDate = injuries?.[p.id]?.returnDate;
+    const playsByDay = week.days.map((d) => played.has(d.scoringPeriodId) &&
+      (d.scoringPeriodId < today || chanceOn(p.status, returnDate, d.date, Math.round((Date.parse(d.date) - Date.parse(todayDate)) / DAY_MS)) >= LIKELY));
     return {
       playerId: p.id,
       name: p.name,
       nbaTeamAbbrev: p.nbaTeamAbbrev,
       status: p.status,
-      injured: entry.lineupSlotId === IR_SLOT || p.status === 'OUT' || p.status === 'INJURY_RESERVE',
+      injured: !playsByDay.some((x, i) => x && week.days[i].scoringPeriodId >= today) && (entry.lineupSlotId === IR_SLOT || p.status === 'OUT' || p.status === 'INJURY_RESERVE'),
       games: playsByDay.filter(Boolean).length,
       gamesLeft: week.days.filter((d, i) => playsByDay[i] && d.scoringPeriodId >= today).length,
       playsByDay,
@@ -167,13 +175,14 @@ export function compareMatchupGames(snapshot: LeagueSnapshot): MatchupGamesCompa
   const opponent = snapshot.teams.find((t) => t.id === opponentId);
   const slots = snapshot.startingSlots ?? 0;
   const lineup = slotList(snapshot.lineupSlots);
+  const asOf = easternDate(snapshot.fetchedAt);
 
   return {
     week: snapshot.week,
     days: week.days,
     today: snapshot.scoringPeriodId,
     startingSlots: slots,
-    me: sideGames(me, week, snapshot.scoringPeriodId, slots, lineup),
-    opponent: opponent && sideGames(opponent, week, snapshot.scoringPeriodId, slots, lineup),
+    me: sideGames(me, week, snapshot.scoringPeriodId, slots, lineup, snapshot.injuries, asOf),
+    opponent: opponent && sideGames(opponent, week, snapshot.scoringPeriodId, slots, lineup, snapshot.injuries, asOf),
   };
 }

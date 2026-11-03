@@ -7,6 +7,7 @@
  */
 
 import type { FreeAgentEntry, LeagueSnapshot, MatchupWeekSchedule, Player, PlayerStatus } from '@/types';
+import { chanceOn } from './availability';
 import { boostOn, longBoost, teammateBoosts, type TeammateBoost } from './opportunity';
 
 const BENCH_SLOT = 12;
@@ -20,6 +21,7 @@ const MAX_MOVES = 4;
 /** A dropped player rostered in at least this share of ESPN leagues will probably get claimed. */
 const LIKELY_CLAIMED_PCT = 15;
 
+/** Chance he plays tonight from the tag alone (the lineup check, which has no return dates). */
 const PLAY_CHANCE: Partial<Record<PlayerStatus, number>> = {
   OUT: 0,
   INJURY_RESERVE: 0,
@@ -28,21 +30,11 @@ const PLAY_CHANCE: Partial<Record<PlayerStatus, number>> = {
   QUESTIONABLE: 0.6,
   DAY_TO_DAY: 0.6,
 };
-/**
- * Day-to-day, questionable and doubtful tags are about the next game or two. Games further out
- * count in full, so a minor knock days before the week (or the season) starts doesn't sink a player.
- */
-const GAME_TIME_TAGS: PlayerStatus[] = ['DOUBTFUL', 'QUESTIONABLE', 'DAY_TO_DAY'];
-const GAME_TIME_DAYS = 2;
 
 /** Today's date in US Eastern time (NBA game days), as YYYY-MM-DD. */
 const easternDate = (ms: number) => new Date(ms).toLocaleDateString('en-CA', { timeZone: 'America/New_York' });
 const daysBetween = (from: string, to: string) => Math.round((Date.parse(to) - Date.parse(from)) / 86_400_000);
 
-function playChance(status: PlayerStatus, daysAhead: number): number {
-  if (GAME_TIME_TAGS.includes(status) && daysAhead >= GAME_TIME_DAYS) return 1;
-  return PLAY_CHANCE[status] ?? 1;
-}
 
 export interface StreamPlayer {
   id: number;
@@ -130,6 +122,8 @@ interface Candidate {
   delay?: number;
   /** Extra points per game while teammates are out (points leagues). */
   boosts?: TeammateBoost[];
+  /** The injury report's return date, when he's on it (availability.ts). */
+  returnDate?: string;
 }
 
 /** What a candidate's game on this date is worth, with any teammate boost still running. */
@@ -255,7 +249,7 @@ function simulateWeek(roster: Candidate[], week: MatchupWeekSchedule, today: num
         (week.teamGames[c.player.nbaTeamId] ?? []).includes(day.scoringPeriodId)
     );
     const ahead = daysBetween(asOf, day.date);
-    const { total, started } = fillDay(playing, slots, (c) => valueOn(c, day.date) * playChance(c.player.status, ahead));
+    const { total, started } = fillDay(playing, slots, (c) => valueOn(c, day.date) * chanceOn(c.player.status, c.returnDate, day.date, ahead));
     points += total;
     usableGames += started.size;
     for (const id of started) usableById.set(id, (usableById.get(id) ?? 0) + 1);
@@ -315,9 +309,10 @@ export function buildStreamingPlan(snapshot: LeagueSnapshot, core: number[], wat
   // Categories leagues count every game the same, so extra minutes don't change a game's value there.
   const boosts = pointsLeague ? teammateBoosts(snapshot, asOf, { fppg: expectedFppg, minutes: expectedMinutes, minutesWeight }) : new Map<number, TeammateBoost[]>();
 
+  const returnOf = (id: number) => snapshot.injuries?.[id]?.returnDate;
   const roster: Candidate[] = me.roster
     .filter((e) => e.lineupSlotId !== IR_SLOT)
-    .map((e) => ({ player: e.player, value: valueOf(e.player), from: today, boosts: boosts.get(e.player.id) }));
+    .map((e) => ({ player: e.player, value: valueOf(e.player), from: today, boosts: boosts.get(e.player.id), returnDate: returnOf(e.player.id) }));
 
   const coreIsDefault = core.length === 0;
   const coreIds = new Set(
@@ -332,11 +327,12 @@ export function buildStreamingPlan(snapshot: LeagueSnapshot, core: number[], wat
     from: today + (fa.onWaivers ? WAIVER_DELAY_DAYS : 0),
     delay: fa.onWaivers ? WAIVER_DELAY_DAYS : 0,
     boosts: boosts.get(fa.player.id),
+    returnDate: returnOf(fa.player.id),
   });
+  // Someone out who's back before the week ends still counts for the games after his return.
   const freeAgents = [...pool.values()]
-    .filter((fa) => (PLAY_CHANCE[fa.player.status] ?? 1) > 0)
     .map(toCandidate)
-    .filter((c) => gamesLeft(c.player, week, c.from) > 0);
+    .filter((c) => week.days.some((d) => d.scoringPeriodId >= Math.max(today, c.from) && (week.teamGames[c.player.nbaTeamId] ?? []).includes(d.scoringPeriodId) && chanceOn(c.player.status, c.returnDate, d.date, daysBetween(asOf, d.date)) > 0));
 
   const baseline = simulateWeek(roster, week, today, slots, asOf);
   const minGain = pointsLeague ? MIN_POINTS_GAIN : 1;

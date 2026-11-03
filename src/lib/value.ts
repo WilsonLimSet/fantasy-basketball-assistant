@@ -102,7 +102,8 @@ function playChance(t: number, st: { status: string; returnDate?: string }, firs
     if (!st.returnDate) return t - now < 7 * DAY ? 0 : 0.5;
     return easternDate(t) < st.returnDate ? 0 : 0.85;
   }
-  if (st.status === "DAY_TO_DAY") return first ? 0.6 : 0.9;
+  // ESPN's day-to-day can mean out until a date (a sprain): not before it.
+  if (st.status === "DAY_TO_DAY") return st.returnDate && easternDate(t) < st.returnDate ? 0 : first ? 0.6 : 0.9;
   return 0.97;
 }
 
