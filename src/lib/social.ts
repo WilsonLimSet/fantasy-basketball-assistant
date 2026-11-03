@@ -371,9 +371,9 @@ export async function returnAlertFor(playerId: number): Promise<ReturnAlert | nu
   };
 }
 
-const NBA = "https://site.api.espn.com/apis/site/v2/sports/basketball/nba";
+export const NBA = "https://site.api.espn.com/apis/site/v2/sports/basketball/nba";
 /** ESPN's scoreboard codes that differ from the fantasy API's (ours). */
-const BOX_TEAM: Record<string, string> = { UTAH: "UTA", GS: "GSW", NO: "NOP", NY: "NYK", SA: "SAS", WSH: "WAS" };
+export const BOX_TEAM: Record<string, string> = { UTAH: "UTA", GS: "GSW", NO: "NOP", NY: "NYK", SA: "SAS", WSH: "WAS" };
 /** Fantasy points in ESPN's default scoring from a box-score line. */
 const boxPoints = (b: Record<string, number>) =>
   b.pts + b.tpm - b.fga + 2 * b.fgm - b.fta + b.ftm + b.reb + 2 * b.ast + 4 * b.stl + 4 * b.blk - 2 * b.tov;

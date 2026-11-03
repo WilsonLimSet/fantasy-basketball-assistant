@@ -336,12 +336,15 @@ function HeadlineCard({ t, date }: { t: WaiverTake; date: string }) {
 function BreakingCard({ ev }: { ev: BreakingEvent }) {
   const top = ev.pickups[0];
   const back = ev.returnDate ? `back around ${shortDate(ev.returnDate)}` : "no timeline yet";
+  const headline = ev.tonight
+    ? `${ev.player.name} is out tonight vs ${ev.tonight.opp}${ev.injury ? ` (${ev.injury.toLowerCase()})` : ""}.`
+    : `${ev.player.name} is out${ev.injury ? ` (${ev.injury.toLowerCase()})` : ""}, ${back}.`;
   return (
     <Stage team={ev.player.team}>
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img src={headshotUrl(ev.player.id, 1400, 1022)} width={1200} height={876} alt="" style={{ position: "absolute", top: 70, left: -60 }} />
       <div style={{ display: "flex", position: "absolute", left: 0, right: 0, bottom: 0, height: 760, backgroundImage: `linear-gradient(to bottom, rgba(13,15,18,0) 0%, rgba(13,15,18,0.85) 40%, ${NIGHT} 58%)` }} />
-      <div style={{ display: "flex", position: "absolute", top: 52, left: 56, alignItems: "center", gap: 12, background: BRIGHT_RED, borderRadius: 8, padding: "10px 22px", fontFamily: DISPLAY, fontSize: 44, letterSpacing: 2 }}>BREAKING</div>
+      <div style={{ display: "flex", position: "absolute", top: 52, left: 56, alignItems: "center", gap: 12, background: BRIGHT_RED, borderRadius: 8, padding: "10px 22px", fontFamily: DISPLAY, fontSize: 44, letterSpacing: 2 }}>{ev.tonight ? "OUT TONIGHT" : "BREAKING"}</div>
       <div style={{ display: "flex", flexDirection: "column", position: "absolute", left: 80, right: 80, top: 600, background: "#fff", color: INK, borderRadius: 6, padding: "28px 32px", boxShadow: "0 12px 40px rgba(0,0,0,0.35)" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
           {MARK}
@@ -350,15 +353,15 @@ function BreakingCard({ ev }: { ev: BreakingEvent }) {
             <div style={{ display: "flex", fontSize: 21, color: MUTED }}>@takeoverfantasy</div>
           </div>
         </div>
-        <div style={{ display: "flex", fontSize: 40, fontWeight: 700, lineHeight: 1.22, marginTop: 16, letterSpacing: -0.5 }}>{`${ev.player.name} is out${ev.injury ? ` (${ev.injury.toLowerCase()})` : ""}, ${back}.`}</div>
-        {top && <div style={{ display: "flex", fontSize: 30, lineHeight: 1.3, marginTop: 10, color: "#3d3c3b" }}>{`${top.name} gets about ${top.minutes} more minutes while he's out.`}</div>}
+        <div style={{ display: "flex", fontSize: 40, fontWeight: 700, lineHeight: 1.22, marginTop: 16, letterSpacing: -0.5 }}>{headline}</div>
+        {top && <div style={{ display: "flex", fontSize: 30, lineHeight: 1.3, marginTop: 10, color: "#3d3c3b" }}>{`${top.name} gets about ${top.minutes} more minutes ${ev.tonight ? "tonight" : "while he's out"}.`}</div>}
       </div>
       {top && (
         <div style={{ display: "flex", position: "absolute", left: 80, right: 80, bottom: 70, alignItems: "center", gap: 26 }}>
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src={headshotUrl(top.id, 420, 306)} width={270} height={197} alt="" style={{ borderRadius: 20, background: "#ffffff14" }} />
           <div style={{ display: "flex", flexDirection: "column" }}>
-            <div style={{ display: "flex", fontFamily: DISPLAY, fontSize: 52, color: BRIGHT_GREEN, letterSpacing: 2 }}>THE PICKUP</div>
+            <div style={{ display: "flex", fontFamily: DISPLAY, fontSize: 52, color: BRIGHT_GREEN, letterSpacing: 2 }}>{ev.tonight ? "TONIGHT'S FILL-IN" : "THE PICKUP"}</div>
             <div style={{ display: "flex", fontFamily: DISPLAY, fontSize: 84, lineHeight: 1 }}>{top.name.toUpperCase()}</div>
             <div style={{ display: "flex", fontSize: 30, color: "#ffffffbb", marginTop: 8 }}>{`${top.pctOwned}% rostered · ~${Math.round(top.fppg)} fpts a game`}</div>
           </div>

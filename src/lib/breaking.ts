@@ -10,7 +10,7 @@ import { listProfiles, profileContext, withAccess, type InseasonProfile } from "
 import { injuryReport, type InjuryReportEntry } from "./inseason/stash";
 import { kvStore } from "./inseason/storage";
 import { sendTelegramTo, TELEGRAM_ON } from "./inseason/telegramUser";
-import { cardUrl, CTA, easternDate, SITE, TAGS } from "./social";
+import { BOX_TEAM, cardUrl, CTA, easternDate, NBA, SITE, TAGS } from "./social";
 import { sendToPostroom } from "./postroom";
 import type { LeagueSnapshot } from "@/types";
 import type { Player } from "./types";
@@ -33,9 +33,21 @@ const MIN_OWNED = 40;
 const MIN_DAYS_OUT = 3;
 /** Pickups rostered more than this are already gone in most leagues. */
 const PICKUP_MAX_OWNED = 60;
-/** Public posts (Instagram, Threads, X) only for players this widely rostered, at most this many a day. */
+/**
+ * Public posts (Instagram, Threads, X) only for players this widely rostered and out a few weeks or
+ * more (Wilson: a week-long absence isn't big news), at most this many a day.
+ */
 const POST_MIN_OWNED = 50;
+const POST_MIN_DAYS = 14;
 const POSTS_PER_DAY = 2;
+/**
+ * Ruled out tonight: stars only, posted before tip-off (with time to swap a lineup) or not at all,
+ * and never rest or load management.
+ */
+const TONIGHT_MIN_OWNED = 70;
+const TONIGHT_LEAD_MS = 20 * 60 * 1000;
+const TONIGHT_PER_DAY = 3;
+const NOT_INJURY = /\brest\b|load management|injury management|personal|not injury/i;
 /** Email only for the biggest names, to stay inside the email provider's daily limit. */
 const EMAIL_MIN_OWNED = 70;
 const STATUS_KEY = "breaking:status";
@@ -51,6 +63,10 @@ export interface BreakingEvent {
   pickups: Pickup[];
   /** Where we heard it first. */
   source: "injury report" | "news";
+  /** Out for weeks (a timeline of POST_MIN_DAYS+, or news of surgery or a long injury with no date yet). */
+  longTerm?: boolean;
+  /** Ruled out of tonight's game only: the opponent and tip-off (ms). */
+  tonight?: { opp: string; tip: number };
 }
 
 const isOut = (e?: InjuryReportEntry) => !!e && /out|injur|suspen/i.test(e.status);
@@ -113,6 +129,7 @@ const verdict = z.object({
   out: z.boolean().describe("True only if the news says he will miss an extended stretch: more than two games or several days (out X weeks, surgery, multi-week injury, long suspension). False for being ruled out of a single game or two, questionable, probable, day-to-day, rest, returning, or anything else."),
   days: z.number().int().min(0).max(365).nullable().describe("Expected days out from today if the news gives a timeline (2 weeks = 14), null if none."),
   injury: z.string().nullable().describe("Body part and type, e.g. 'left hamstring strain', or null."),
+  longTerm: z.boolean().describe("True if he'll likely miss at least two weeks: a timeline of two weeks or more, surgery, a fracture or tear, or 'out indefinitely' with a serious injury."),
 });
 
 /** Claude reads the newest items for players with fresh news and says who's out, and for how long. */
@@ -159,7 +176,7 @@ async function claimAlert(id: number, now: number): Promise<boolean> {
  * check's state is saved last, and news only counts as seen once Claude has read it, so a failure
  * mid-run means a retry next run rather than a lost alert. dry: change nothing.
  */
-export async function detectBreaking(now = Date.now(), dry = false): Promise<{ events: BreakingEvent[]; seeded: boolean }> {
+export async function detectBreaking(now = Date.now(), dry = false): Promise<{ events: BreakingEvent[]; tonight: BreakingEvent[]; seeded: boolean }> {
   const kv = kvStore();
   const [report, { players }, prev, newsSeen, newsTimes] = await Promise.all([
     injuryReport(true), getPlayers(), kv.get<Record<string, string>>(STATUS_KEY), kv.get<Record<string, number>>(NEWS_SEEN_KEY),
@@ -173,17 +190,18 @@ export async function detectBreaking(now = Date.now(), dry = false): Promise<{ e
   const relevantIds = new Set(players.filter(relevant).map((p) => p.id));
   for (const [id, t] of newsTimes ?? []) if (!newsSeen || !relevantIds.has(id)) seen[id] = Math.max(seen[id] ?? 0, t);
   const save = async () => { if (!dry) await Promise.all([kv.set(STATUS_KEY, status), kv.set(NEWS_SEEN_KEY, seen)]); };
-  if (!prev) { await save(); return { events: [], seeded: true }; }
+  if (!prev) { await save(); return { events: [], tonight: [], seeded: true }; }
 
   const today = easternDate(now);
-  const found: { p: Player; injury?: string; note: string; returnDate?: string; source: BreakingEvent["source"] }[] = [];
+  const found: { p: Player; injury?: string; note: string; returnDate?: string; source: BreakingEvent["source"]; longTerm?: boolean }[] = [];
+  const longFrom = (d?: string) => !!d && Date.parse(d) - Date.parse(today) >= POST_MIN_DAYS * DAY;
   for (const p of players) {
     const e = report.get(p.id);
     if (!relevant(p) || !isOut(e) || prev[p.id]?.startsWith("out:")) continue;
     // The report alone needs a timeline: "out" with no date flips on and off with game-time
     // decisions. Undated long absences reach us through the news instead.
     if (!e!.returnDate) continue;
-    found.push({ p, injury: e!.injury, note: e!.note, returnDate: e!.returnDate, source: "injury report" });
+    found.push({ p, injury: e!.injury, note: e!.note, returnDate: e!.returnDate, source: "injury report", longTerm: longFrom(e!.returnDate) });
   }
   // Fresh news for watched players not already out on the report: Claude reads it.
   if (newsSeen && newsTimes) {
@@ -203,7 +221,8 @@ export async function detectBreaking(now = Date.now(), dry = false): Promise<{ e
         for (const t of texts) seen[t.p.id] = newsTimes.get(t.p.id) ?? seen[t.p.id];
         for (const v of verdicts.filter((v) => v.out)) {
           const t = toRead.find((x) => x.p.id === v.playerId);
-          if (t) found.push({ p: t.p, injury: v.injury ?? undefined, note: firstSentences(t.text), returnDate: v.days != null ? easternDate(now + v.days * DAY) : undefined, source: "news" });
+          const returnDate = v.days != null ? easternDate(now + v.days * DAY) : undefined;
+          if (t) found.push({ p: t.p, injury: v.injury ?? undefined, note: firstSentences(t.text), returnDate, source: "news", longTerm: v.longTerm || longFrom(returnDate) });
         }
       } catch (e) {
         console.error("[breaking] news read failed; retrying next run", e);
@@ -219,7 +238,7 @@ export async function detectBreaking(now = Date.now(), dry = false): Promise<{ e
       if (dry ? await kv.get(sentKey(f.p.id)) : !(await claimAlert(f.p.id, now))) continue;
       events.push(await choosePickup({
         player: { id: f.p.id, name: f.p.name, team: f.p.team, pctOwned: Math.round(f.p.pctOwned ?? 0) },
-        injury: f.injury, note: f.note, returnDate: f.returnDate, pickups: pickupsFor(f.p, players, report), source: f.source,
+        injury: f.injury, note: f.note, returnDate: f.returnDate, pickups: pickupsFor(f.p, players, report), source: f.source, longTerm: f.longTerm,
       }));
     } catch (e) {
       // Give the claim back so the next run can try this player again.
@@ -227,8 +246,51 @@ export async function detectBreaking(now = Date.now(), dry = false): Promise<{ e
       if (!dry) await kv.delete(sentKey(f.p.id)).catch(() => {});
     }
   }
+  const tonight = await outTonight({ players, report, prev, now, skip: new Set(found.filter((f) => f.longTerm).map((f) => f.p.id)), dry }).catch((e) => { console.error("[breaking] tonight", e); return []; });
   await save();
-  return { events, seeded: false };
+  return { events, tonight, seeded: false };
+}
+
+/** Today's games by team (our codes): opponent, tip-off, and whether it has started. */
+async function tipoffs(date: string): Promise<Map<string, { opp: string; tip: number; started: boolean }>> {
+  const r = await fetch(`${NBA}/scoreboard?dates=${date.replace(/-/g, "")}`, { cache: "no-store", headers: { Accept: "application/json" } });
+  if (!r.ok) throw new Error(`ESPN scoreboard: ${r.status}`);
+  const out = new Map<string, { opp: string; tip: number; started: boolean }>();
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  for (const e of ((await r.json())?.events ?? []) as any[]) {
+    const comp = e?.competitions?.[0];
+    const teams = ((comp?.competitors ?? []) as { team?: { abbreviation?: string } }[]).map((c) => BOX_TEAM[c.team?.abbreviation ?? ""] ?? String(c.team?.abbreviation ?? ""));
+    const tip = Date.parse(comp?.date ?? e?.date);
+    const started = e?.status?.type?.state !== "pre";
+    if (teams.length === 2 && Number.isFinite(tip)) teams.forEach((t, i) => out.set(t, { opp: teams[1 - i], tip, started }));
+  }
+  return out;
+}
+
+/**
+ * Stars newly ruled out of tonight's game (not rest or load management), while there's still time
+ * before tip-off to start someone else; each with the teammate who gets his minutes. Anyone out
+ * for weeks gets the full public alert instead.
+ */
+async function outTonight(o: { players: Player[]; report: Map<number, InjuryReportEntry>; prev: Record<string, string>; now: number; skip: Set<number>; dry: boolean }): Promise<BreakingEvent[]> {
+  const fresh = o.players.filter((p) => {
+    const e = o.report.get(p.id);
+    return p.team !== "FA" && (p.pctOwned ?? 0) >= TONIGHT_MIN_OWNED && isOut(e) && !o.prev[p.id]?.startsWith("out:") && !o.skip.has(p.id) && !NOT_INJURY.test(`${e!.injury ?? ""} ${e!.note}`);
+  });
+  if (!fresh.length) return [];
+  const today = easternDate(o.now);
+  const games = await tipoffs(today);
+  const kv = kvStore();
+  const out: BreakingEvent[] = [];
+  for (const p of fresh) {
+    const g = games.get(p.team);
+    if (!g || g.started || g.tip - o.now < TONIGHT_LEAD_MS) continue;
+    const pickups = pickupsFor(p, o.players, o.report);
+    if (!pickups.length || (o.dry && (await kv.get(`breaking:tonight:${today}:${p.id}`)))) continue;
+    const e = o.report.get(p.id)!;
+    out.push({ player: { id: p.id, name: p.name, team: p.team, pctOwned: Math.round(p.pctOwned ?? 0) }, injury: e.injury, note: e.note, pickups: pickups.slice(0, 3), source: "injury report", tonight: { opp: g.opp, tip: g.tip } });
+  }
+  return out;
 }
 
 const esc = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
@@ -319,6 +381,11 @@ export const breakingCardKey = (id: number) => `breaking:card:${id}`;
 
 /** Shams-style: the news in one plain line, then the fantasy move. */
 export function breakingCaption(ev: BreakingEvent): string {
+  if (ev.tonight) {
+    const top = ev.pickups[0];
+    const fill = top ? `\n\nDaily lineups: ${top.name} (${top.pctOwned}% rostered) gets about ${top.minutes} more minutes tonight.` : "";
+    return `🚨 ${ev.player.name} (${ev.player.team}) is out tonight vs ${ev.tonight.opp}${ev.injury ? ` (${ev.injury.toLowerCase()})` : ""}.${fill}\n\n${CTA}\n${TAGS}`;
+  }
   const back = ev.returnDate ? `, back around ${shortDate(ev.returnDate)}` : ", no timeline yet";
   const top = ev.pickups[0];
   const move = top ? `\n\nFantasy move: pick up ${top.name} (${top.pctOwned}% rostered), about ${top.fppg} fpts a game while he's out (+${top.minutes} min).${top.reason ? ` ${top.reason}` : ""}` : "";
@@ -333,7 +400,7 @@ export async function postBreaking(events: BreakingEvent[], now = Date.now()): P
   const kv = kvStore();
   const today = easternDate(now);
   const posted: string[] = [];
-  for (const ev of events.filter((e) => e.player.pctOwned >= POST_MIN_OWNED && e.pickups.length).sort((a, b) => b.player.pctOwned - a.player.pctOwned)) {
+  for (const ev of events.filter((e) => e.player.pctOwned >= POST_MIN_OWNED && e.longTerm && e.pickups.length).sort((a, b) => b.player.pctOwned - a.player.pctOwned)) {
     let slot = -1;
     for (let i = 0; i < POSTS_PER_DAY && slot < 0; i++) if (await kv.claim(`breaking:post:${today}:${i}`, ev.player.id)) slot = i;
     if (slot < 0) break;
@@ -344,6 +411,27 @@ export async function postBreaking(events: BreakingEvent[], now = Date.now()): P
     });
     if (ok) posted.push(ev.player.name);
     else await kv.delete(`breaking:post:${today}:${slot}`).catch(() => {});
+  }
+  return posted;
+}
+
+/** Ruled out tonight: posted right away, and dropped by Postroom if it isn't out before tip-off. */
+export async function postTonight(events: BreakingEvent[], now = Date.now()): Promise<string[]> {
+  const kv = kvStore();
+  const today = easternDate(now);
+  const posted: string[] = [];
+  for (const ev of events.filter((e) => e.tonight).sort((a, b) => b.player.pctOwned - a.player.pctOwned)) {
+    if (!(await kv.claim(`breaking:tonight:${today}:${ev.player.id}`, now))) continue;
+    let slot = -1;
+    for (let i = 0; i < TONIGHT_PER_DAY && slot < 0; i++) if (await kv.claim(`breaking:tonightSlot:${today}:${i}`, ev.player.id)) slot = i;
+    if (slot < 0) break;
+    await kv.set(breakingCardKey(ev.player.id), { ...ev, at: now });
+    const ok = await sendToPostroom({
+      key: `breaking-tonight:${today}:${ev.player.id}`, kind: "breaking", caption: breakingCaption(ev), postroomOnly: true, replies: true,
+      images: [cardUrl(`type=breaking&player=${ev.player.id}&v=${today}-t`)], now: true, expiresAt: ev.tonight!.tip,
+    });
+    if (ok) posted.push(ev.player.name);
+    else await Promise.all([kv.delete(`breaking:tonightSlot:${today}:${slot}`), kv.delete(`breaking:tonight:${today}:${ev.player.id}`)]).catch(() => {});
   }
   return posted;
 }
