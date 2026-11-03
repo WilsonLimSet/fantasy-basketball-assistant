@@ -238,6 +238,8 @@ export interface MatchupSideGames {
 export interface MatchupGamesComparison {
   week: number;
   days: Array<{ scoringPeriodId: number; date: string }>;
+  /** NBA teams playing each day (0 on days without games). */
+  teamsPlaying?: number[];
   today: number;
   startingSlots: number;
   me: MatchupSideGames;

@@ -215,6 +215,18 @@ export async function sendTelegramAlbum(chatId: number | string, photos: (Blob |
   }
 }
 
+const weekday = (date: string) => new Date(`${date}T12:00:00Z`).toLocaleDateString('en-US', { weekday: 'short', timeZone: 'UTC' });
+
+/** The evening nudge for moves due after tonight's games (date: today, US Eastern), or null. */
+export function reminderTelegram(plan: StreamingPlan, date: string, leagueId: string, teamId: number): string | null {
+  const due = plan.moves.filter((m) => m.swapAfter?.date === date);
+  if (!due.length) return null;
+  const lines = ['<b>Tonight, after the games</b>'];
+  for (const m of due) lines.push(`• Once ${esc(m.drop.name)}'s game ends: drop him, <b>add ${esc(m.add.name)}</b> (+${Math.round(m.pointsGain)} projected pts)${m.add.onWaivers ? '. He\'s on waivers, so claim him tonight' : ''}.`);
+  lines.push('', `<a href="${esc(espnAddUrl(leagueId, teamId))}">Make moves on ESPN</a>`);
+  return lines.join('\n');
+}
+
 export function dailyTelegram(opts: {
   teamName: string;
   leagueId: string;
@@ -224,7 +236,17 @@ export function dailyTelegram(opts: {
 }): string {
   const { plan, matchup } = opts;
   const lines = [`<b>${esc(opts.teamName)}</b> · Week ${plan.week} · ${plan.daysLeft} days left${plan.addsLeft !== null ? ` · ${plan.addsLeft} pickups left` : ''}`];
-  if (matchup?.opponent) lines.push(`Usable games: you ${matchup.me.usableGames}, ${esc(matchup.opponent.name)} ${matchup.opponent.usableGames}`);
+  const gain = Math.round(plan.moves.reduce((s, m) => s + m.pointsGain, 0));
+  if (plan.moves.length) lines.push(`<b>Your edge: +${gain} ${plan.pointsLeague ? 'pts' : 'games'}</b> from ${plan.moves.length} ${plan.moves.length === 1 ? 'move' : 'moves'}${plan.fillsDays?.length ? `, filling ${plan.fillsDays.map(weekday).join(', ')}` : ''}`);
+  const p = plan.matchup;
+  if (p) {
+    const say = (mine: number) => (mine >= p.opponent.projected ? `up ${mine - p.opponent.projected}` : `down ${p.opponent.projected - mine}`);
+    lines.push(`Projected: ${p.me.projected} to ${p.opponent.projected} vs ${esc(p.opponentName)} (${say(p.me.projected)})${plan.moves.length ? `. With the moves: ${say(p.me.withMoves)}` : ''}`);
+  } else if (matchup?.opponent) {
+    lines.push(`Usable games: you ${matchup.me.usableGames}, ${esc(matchup.opponent.name)} ${matchup.opponent.usableGames}`);
+  }
+  for (const w of plan.warnings ?? []) lines.push(`⚠️ ${esc(w)}`);
+  if (plan.coreCost) lines.push(`Your core list is holding back +${plan.coreCost.gain}: unlocking ${esc(plan.coreCost.players.map((c) => `${c.name} (+${c.pointsGain} with ${c.addName})`).join(' and '))} would add it.`);
   lines.push('');
   if (plan.moves.length) {
     plan.moves.forEach((m, i) => {
