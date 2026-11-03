@@ -89,6 +89,17 @@ export function buildNextMatchupWeek(
   return scheduleFor(nbaSchedule, periods, dateOf);
 }
 
+/**
+ * Today's scoring period. ESPN keeps the last game day as "current" until the next one starts, so
+ * on a day with no games (or before ESPN rolls over) its period is already over: the first day of
+ * the week dated today or later counts as today instead.
+ */
+export function currentPeriod(snapshot: Pick<LeagueSnapshot, 'scoringPeriodId' | 'matchupWeek' | 'fetchedAt'>): number {
+  const asOf = easternDate(snapshot.fetchedAt);
+  const next = snapshot.matchupWeek?.days.find((d) => d.scoringPeriodId >= snapshot.scoringPeriodId && d.date >= asOf);
+  return next ? next.scoringPeriodId : snapshot.scoringPeriodId;
+}
+
 /** Starting lineup spots: every slot except bench and IR. */
 export function countStartingSlots(lineupSlotCounts: Record<string, number> | undefined): number {
   return Object.entries(lineupSlotCounts ?? {})
@@ -176,13 +187,15 @@ export function compareMatchupGames(snapshot: LeagueSnapshot): MatchupGamesCompa
   const slots = snapshot.startingSlots ?? 0;
   const lineup = slotList(snapshot.lineupSlots);
   const asOf = easternDate(snapshot.fetchedAt);
+  const today = currentPeriod(snapshot);
 
   return {
     week: snapshot.week,
     days: week.days,
-    today: snapshot.scoringPeriodId,
+    teamsPlaying: week.days.map((d) => Object.values(week.teamGames).filter((g) => g.includes(d.scoringPeriodId)).length),
+    today,
     startingSlots: slots,
-    me: sideGames(me, week, snapshot.scoringPeriodId, slots, lineup, snapshot.injuries, asOf),
-    opponent: opponent && sideGames(opponent, week, snapshot.scoringPeriodId, slots, lineup, snapshot.injuries, asOf),
+    me: sideGames(me, week, today, slots, lineup, snapshot.injuries, asOf),
+    opponent: opponent && sideGames(opponent, week, today, slots, lineup, snapshot.injuries, asOf),
   };
 }

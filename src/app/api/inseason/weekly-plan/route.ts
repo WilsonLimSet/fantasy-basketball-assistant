@@ -7,7 +7,7 @@ import { NextResponse } from 'next/server';
 import { requireLeague } from '@/lib/inseason/routeContext';
 import { freshSnapshot } from '@/lib/inseason/refreshLeague';
 import { generateWeeklyStreamingPlan, getWaiverRecommendations } from '@/lib/inseason/optimizer';
-import { compareMatchupGames } from '@/lib/inseason/matchupGames';
+import { compareMatchupGames, currentPeriod } from '@/lib/inseason/matchupGames';
 import type { WeeklyStreamingPlan, NBATeamSchedule, WaiverRecommendation, MatchupGamesComparison, MatchupWeekSchedule } from '@/types';
 
 export const dynamic = 'force-dynamic';
@@ -68,7 +68,7 @@ export async function GET(request: Request) {
       topPicksByGames,
       matchupGames: compareMatchupGames(snapshot),
       matchupWeek: snapshot.matchupWeek,
-      today: snapshot.scoringPeriodId,
+      today: currentPeriod(snapshot),
       snapshotAge,
     };
 

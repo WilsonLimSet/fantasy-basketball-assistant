@@ -119,7 +119,31 @@ export function StatStrip({ plan, mg }: { plan: StreamingPlan; mg?: MatchupGames
   );
 }
 
-function SideTable({ side, days, today, startingSlots }: { side: MatchupSideGames; days: MatchupGamesComparison['days']; today: number; startingSlots: number }) {
+/** Empty starting spots on each day left with NBA games (none before today or on days off). */
+const openByDay = (side: MatchupSideGames, data: Pick<MatchupGamesComparison, 'days' | 'today' | 'startingSlots' | 'teamsPlaying'>) =>
+  data.days.map((d, i) => (d.scoringPeriodId < data.today || data.teamsPlaying?.[i] === 0 ? null : data.startingSlots - side.startableByDay[i]));
+
+/** "20 open lineup spots left: Thu 8, Fri 2, Sat 4, Sun 6", and which days are already full. */
+function OpenSummary({ side, data }: { side: MatchupSideGames; data: MatchupGamesComparison }) {
+  const days = openByDay(side, data).map((open, i) => ({ date: data.days[i].date, open, benched: side.playingByDay[i] - side.startableByDay[i] })).filter((x) => x.open !== null);
+  const total = days.reduce((s, x) => s + (x.open ?? 0), 0);
+  const full = days.filter((x) => x.benched > 0);
+  const day = (date: string) => dayLabel(date).slice(0, 3);
+  if (!total) return <p className="mb-4 text-sm text-muted">Your lineup is full every day left this week: a pickup only helps if he beats someone who starts.</p>;
+  return (
+    <p className="mb-4 text-sm">
+      <span className="font-medium">{total} open lineup spots left</span>
+      <span className="text-muted">
+        {`: ${days.filter((x) => x.open! > 0).map((x) => `${day(x.date)} ${x.open}`).join(', ')}. A pickup adds a game on each of those days he plays.`}
+        {full.length ? ` ${full.map((x) => `${day(x.date)} is full (${x.benched} on the bench)`).join(', ')}, so games there add nothing.` : ''}
+      </span>
+    </p>
+  );
+}
+
+function SideTable({ side, data }: { side: MatchupSideGames; data: MatchupGamesComparison }) {
+  const { days, today, startingSlots } = data;
+  const open = openByDay(side, data);
   return (
     <div className="overflow-x-auto">
       <table className="w-full text-sm">
@@ -164,6 +188,14 @@ function SideTable({ side, days, today, startingSlots }: { side: MatchupSideGame
               <td key={i} className={`py-1.5 text-center tabular-nums ${n < Math.min(side.playingByDay[i], startingSlots) ? 'font-medium text-fg' : ''}`}>{n}</td>
             ))}
           </tr>
+          <tr className="text-xs text-muted">
+            <td className="py-1.5">Open spots</td>
+            <td className="py-1.5 text-right tabular-nums font-medium text-fg">{open.reduce<number>((sum, n) => sum + (n ?? 0), 0)}</td>
+            {open.map((n, i) => (
+              // Empty starting spots left this week: where a pickup adds games.
+              <td key={i} className={`py-1.5 text-center tabular-nums ${n ? 'font-medium text-accent' : ''}`}>{n ?? ''}</td>
+            ))}
+          </tr>
         </tbody>
       </table>
     </div>
@@ -171,7 +203,7 @@ function SideTable({ side, days, today, startingSlots }: { side: MatchupSideGame
 }
 
 export function MatchupGamesPanel({ data }: { data: MatchupGamesComparison }) {
-  const { me, opponent, days, today, startingSlots } = data;
+  const { me, opponent, days, startingSlots } = data;
   const range = days.length ? `${dayLabel(days[0].date)} ${days[0].date.slice(5)} – ${dayLabel(days[days.length - 1].date)} ${days[days.length - 1].date.slice(5)}` : '';
   return (
     <Panel
@@ -179,9 +211,10 @@ export function MatchupGamesPanel({ data }: { data: MatchupGamesComparison }) {
       sub={`Usable games: who can actually start each day, fitted into your ${startingSlots} lineup spots by position (PG, SG, SF, PF, C, G, F, UTIL). Injured and IR players don’t count.`}
       right={range}
     >
+      <OpenSummary side={me} data={data} />
       <div className={`grid gap-6 ${opponent ? 'lg:grid-cols-2' : ''}`}>
-        <SideTable side={me} days={days} today={today} startingSlots={startingSlots} />
-        {opponent && <SideTable side={opponent} days={days} today={today} startingSlots={startingSlots} />}
+        <SideTable side={me} data={data} />
+        {opponent && <SideTable side={opponent} data={data} />}
       </div>
     </Panel>
   );

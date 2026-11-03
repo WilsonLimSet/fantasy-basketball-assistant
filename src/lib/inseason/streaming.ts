@@ -8,6 +8,7 @@
 
 import type { FreeAgentEntry, LeagueSnapshot, MatchupWeekSchedule, Player, PlayerStatus } from '@/types';
 import { chanceOn } from './availability';
+import { currentPeriod } from './matchupGames';
 import { boostOn, longBoost, teammateBoosts, type TeammateBoost } from './opportunity';
 
 const BENCH_SLOT = 12;
@@ -298,7 +299,7 @@ export function buildStreamingPlan(snapshot: LeagueSnapshot, core: number[], wat
   const next = snapshot.nextMatchupWeek;
   const me = snapshot.teams.find((t) => t.id === snapshot.myTeamId);
   if (!week || !me?.roster) return null;
-  const today = snapshot.scoringPeriodId;
+  const today = currentPeriod(snapshot);
   const asOf = easternDate(snapshot.fetchedAt);
 
   const slots = startingSlots(snapshot);
