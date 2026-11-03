@@ -2,7 +2,6 @@ import { getPlayers, SEASON } from "./data";
 import { EMAIL_ON, newsDigestEmail, sendEmail } from "./inseason/email";
 import { kvStore } from "./inseason/storage";
 import { sendToPostroom, type Post } from "./postroom";
-import { sentKey } from "./breaking";
 import { takeLine, takesCaption, takesDay, type WaiverTake } from "./waiverTakes";
 import { formatPlan, formatScores, postStats } from "./socialStats";
 import { refreshHealth } from "./healthHistory";
@@ -37,10 +36,8 @@ const LAST_PLAYER = "social:lastPlayer";
 const STATUSES = "social:statuses";
 const FOLLOW_UP_MS = 3 * 24 * 60 * 60 * 1000;
 const KEEP = 500;
-/** Breaking news needs a player this widely rostered... */
+/** A transaction post needs a player this widely rostered. */
 const BREAKING_MIN_OWNED = 50;
-/** ...and, for an injury, a pickup this widely available. */
-const PICKUP_MAX_OWNED = 30;
 /** Players this widely rostered make the injury slide (out or back). */
 const SLIDE_MIN_OWNED = 30;
 /** Pause between Telegram sends to users: the bot API allows about 30 messages a second. */
@@ -200,20 +197,19 @@ async function injuryLines(now: number, today: string, lastPlayer: Record<string
   return list;
 }
 
-/** At most one breaking post a day: the biggest real absence with a pickup, or a big name moved or cut. */
+/**
+ * At most one transaction post a day: a big name moved or cut. Injuries post from the 10-minute
+ * breaking check (postBreaking in src/lib/breaking.ts) as they happen; this run is twice a day, so
+ * an injury here landed hours late (Irving ruled out for a game, posted after tip-off).
+ */
 async function breakingPost(now: number, today: string, posted: Set<string>, lastPlayer: Record<string, { status: string; at: number }>): Promise<Post | null> {
   if ([...posted].some((k) => k.startsWith(`breaking:${today}:`))) return null;
   const followUp = (id: number, status: string) => lastPlayer[id]?.status === status && now - lastPlayer[id].at < FOLLOW_UP_MS;
-  const kv = kvStore();
-  const alerts = await newsAlerts(20, now).catch(() => []);
-  // Injuries the 10-minute breaking check already sent (src/lib/breaking.ts) aren't news by now.
-  const alerted = new Set((await Promise.all(alerts.map(async (x) => ((await kv.get(sentKey(x.id)).catch(() => null)) ? x.id : null)))).filter((x) => x != null));
-  const a = alerts
-    .filter((x) => !posted.has(`breaking:${today}:${x.key}`) && !followUp(x.id, x.status) && x.pctOwned >= BREAKING_MIN_OWNED && !(x.label === "Injury" && alerted.has(x.id)))
-    .find((x) => (x.label === "Injury" && x.out && x.nextUp && x.nextUp.pctOwned < PICKUP_MAX_OWNED) || x.label === "Transaction");
+  const a = (await newsAlerts(20, now).catch(() => []))
+    .find((x) => x.label === "Transaction" && !posted.has(`breaking:${today}:${x.key}`) && !followUp(x.id, x.status) && x.pctOwned >= BREAKING_MIN_OWNED);
   if (!a) return null;
   return {
-    key: `breaking:${today}:${a.key}`, kind: a.label === "Injury" ? "injury" : "transaction",
+    key: `breaking:${today}:${a.key}`, kind: "transaction",
     images: [cardUrl(`type=news&player=${a.id}&v=${today}`)], caption: newsCaption(a), player: { id: a.id, status: a.status },
   };
 }
