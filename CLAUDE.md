@@ -2,7 +2,7 @@
 
 # Takeover Fantasy
 
-AI fantasy basketball tool at https://takeoverfantasy.com (Cloudflare DNS → Vercel project `fantasy-basketball-assistant`, team wilsonlimsets-projects, region sin1). Goals: charge users, win NBA fantasy now, later NFL and Premier League. Instagram/TikTok (@takeoverfantasy) are the main marketing channels.
+AI fantasy basketball tool at https://takeoverfantasy.com (Cloudflare DNS → Vercel project `takeoverfantasy`, GitHub repo WilsonLimSet/takeoverfantasy, team wilsonlimsets-projects, region sin1). Goals: charge users, win NBA fantasy now, later NFL and Premier League. Instagram/TikTok (@takeoverfantasy) are the main marketing channels.
 
 ## Working rules
 - **Ship through pull requests only.** Never `vercel deploy`. Don't merge PRs unless Wilson says "merge". Pushing before the PR exists skips the preview build (`scripts/vercel-ignore-build.sh`); push an empty commit after opening the PR to build it.
