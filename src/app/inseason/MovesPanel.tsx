@@ -53,11 +53,6 @@ function Who({ id, name, team, meta, tone }: { id: number; name: string; team?: 
   );
 }
 
-/** "Thu, Sat and Sun". */
-const dayList = (dates: string[]) => {
-  const d = dates.map((x) => dayLabel(x));
-  return d.length > 1 ? `${d.slice(0, -1).join(', ')} and ${d.at(-1)}` : d[0] ?? '';
-};
 const fmt = (n: number) => n.toLocaleString('en-US');
 
 /**
@@ -89,50 +84,99 @@ function DayStrip({ days, tone }: { days: MoveDay[]; tone: 'add' | 'drop' }) {
 /** The moves' total, as the rows show it (each move's gain assumes the ones before it). */
 export const movesGain = (plan: Pick<StreamingPlan, 'moves'>) => Math.round(plan.moves.reduce((s, m) => s + m.pointsGain, 0));
 
-export function EdgeCard({ plan }: { plan: StreamingPlan }) {
+/** When to make a move: now, or after a given day's games (US dates). */
+const whenLabel = (m: StreamMove) => (m.swapAfter ? `After ${dayLabel(m.swapAfter.date)}’s games` : 'Now');
+
+/**
+ * The answer first: the moves to make, in order, each with when to make it and a backup if the
+ * pickup is gone. Then what it does to the matchup, what the core list holds back, and blockers.
+ */
+export function EdgeCard({ plan, espnUrl }: { plan: StreamingPlan; espnUrl?: string }) {
   const gain = movesGain(plan);
   const m = plan.matchup;
-  const margin = (mine: number) => (m ? mine - m.opponent.projected : 0);
+  const unit = plan.pointsLeague ? 'pts' : 'games';
   const say = (mine: number) => {
-    const d = margin(mine);
+    const d = m ? mine - m.opponent.projected : 0;
     return d >= 0 ? `up ${fmt(d)}` : `down ${fmt(-d)}`;
   };
+  const steps = [...plan.moves].sort((a, b) => (a.swapAfter?.date ?? '').localeCompare(b.swapAfter?.date ?? ''));
+  const taken = new Set(plan.moves.map((x) => x.add.id));
+  // Backups: the next-best free agents for the same drop, not already in the plan.
+  const backups = (mv: StreamMove) =>
+    (plan.freeAgents ?? []).filter((f) => f.dropFor === mv.drop.name && !taken.has(f.player.id) && f.pointsGain > 0).slice(0, 2);
+  const spare = plan.addsLeft === null ? null : plan.addsLeft - plan.moves.length;
   return (
     <div className="animate-fade-up mb-5 rounded-xl border border-line bg-panel px-5 py-4 shadow-[0_1px_2px_rgba(25,25,25,0.04)]">
-      <p className="text-lg font-medium tracking-tight">
-        {plan.moves.length ? (
-          <>
-            Your edge this week: <span className="text-accent">+{fmt(gain)} {plan.pointsLeague ? 'pts' : 'games'}</span> from {plan.moves.length} {plan.moves.length === 1 ? 'move' : 'moves'}
-            {plan.fillsDays?.length ? `, filling ${dayList(plan.fillsDays)}` : ''}.
-          </>
-        ) : (
-          'No add/drop beats your roster this week.'
-        )}
-      </p>
-      {m && (
-        <p className="mt-1 text-sm text-muted">
-          Projected final: <span className="font-medium text-fg tabular-nums">{fmt(m.me.projected)}</span> to{' '}
-          <span className="tabular-nums">{fmt(m.opponent.projected)}</span> vs {m.opponentName} ({say(m.me.projected)}).
-          {plan.moves.length > 0 && (
-            <>
-              {' '}With the moves: <span className="font-medium text-fg tabular-nums">{fmt(m.me.withMoves)}</span> ({say(m.me.withMoves)}).
-            </>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <p className="text-lg font-medium tracking-tight">
+            {plan.moves.length ? (
+              <>
+                Make {plan.moves.length === 1 ? 'this move' : `these ${plan.moves.length} moves`}:{' '}
+                <span className="text-accent">+{fmt(gain)} {unit}</span> this week
+              </>
+            ) : (
+              'No pickup beats your roster this week. Save your adds.'
+            )}
+          </p>
+          {m && (
+            <p className="mt-0.5 text-sm text-muted">
+              Projected {say(m.me.projected)} vs {m.opponentName}
+              {plan.moves.length > 0 && <>, <span className="font-medium text-fg">{say(m.me.withMoves)}</span> with {plan.moves.length === 1 ? 'it' : 'them'}</>}.
+              {m.me.projected - m.opponent.projected >= 150 && ' You’re well ahead: only make moves you’d keep anyway.'}
+            </p>
           )}
-          {margin(m.me.projected) >= 150 && ' You’re well ahead: only make moves you’d keep anyway.'}
-        </p>
+        </div>
+        {espnUrl && plan.moves.length > 0 && (
+          <a href={espnUrl} target="_blank" rel="noopener noreferrer" className="btn-accent shrink-0">Make moves on ESPN</a>
+        )}
+      </div>
+
+      {steps.length > 0 && (
+        <ol className="mt-3 divide-y divide-line rounded-lg border border-line">
+          {steps.map((mv, i) => {
+            const alt = backups(mv);
+            return (
+              <li key={mv.add.id} className="flex gap-3 px-3 py-2.5">
+                <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-ink text-[11px] font-semibold text-white">{i + 1}</span>
+                <div className="min-w-0 flex-1">
+                  <div className="flex flex-wrap items-baseline gap-x-2">
+                    <span className="text-[11px] font-semibold uppercase tracking-wide text-muted">{whenLabel(mv)}</span>
+                    <span className="text-sm">
+                      Add <span className="font-medium">{mv.add.name}</span>, drop <span className="font-medium">{mv.drop.name}</span>
+                      {mv.add.onWaivers && <span className="text-muted"> (waiver claim, about 2 days)</span>}
+                    </span>
+                  </div>
+                  {mv.hold && <p className="mt-0.5 text-xs text-muted">{mv.hold}</p>}
+                  {alt.length > 0 && (
+                    <p className="mt-0.5 text-xs text-muted">
+                      If he’s taken: {alt.map((f, j) => (
+                        <span key={f.player.id}>{j > 0 && ', then '}<span className="text-fg">{f.player.name}</span> (+{Math.round(f.pointsGain)})</span>
+                      ))}
+                    </p>
+                  )}
+                </div>
+                <span className="shrink-0 text-sm font-medium tabular-nums">+{Math.round(mv.pointsGain)}</span>
+              </li>
+            );
+          })}
+        </ol>
       )}
+
       {plan.coreCost && (
-        <p className="mt-2 text-sm">
-          <span className="font-medium">Your core list is holding back +{fmt(plan.coreCost.gain)}.</span>{' '}
+        <p className="mt-3 text-sm">
+          <span className="font-medium">
+            {spare && spare > 0 ? `${spare} more ${spare === 1 ? 'pickup' : 'pickups'} unused: ` : 'More if you’ll drop a core player: '}
+          </span>
           <span className="text-muted">
-            The moves above can only drop non-core players. Unlocking{' '}
+            {spare && spare > 0 ? 'everyone else is on your core list. Dropping a core player would add ' : ''}
             {plan.coreCost.players.map((p, i) => (
               <span key={p.id}>
-                {i > 0 && (i === plan.coreCost!.players.length - 1 ? ' and ' : ', ')}
-                {p.name} (+{p.pointsGain} with {p.addName})
+                {i > 0 && (i === plan.coreCost!.players.length - 1 ? ' or ' : ', ')}
+                {p.name} for {p.addName} (+{p.pointsGain})
               </span>
-            ))}{' '}
-            would add it.{' '}
+            ))}
+            .{' '}
           </span>
           <Link href="/inseason/connect" className="underline hover:text-fg">Edit core players</Link>
         </p>
@@ -145,25 +189,6 @@ export function EdgeCard({ plan }: { plan: StreamingPlan }) {
         </ul>
       )}
     </div>
-  );
-}
-
-/** The moves in the order to make them: now, then after a given day's games. */
-export function MovePlan({ moves }: { moves: StreamMove[] }) {
-  if (moves.length < 2 && !moves.some((m) => m.swapAfter || m.add.onWaivers)) return null;
-  const steps = [...moves].sort((a, b) => (a.swapAfter?.date ?? '').localeCompare(b.swapAfter?.date ?? ''));
-  return (
-    <ol className="mb-4 space-y-1 rounded-lg bg-sunken px-3 py-2.5 text-sm">
-      {steps.map((m) => (
-        <li key={m.add.id} className="flex gap-2">
-          <span className="w-28 shrink-0 text-xs font-semibold uppercase tracking-wide text-muted">{m.swapAfter ? `After ${dayLabel(m.swapAfter.date)}’s games` : 'Now'}</span>
-          <span>
-            Add <span className="font-medium">{m.add.name}</span>, drop {m.drop.name}
-            {m.add.onWaivers && <span className="text-muted"> (waiver claim: about 2 days to clear)</span>}
-          </span>
-        </li>
-      ))}
-    </ol>
   );
 }
 
