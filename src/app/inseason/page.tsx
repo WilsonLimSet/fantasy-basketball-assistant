@@ -6,7 +6,7 @@ import { funnel } from '@/components/funnel';
 import { useCallback, useEffect, useState } from 'react';
 import type { DailyBriefing } from '@/types';
 import { InjuryBadge } from '@/components/ui';
-import { EdgeCard, MatchupGamesPanel, MovePlan, MoveRow, StatStrip, WatchlistPanel, type MovesPreview, type MovesResponse } from './MovesPanel';
+import { EdgeCard, MatchupGamesPanel, MoveRow, StatStrip, WatchlistPanel, type MovesPreview, type MovesResponse } from './MovesPanel';
 import { ErrorBox, formatAge, Gate, invalidateCached, Loading, MOVES_URL, Panel, SaveLeague, useCached, useMeContext } from './useMe';
 
 function RosterAlerts({ briefing }: { briefing: DailyBriefing }) {
@@ -147,20 +147,14 @@ export default function ThisWeekPage() {
         </div>
         <StatStrip plan={plan} mg={mg} />
       </div>
-      <EdgeCard plan={plan} />
+      <EdgeCard plan={plan} espnUrl={moves.espnUrl} />
 
       <div className="grid gap-5 lg:grid-cols-[1fr_340px]">
         <div className="space-y-5">
           <Panel
-            title="Moves for this week"
-            sub={plan.moves.length ? 'Best first. Each one assumes the ones above it are made.' : undefined}
-            right={
-              moves.espnUrl && plan.moves.length > 0 ? (
-                <a href={moves.espnUrl} target="_blank" rel="noopener noreferrer" className="btn-accent">Make moves on ESPN</a>
-              ) : undefined
-            }
+            title="Why these moves"
+            sub={plan.moves.length ? 'Each move assumes the ones above it are made. Dots: days his game makes your lineup.' : undefined}
           >
-            <MovePlan moves={plan.moves} />
             {plan.moves.length ? (
               plan.moves.map((m) => <MoveRow key={m.add.id} m={m} />)
             ) : (
