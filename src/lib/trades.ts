@@ -231,6 +231,8 @@ export interface TradeIdea {
 export interface TradeFinder {
   /** League mates' players in a slump: ask about them now. */
   buyLow: (TradePlayer & { teamId: number; teamName: string })[];
+  /** Your roster, for picking the trade block. */
+  roster: TradePlayer[];
   /** Yours worth more to other managers than to you (a hot streak, a role that ends, sits often): shop them now. */
   sellHigh: (TradePlayer & { why: string })[];
   ideas: TradeIdea[];
@@ -271,7 +273,11 @@ function pitch(give: TradePlayer[], get: TradePlayer[]): string[] {
   return out;
 }
 
-export async function findTrades(snapshot: LeagueSnapshot, now = Date.now()): Promise<TradeFinder> {
+/**
+ * block: the players you're open to trading (your trade block). Offers only send these; empty
+ * means anyone on your roster.
+ */
+export async function findTrades(snapshot: LeagueSnapshot, block: number[] = [], now = Date.now()): Promise<TradeFinder> {
   const t = await tradeContext(now);
   const repl = replacementLevel(t, snapshot.teams.length * 13);
   const toTP = (id: number) => {
@@ -281,6 +287,8 @@ export async function findTrades(snapshot: LeagueSnapshot, now = Date.now()): Pr
   const rosterOf = (teamId: number) =>
     (snapshot.teams.find((x) => x.id === teamId)?.roster ?? []).map((r) => toTP(r.player.id)).filter((p): p is TradePlayer => !!p);
   const mine = rosterOf(snapshot.myTeamId);
+  const onBlock = mine.filter((p) => block.includes(p.id));
+  const offer = onBlock.length ? onBlock : mine;
   const others = snapshot.teams.filter((x) => x.id !== snapshot.myTeamId).map((x) => ({ id: x.id, name: x.name, roster: rosterOf(x.id) }));
 
   const buyLow = others
@@ -301,8 +309,10 @@ export async function findTrades(snapshot: LeagueSnapshot, now = Date.now()): Pr
     const targets = o.roster.filter((p) => !p.risk);
     const offers: TradeIdea[] = [];
     const consider = (give: TradePlayer[], get: TradePlayer[]) => {
-      // Taking on more players than you send: drop your weakest player not in the deal.
-      const drop = get.length > give.length ? mine.filter((p) => !give.includes(p)).sort((a, b) => a.ros - b.ros)[0] : undefined;
+      // Taking on more players than you send: drop your weakest healthy player not in the deal
+      // (an injured player is low only until he's back).
+      const drop = get.length > give.length ? mine.filter((p) => !give.includes(p) && p.status !== "OUT").sort((a, b) => a.ros - b.ros)[0] : undefined;
+      if (get.length > give.length && !drop) return;
       const gain = tradeGain(give, get, repl, drop?.ros);
       if (gain < MIN_GAIN) return;
       const spots = give.length - get.length;
@@ -314,15 +324,15 @@ export async function findTrades(snapshot: LeagueSnapshot, now = Date.now()): Pr
       offers.push({ teamId: o.id, teamName: o.name, give, get, gain: r1(gain), theirView: r1(theirView), why, ...(drop ? { drop } : {}) });
     };
     for (const g of targets) {
-      for (let i = 0; i < mine.length; i++) {
-        consider([mine[i]], [g]);
-        for (let j = i + 1; j < mine.length; j++) consider([mine[i], mine[j]], [g]);
+      for (let i = 0; i < offer.length; i++) {
+        consider([offer[i]], [g]);
+        for (let j = i + 1; j < offer.length; j++) consider([offer[i], offer[j]], [g]);
       }
     }
     // 1-for-2: one of yours for two of theirs.
     for (let a = 0; a < targets.length; a++)
       for (let b = a + 1; b < targets.length; b++)
-        for (const m of mine) consider([m], [targets[a], targets[b]]);
+        for (const m of offer) consider([m], [targets[a], targets[b]]);
     // Their two best offers that don't share a player.
     offers.sort((a, b) => b.gain - a.gain);
     const used = new Set<number>();
@@ -343,5 +353,5 @@ export async function findTrades(snapshot: LeagueSnapshot, now = Date.now()): Pr
     x.give.forEach((p) => uses.set(p.id, (uses.get(p.id) ?? 0) + 1));
     return true;
   });
-  return { buyLow, sellHigh, ideas: picked.slice(0, 10), replacement: r1(repl) };
+  return { buyLow, sellHigh, ideas: picked.slice(0, 10), replacement: r1(repl), roster: [...mine].sort((a, b) => b.ros - a.ros) };
 }
