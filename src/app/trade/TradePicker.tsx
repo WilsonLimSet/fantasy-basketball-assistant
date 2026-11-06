@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { Headshot, TeamLogo } from "@/components/ui";
 
 type P = { id: number; name: string; team: string; owner?: string };
 const label = (p: P) => `${p.name} (${p.team}${p.owner ? ` · ${p.owner}` : ""})`;
@@ -22,8 +23,14 @@ function Side({ title, list, players, picked, setPicked, other }: { title: strin
       <div className="text-sm font-medium">{title}</div>
       <ul className="mt-2 space-y-1.5">
         {picked.map((p) => (
-          <li key={p.id} className="flex items-center justify-between rounded-lg bg-sunken px-3 py-1.5 text-sm">
-            <span>{p.name} <span className="text-muted">{p.team}{p.owner ? ` · ${p.owner}` : ""}</span></span>
+          <li key={p.id} className="flex items-center justify-between gap-2 rounded-lg bg-sunken px-2.5 py-1.5 text-sm">
+            <span className="flex min-w-0 items-center gap-2">
+              <Headshot id={p.id} name={p.name} size={28} />
+              <span className="min-w-0">
+                <span className="block truncate font-medium">{p.name}</span>
+                <span className="flex items-center gap-1 text-xs text-muted"><TeamLogo team={p.team} size={12} />{p.team}{p.owner ? ` · ${p.owner}` : ""}</span>
+              </span>
+            </span>
             <button type="button" onClick={() => setPicked(picked.filter((x) => x.id !== p.id))} className="text-muted hover:text-fg" aria-label={`Remove ${p.name}`}>×</button>
           </li>
         ))}

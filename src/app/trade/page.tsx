@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { LogoMark } from "@/components/Logo";
+import { Headshot, InjuryBadge, TeamLogo } from "@/components/ui";
 import { leagueContext, previewContext } from "@/lib/inseason/profile";
 import { movePlayers } from "@/lib/moveRater";
 import { rateTrade, type TradeVerdict } from "@/lib/trades";
@@ -75,10 +76,17 @@ export default async function Trade({ searchParams }: { searchParams: Search }) 
                 <div className="text-[11px] font-semibold uppercase tracking-wide text-muted">{t}</div>
                 <ul className="mt-2 space-y-2 text-sm">
                   {ps.map((p) => (
-                    <li key={p.id} className="flex items-baseline justify-between gap-3">
-                      <span className="min-w-0 truncate">{p.name} <span className="text-xs text-muted">{p.team}</span></span>
+                    <li key={p.id} className="flex items-center justify-between gap-3">
+                      <span className="flex min-w-0 items-center gap-2.5">
+                        <Headshot id={p.id} name={p.name} size={36} />
+                        <span className="min-w-0">
+                          <span className="block truncate font-medium">{p.name}<InjuryBadge s={p.status} /></span>
+                          <span className="flex items-center gap-1 whitespace-nowrap text-xs text-muted"><TeamLogo team={p.team} size={12} />{p.team} · {p.pos}</span>
+                        </span>
+                      </span>
                       <span className="shrink-0 text-right text-xs tabular-nums text-muted">
-                        <span className="font-medium text-fg">{p.ros}</span> a game{p.recent !== null ? ` · ${p.recent} lately` : ""}
+                        <span className="block"><span className="font-medium text-fg">{p.ros}</span> a game</span>
+                        {p.recent !== null && <span className="block">{p.recent} lately</span>}
                       </span>
                     </li>
                   ))}
