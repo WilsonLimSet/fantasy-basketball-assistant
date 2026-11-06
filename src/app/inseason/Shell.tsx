@@ -19,6 +19,7 @@ const VIEWS = [
   { href: '/inseason', label: 'This week' },
   { href: '/inseason/waivers', label: 'Free agents' },
   { href: '/inseason/stash', label: 'Injured stash' },
+  { href: '/inseason/trades', label: 'Trades' },
   { href: '/inseason/weekly', label: 'Schedule' },
   { href: '/inseason/connect', label: 'My league' },
 ];
