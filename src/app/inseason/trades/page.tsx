@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import { useState } from 'react';
 import { Headshot, InjuryBadge, TeamLogo } from '@/components/ui';
 import type { TradeFinder, TradeIdea, TradePlayer } from '@/lib/trades';
 import { Gate, Loading, Panel, useCached } from '../useMe';
@@ -11,6 +12,7 @@ type TradesResponse = Partial<TradeFinder> & {
   needs?: 'signin' | 'pro' | 'connect';
   leagueId?: number;
   seasonId?: number;
+  block?: number[];
 };
 
 function Names({ ps }: { ps: TradePlayer[] }) {
@@ -91,9 +93,63 @@ function FormRow({ p, sub }: { p: TradePlayer; sub?: string }) {
   );
 }
 
+/**
+ * Your trade block: the players you're open to trading. Offers only send these (none picked:
+ * anyone). Saved to your account; the offers rebuild when you apply a change.
+ */
+function TradeBlock({ roster, saved, onSaved }: { roster: TradePlayer[]; saved: number[]; onSaved: () => Promise<void> }) {
+  const [picked, setPicked] = useState<number[]>(saved);
+  const [busy, setBusy] = useState(false);
+  const dirty = picked.length !== saved.length || picked.some((id) => !saved.includes(id));
+  const toggle = (id: number) => setPicked((x) => (x.includes(id) ? x.filter((y) => y !== id) : [...x, id]));
+  const apply = async (block: number[]) => {
+    setBusy(true);
+    try {
+      await fetch('/api/inseason/trades', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ block }) });
+      setPicked(block);
+      await onSaved();
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <Panel
+      title="Your trade block"
+      sub={saved.length ? `Offers only send these ${saved.length}. Tap to change.` : 'Tap the players you’re open to trading. None picked: offers can send anyone.'}
+      right={picked.length > 0 && !busy ? <button onClick={() => apply([])} className="btn-ghost">Clear</button> : undefined}
+      className="mb-5"
+    >
+      <div className="flex flex-wrap gap-2">
+        {roster.map((p) => {
+          const on = picked.includes(p.id);
+          return (
+            <button
+              key={p.id}
+              onClick={() => toggle(p.id)}
+              disabled={busy}
+              aria-pressed={on}
+              className={`flex items-center gap-2 rounded-full border py-1 pl-1 pr-3 text-sm transition-colors disabled:opacity-60 ${on ? 'border-ink bg-ink text-white' : 'border-line bg-panel hover:border-fg/30'}`}
+            >
+              <Headshot id={p.id} name={p.name} size={24} />
+              <span className="font-medium">{p.name}</span>
+              <span className={`text-xs tabular-nums ${on ? 'text-white/70' : 'text-muted'}`}>{p.ros}</span>
+            </button>
+          );
+        })}
+      </div>
+      {(dirty || busy) && (
+        <button onClick={() => apply(picked)} disabled={busy} className="btn-accent mt-4 inline-flex items-center gap-2">
+          {busy && <span aria-hidden className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-white/30 border-t-white" />}
+          {busy ? 'Finding offers…' : picked.length ? `Find offers for these ${picked.length}` : 'Find offers for anyone'}
+        </button>
+      )}
+    </Panel>
+  );
+}
+
 /** Trade ideas for your league: buy low on slumps, sell high on hot streaks, health counted. */
 export default function TradesPage() {
-  const { data } = useCached<TradesResponse>('/api/inseason/trades');
+  const { data, reload } = useCached<TradesResponse>('/api/inseason/trades');
   if (!data) return <Loading what="trade ideas" />;
   if (data.needs === 'signin' || data.needs === 'pro' || data.needs === 'connect') return <Gate needs={data.needs} />;
   if (!data.success || !data.ideas) return <Panel title="Trades"><p className="text-sm text-muted">{data.error ?? 'No data yet.'}</p></Panel>;
@@ -109,6 +165,7 @@ export default function TradesPage() {
           recent box scores. Buy stars in a slump, sell players running hot. We never suggest trading for someone who&apos;s out long or sits often.
         </p>
       </div>
+      {(data.roster?.length ?? 0) > 0 && <TradeBlock key={(data.block ?? []).join(',')} roster={data.roster!} saved={data.block ?? []} onSaved={reload} />}
       <div className="grid gap-5 lg:grid-cols-[1fr_340px]">
         <Panel
           title="Offers to make"
@@ -118,7 +175,7 @@ export default function TradesPage() {
           {data.ideas.length ? (
             <ul>{data.ideas.map((x) => <Idea key={`${x.teamId}:${[...x.give, ...x.get].map((p) => p.id).join(',')}`} x={x} espn={espn(x.teamId)} />)}</ul>
           ) : (
-            <p className="text-sm text-muted">No trade beats your roster right now that the other side would take. Check back after a few games: slumps open windows.</p>
+            <p className="text-sm text-muted">{data.block?.length ? 'No offer using just your trade block beats your roster right now. Add players to the block, or check back after a few games.' : 'No trade beats your roster right now that the other side would take. Check back after a few games: slumps open windows.'}</p>
           )}
         </Panel>
         <div className="space-y-5">
