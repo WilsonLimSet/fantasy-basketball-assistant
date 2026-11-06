@@ -68,7 +68,7 @@ export default async function Trade({ searchParams }: { searchParams: Search }) 
       <TradePicker givePool={givePool} getPool={getPool} give={pick(give, givePool)} get={pick(get, getPool)} all={all} />
 
       {r && (
-        <section className="mt-10">
+        <section className="mt-10 transition-opacity [body:has([data-trade-pending])_&]:hidden">
           <h2 className={`text-2xl font-medium tracking-[-0.02em] ${TONE[r.verdict]}`}>{r.headline}</h2>
           <div className="mt-4 grid gap-3 sm:grid-cols-2">
             {([["You give", r.give], ["You get", r.get]] as const).map(([t, ps]) => (
