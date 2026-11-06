@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { LogoMark } from "@/components/Logo";
+import { Headshot, InjuryBadge, TeamLogo } from "@/components/ui";
+import { leagueContext, previewContext } from "@/lib/inseason/profile";
 import { movePlayers } from "@/lib/moveRater";
 import { rateTrade, type TradeVerdict } from "@/lib/trades";
 import { TradePicker } from "./TradePicker";
@@ -11,8 +13,24 @@ type Search = Promise<Record<string, string | string[] | undefined>>;
 const ids = async (s: Search) => {
   const q = await s;
   const list = (v: unknown) => (typeof v === "string" ? v.split(",").filter((x) => /^\d{1,9}$/.test(x)).map(Number).slice(0, 4) : []);
-  return { give: list(q.give), get: list(q.get) };
+  return { give: list(q.give), get: list(q.get), all: q.all === "1" };
 };
+
+type P = { id: number; name: string; team: string; owner?: string };
+
+/** The viewer's connected league, if any: their roster to give from, everyone else's to get from. */
+async function leaguePools(): Promise<{ mine: P[]; theirs: P[]; teamName?: string } | null> {
+  const r = await leagueContext().catch(() => null);
+  const ctx = r?.ok ? r.ctx : await previewContext().catch(() => null);
+  if (!ctx) return null;
+  const snap = await ctx.storage.getLatestSnapshot(ctx.leagueId, ctx.seasonId).catch(() => null);
+  if (!snap) return null;
+  const row = (e: { player: { id: number; name: string; nbaTeamAbbrev?: string } }, owner?: string): P => ({ id: e.player.id, name: e.player.name, team: e.player.nbaTeamAbbrev ?? "", ...(owner ? { owner } : {}) });
+  const me = snap.teams.find((t) => t.id === snap.myTeamId);
+  const mine = (me?.roster ?? []).map((e) => row(e));
+  const theirs = snap.teams.filter((t) => t.id !== snap.myTeamId).flatMap((t) => (t.roster ?? []).map((e) => row(e, t.name)));
+  return mine.length ? { mine, theirs, teamName: me?.name } : null;
+}
 
 const names = (ps: { name: string }[]) => ps.map((p) => p.name).join(" + ");
 
@@ -28,18 +46,26 @@ const TONE: Record<TradeVerdict, string> = { accept: "text-[#2f7d5d]", close: "t
 
 /** Public trade checker: a verdict on any trade, by rest-of-season value with health counted. */
 export default async function Trade({ searchParams }: { searchParams: Search }) {
-  const { give, get } = await ids(searchParams);
-  const [players, r] = await Promise.all([
-    movePlayers().catch(() => []),
+  const { give, get, all } = await ids(searchParams);
+  const [players, league, r] = await Promise.all([
+    movePlayers().catch(() => [] as P[]),
+    all ? null : leaguePools(),
     give.length && get.length ? rateTrade(give, get).catch(() => null) : null,
   ]);
-  const pick = (list: number[]) => list.map((id) => players.find((p) => p.id === id)).filter((p): p is (typeof players)[number] => !!p);
+  const givePool = league?.mine ?? players, getPool = league?.theirs ?? players;
+  const pick = (list: number[], pool: P[]) => list.map((id) => pool.find((p) => p.id === id) ?? players.find((p) => p.id === id)).filter((p): p is P => !!p);
   return (
     <main className="mx-auto max-w-2xl px-4 py-10">
       <Link href="/" className="flex items-center gap-2 text-sm font-semibold"><LogoMark size={20} /> Takeover Fantasy</Link>
       <h1 className="mt-8 text-3xl font-medium tracking-[-0.03em]">Check a trade</h1>
       <p className="mt-2 text-sm text-muted">Pick what you give and what you get. Judged on rest-of-season points per game, with injuries, games missed and slumps counted. Free, no account.</p>
-      <TradePicker players={players} give={pick(give)} get={pick(get)} />
+      {league ? (
+        <p className="mt-2 text-xs text-muted">
+          From your league: you give from {league.teamName ?? "your team"}, you get from the other rosters.{" "}
+          <Link href={`/trade?all=1${give.length ? `&give=${give.join(",")}` : ""}${get.length ? `&get=${get.join(",")}` : ""}`} className="underline hover:text-fg">Use any player</Link>
+        </p>
+      ) : null}
+      <TradePicker givePool={givePool} getPool={getPool} give={pick(give, givePool)} get={pick(get, getPool)} all={all} />
 
       {r && (
         <section className="mt-10">
@@ -50,10 +76,17 @@ export default async function Trade({ searchParams }: { searchParams: Search }) 
                 <div className="text-[11px] font-semibold uppercase tracking-wide text-muted">{t}</div>
                 <ul className="mt-2 space-y-2 text-sm">
                   {ps.map((p) => (
-                    <li key={p.id} className="flex items-baseline justify-between gap-3">
-                      <span className="min-w-0 truncate">{p.name} <span className="text-xs text-muted">{p.team}</span></span>
+                    <li key={p.id} className="flex items-center justify-between gap-3">
+                      <span className="flex min-w-0 items-center gap-2.5">
+                        <Headshot id={p.id} name={p.name} size={36} />
+                        <span className="min-w-0">
+                          <span className="block truncate font-medium">{p.name}<InjuryBadge s={p.status} /></span>
+                          <span className="flex items-center gap-1 whitespace-nowrap text-xs text-muted"><TeamLogo team={p.team} size={12} />{p.team} · {p.pos}</span>
+                        </span>
+                      </span>
                       <span className="shrink-0 text-right text-xs tabular-nums text-muted">
-                        <span className="font-medium text-fg">{p.ros}</span> a game{p.recent !== null ? ` · ${p.recent} lately` : ""}
+                        <span className="block"><span className="font-medium text-fg">{p.ros}</span> a game</span>
+                        {p.recent !== null && <span className="block">{p.recent} lately</span>}
                       </span>
                     </li>
                   ))}

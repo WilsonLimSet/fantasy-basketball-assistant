@@ -2,14 +2,15 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { Headshot, TeamLogo } from "@/components/ui";
 
-type P = { id: number; name: string; team: string };
+type P = { id: number; name: string; team: string; owner?: string };
+const label = (p: P) => `${p.name} (${p.team}${p.owner ? ` · ${p.owner}` : ""})`;
 const MAX = 4;
 
 /** One side of the trade: a player box (native autocomplete) and the players picked so far. */
-function Side({ title, players, picked, setPicked, other }: { title: string; players: P[]; picked: P[]; setPicked: (p: P[]) => void; other: P[] }) {
+function Side({ title, list, players, picked, setPicked, other }: { title: string; list: string; players: P[]; picked: P[]; setPicked: (p: P[]) => void; other: P[] }) {
   const [q, setQ] = useState("");
-  const label = (p: P) => `${p.name} (${p.team})`;
   const add = (v: string) => {
     const p = players.find((x) => label(x) === v) ?? players.find((x) => x.name.toLowerCase() === v.trim().toLowerCase());
     if (!p || picked.some((x) => x.id === p.id) || other.some((x) => x.id === p.id) || picked.length >= MAX) return false;
@@ -22,15 +23,21 @@ function Side({ title, players, picked, setPicked, other }: { title: string; pla
       <div className="text-sm font-medium">{title}</div>
       <ul className="mt-2 space-y-1.5">
         {picked.map((p) => (
-          <li key={p.id} className="flex items-center justify-between rounded-lg bg-sunken px-3 py-1.5 text-sm">
-            <span>{p.name} <span className="text-muted">{p.team}</span></span>
+          <li key={p.id} className="flex items-center justify-between gap-2 rounded-lg bg-sunken px-2.5 py-1.5 text-sm">
+            <span className="flex min-w-0 items-center gap-2">
+              <Headshot id={p.id} name={p.name} size={28} />
+              <span className="min-w-0">
+                <span className="block truncate font-medium">{p.name}</span>
+                <span className="flex items-center gap-1 text-xs text-muted"><TeamLogo team={p.team} size={12} />{p.team}{p.owner ? ` · ${p.owner}` : ""}</span>
+              </span>
+            </span>
             <button type="button" onClick={() => setPicked(picked.filter((x) => x.id !== p.id))} className="text-muted hover:text-fg" aria-label={`Remove ${p.name}`}>×</button>
           </li>
         ))}
       </ul>
       {picked.length < MAX && (
         <input
-          list="trade-players"
+          list={list}
           value={q}
           onChange={(e) => { if (!add(e.target.value)) setQ(e.target.value); }}
           onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); add(q); } }}
@@ -42,20 +49,24 @@ function Side({ title, players, picked, setPicked, other }: { title: string; pla
   );
 }
 
-/** Pick up to four players a side; opens /trade?give=…&get=…. */
-export function TradePicker({ players, give, get }: { players: P[]; give: P[]; get: P[] }) {
+/**
+ * Pick up to four players a side; opens /trade?give=…&get=…. With a connected league, you give
+ * from your roster and get from the other rosters; otherwise any player either way.
+ */
+export function TradePicker({ givePool, getPool, give, get, all }: { givePool: P[]; getPool: P[]; give: P[]; get: P[]; all?: boolean }) {
   const router = useRouter();
   const [g, setG] = useState(give);
   const [r, setR] = useState(get);
   return (
     <form
       className="mt-6"
-      onSubmit={(e) => { e.preventDefault(); if (g.length && r.length) router.push(`/trade?give=${g.map((p) => p.id).join(",")}&get=${r.map((p) => p.id).join(",")}`); }}
+      onSubmit={(e) => { e.preventDefault(); if (g.length && r.length) router.push(`/trade?${all ? "all=1&" : ""}give=${g.map((p) => p.id).join(",")}&get=${r.map((p) => p.id).join(",")}`); }}
     >
-      <datalist id="trade-players">{players.map((p) => <option key={p.id} value={`${p.name} (${p.team})`} />)}</datalist>
+      <datalist id="trade-give">{givePool.map((p) => <option key={p.id} value={label(p)} />)}</datalist>
+      <datalist id="trade-get">{getPool.map((p) => <option key={p.id} value={label(p)} />)}</datalist>
       <div className="grid gap-3 sm:grid-cols-2">
-        <Side title="You give" players={players} picked={g} setPicked={setG} other={r} />
-        <Side title="You get" players={players} picked={r} setPicked={setR} other={g} />
+        <Side title="You give" list="trade-give" players={givePool} picked={g} setPicked={setG} other={r} />
+        <Side title="You get" list="trade-get" players={getPool} picked={r} setPicked={setR} other={g} />
       </div>
       <button type="submit" disabled={!g.length || !r.length} className="mt-3 rounded-full bg-ink px-5 py-2.5 text-sm font-medium text-white hover:bg-ink/85 disabled:opacity-40">Check the trade</button>
     </form>

@@ -151,9 +151,11 @@ const sum = (ps: TradePlayer[], k: "ros" | "perceived") => ps.reduce((s, p) => s
  * Your side's gain: what you get minus what you give, plus a free agent for every spot it opens.
  * Anyone worse than a free agent counts as one: you could swap him on waivers without a trade.
  */
-export const tradeGain = (give: TradePlayer[], get: TradePlayer[], repl: number) => {
+export const tradeGain = (give: TradePlayer[], get: TradePlayer[], repl: number, dropValue = repl) => {
   const eff = (ps: TradePlayer[]) => ps.reduce((s, p) => s + Math.max(p.ros, repl), 0);
-  return eff(get) - eff(give) + (give.length - get.length) * repl;
+  const spots = give.length - get.length;
+  // Opening spots adds free agents; taking on more players means dropping your weakest.
+  return eff(get) - eff(give) + spots * (spots > 0 ? repl : Math.max(dropValue, repl));
 };
 
 /**
@@ -221,6 +223,8 @@ export interface TradeIdea {
   gain: number;
   /** How it looks to them, by recent box scores (positive: they'd likely say yes). */
   theirView: number;
+  /** For a 1-for-2: who you'd drop to make room. */
+  drop?: TradePlayer;
   why: string[];
 }
 
@@ -297,11 +301,17 @@ export async function findTrades(snapshot: LeagueSnapshot, now = Date.now()): Pr
     const targets = o.roster.filter((p) => !p.risk);
     const offers: TradeIdea[] = [];
     const consider = (give: TradePlayer[], get: TradePlayer[]) => {
-      const gain = tradeGain(give, get, repl);
+      // Taking on more players than you send: drop your weakest player not in the deal.
+      const drop = get.length > give.length ? mine.filter((p) => !give.includes(p)).sort((a, b) => a.ros - b.ros)[0] : undefined;
+      const gain = tradeGain(give, get, repl, drop?.ros);
       if (gain < MIN_GAIN) return;
-      const theirView = theirSide(give) - theirSide(get) - (give.length - get.length) * worth(cut);
+      const spots = give.length - get.length;
+      // They cut their weakest to fit extra players, or pick up a free agent with a spot you open for them.
+      const theirView = theirSide(give) - theirSide(get) - spots * worth(spots > 0 ? cut : repl);
       if (theirView < 0) return;
-      offers.push({ teamId: o.id, teamName: o.name, give, get, gain: r1(gain), theirView: r1(theirView), why: pitch(give, get) });
+      const why = pitch(give, get);
+      if (drop) why.push(`You turn 1 player into 2 rotation players; drop ${drop.name} (${drop.ros} a game) to make room.`);
+      offers.push({ teamId: o.id, teamName: o.name, give, get, gain: r1(gain), theirView: r1(theirView), why, ...(drop ? { drop } : {}) });
     };
     for (const g of targets) {
       for (let i = 0; i < mine.length; i++) {
@@ -309,6 +319,10 @@ export async function findTrades(snapshot: LeagueSnapshot, now = Date.now()): Pr
         for (let j = i + 1; j < mine.length; j++) consider([mine[i], mine[j]], [g]);
       }
     }
+    // 1-for-2: one of yours for two of theirs.
+    for (let a = 0; a < targets.length; a++)
+      for (let b = a + 1; b < targets.length; b++)
+        for (const m of mine) consider([m], [targets[a], targets[b]]);
     // Their two best offers that don't share a player.
     offers.sort((a, b) => b.gain - a.gain);
     const used = new Set<number>();

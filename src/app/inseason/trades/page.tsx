@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { Headshot, InjuryBadge } from '@/components/ui';
+import { Headshot, InjuryBadge, TeamLogo } from '@/components/ui';
 import type { TradeFinder, TradeIdea, TradePlayer } from '@/lib/trades';
 import { Gate, Loading, Panel, useCached } from '../useMe';
 
@@ -13,7 +13,19 @@ type TradesResponse = Partial<TradeFinder> & {
   seasonId?: number;
 };
 
-const names = (ps: TradePlayer[]) => ps.map((p) => p.name).join(' + ');
+function Names({ ps }: { ps: TradePlayer[] }) {
+  return (
+    <>
+      {ps.map((p, i) => (
+        <span key={p.id} className="whitespace-nowrap">
+          {i > 0 && <span className="text-muted"> + </span>}
+          <span className="font-medium">{p.name}</span>
+          <span className="ml-1 inline-block align-[-2px]"><TeamLogo team={p.team} size={14} /></span>
+        </span>
+      ))}
+    </>
+  );
+}
 const checkUrl = (x: TradeIdea) => `/trade?give=${x.give.map((p) => p.id).join(',')}&get=${x.get.map((p) => p.id).join(',')}`;
 
 function Faces({ ps }: { ps: TradePlayer[] }) {
@@ -35,14 +47,14 @@ function Idea({ x, espn }: { x: TradeIdea; espn?: string }) {
               <Faces ps={x.give} />
               <div className="min-w-0 text-sm">
                 <span className="text-[10px] font-semibold uppercase tracking-wide text-red-700">Give</span>{' '}
-                <span className="font-medium">{names(x.give)}</span>
+                <Names ps={x.give} />
               </div>
             </div>
             <div className="flex items-center gap-2.5">
               <Faces ps={x.get} />
               <div className="min-w-0 text-sm">
                 <span className="text-[10px] font-semibold uppercase tracking-wide text-accent">Get</span>{' '}
-                <span className="font-medium">{names(x.get)}</span>
+                <Names ps={x.get} />
               </div>
             </div>
           </div>
@@ -69,7 +81,7 @@ function FormRow({ p, sub }: { p: TradePlayer; sub?: string }) {
       <Headshot id={p.id} name={p.name} size={28} />
       <div className="min-w-0 flex-1">
         <div className="truncate text-sm">{p.name}<InjuryBadge s={p.status} /></div>
-        <div className="truncate text-xs text-muted">{sub ? `${sub} · ` : ''}{p.team} · {p.pos}</div>
+        <div className="flex items-center gap-1 truncate text-xs text-muted"><TeamLogo team={p.team} size={12} /><span className="truncate">{sub ? `${sub} · ` : ''}{p.team} · {p.pos}</span></div>
       </div>
       <div className="text-right text-xs">
         <div className="tabular-nums"><span className="font-medium text-fg">{p.recent}</span> <span className="text-muted">lately</span></div>
@@ -122,7 +134,10 @@ export default function TradesPage() {
                   <li key={p.id} className="border-t border-line py-2 first:border-t-0">
                     <div className="flex items-center gap-2.5">
                       <Headshot id={p.id} name={p.name} size={28} />
-                      <div className="min-w-0 flex-1 truncate text-sm">{p.name}<InjuryBadge s={p.status} /></div>
+                      <div className="min-w-0 flex-1">
+                        <div className="truncate text-sm">{p.name}<InjuryBadge s={p.status} /></div>
+                        <div className="flex items-center gap-1 text-xs text-muted"><TeamLogo team={p.team} size={12} />{p.team} · {p.pos}</div>
+                      </div>
                       <div className="text-right text-xs tabular-nums">
                         <div><span className="font-medium text-fg">{Math.round(p.perceived)}</span> <span className="text-muted">they see</span></div>
                         <div className="text-muted">{p.ros} for you</div>
